@@ -180,6 +180,12 @@ def _measure_build(config: RunConfig, log) -> dict[str, object]:
         "clean_build_ms": clean_build_ms,
         "docker_build_ms": docker_build_ms,
         "image_size_mb": round(int(image_size) / 1024 / 1024, 2),
+        "cache": {
+            "gradle_user_home": "implementation-local .gradle-cache",
+            "gradle_dependency_cache": "persistent",
+            "docker_build_cache": "enabled",
+            "docker_build_input": "prebuilt application artifact",
+        },
     }
 
 
@@ -211,26 +217,24 @@ def _measure_startup_once(
     log,
 ) -> dict[str, object]:
     base_url = str(config.target.get("base_url", "http://localhost:8080"))
-    health_path = str(config.target.get("health_path", "/actuator/health"))
     endpoint = str(config.target.get("endpoint", "/ping"))
     poll_interval = float(config.startup.get("poll_interval_seconds", 1))
     timeout_seconds = float(config.startup.get("timeout_seconds", 120))
+    target_url = f"{base_url}{endpoint}"
     start = time.perf_counter()
     _compose(compose_files, ["up", "-d", "target"], log)
 
     deadline = start + timeout_seconds
     while time.perf_counter() < deadline:
-        if _http_ok(f"{base_url}{health_path}"):
+        first_request_ms = _http_success_latency_ms(target_url)
+        if first_request_ms is not None:
             ready_ms = round((time.perf_counter() - start) * 1000)
             break
         time.sleep(poll_interval)
     else:
-        raise SystemExit(f"Target did not become healthy within {timeout_seconds:g} seconds.")
-
-    first_start = time.perf_counter()
-    with urllib.request.urlopen(f"{base_url}{endpoint}", timeout=5) as response:
-        response.read()
-    first_request_ms = round((time.perf_counter() - first_start) * 1000)
+        raise SystemExit(
+            f"Target endpoint did not return 200 within {timeout_seconds:g} seconds: {target_url}"
+        )
 
     return {
         "ready_ms": ready_ms,
@@ -322,6 +326,7 @@ def _result_document(
             "clean_build_ms": build.get("clean_build_ms"),
             "docker_build_ms": build.get("docker_build_ms"),
             "image_size_mb": build.get("image_size_mb"),
+            "cache": build.get("cache"),
         },
         "startup": {
             "ready_ms": startup.get("ready_ms"),
@@ -377,12 +382,16 @@ def _run_logged(args: list[str], log, env: dict[str, str] | None = None, capture
     return completed
 
 
-def _http_ok(url: str) -> bool:
+def _http_success_latency_ms(url: str) -> int | None:
+    start = time.perf_counter()
     try:
         with urllib.request.urlopen(url, timeout=1) as response:
-            return response.status == 200
+            response.read()
+            if response.status == 200:
+                return round((time.perf_counter() - start) * 1000)
+            return None
     except Exception:
-        return False
+        return None
 
 
 def _container_path(root_dir: Path, path: Path) -> str:

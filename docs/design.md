@@ -31,6 +31,15 @@ Runner behavior is configuration-driven:
 - scenario contract and load profile: `scenarios/<scenario>/scenario.yaml`
 - implementation runtime and image metadata: `implementations/<language>/<framework>/variants/<variant>.yaml`
 
+## Build Measurement
+
+The MVP records two separate build phases:
+
+- Gradle clean build: produces application artifacts using an implementation-local Gradle cache.
+- Docker image build: packages the already-built application artifact into the target runtime image with Docker layer cache enabled.
+
+These are intentionally separate because code-change feedback and image packaging can behave differently. Later build profiles should make cache state explicit, such as cold dependency cache, warm dependency cache, Docker cache enabled, and Docker cache disabled.
+
 ## Docker Compose
 
 Docker Compose is the first execution profile. Kubernetes is intentionally out of scope for the MVP and should be added later as a separate profile.
@@ -50,7 +59,6 @@ implementations/
 The first implementation is Spring Boot 4 with Java 25. It exposes:
 
 - `GET /ping`
-- `GET /actuator/health`
 
 No database, cache, message broker, tracing stack, or service mesh is included in the MVP.
 

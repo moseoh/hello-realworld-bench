@@ -71,7 +71,13 @@ Every `result.json` file must include these top-level fields:
 {
   "clean_build_ms": 1000,
   "docker_build_ms": 2000,
-  "image_size_mb": 300.5
+  "image_size_mb": 300.5,
+  "cache": {
+    "gradle_user_home": "implementation-local .gradle-cache",
+    "gradle_dependency_cache": "persistent",
+    "docker_build_cache": "enabled",
+    "docker_build_input": "prebuilt application artifact"
+  }
 }
 ```
 
@@ -79,7 +85,7 @@ Values may be `null` only when a measurement could not be collected.
 
 ## Startup
 
-`startup` records readiness and first request timing:
+`startup` records scenario endpoint first-success timing:
 
 ```json
 {
@@ -102,6 +108,8 @@ Values may be `null` only when a measurement could not be collected.
   }
 }
 ```
+
+`ready_ms` means time from container start until the scenario endpoint first returns HTTP 200. It does not mean a framework health endpoint reported ready. `first_request_ms` is the latency of the successful request that completed that first-success check.
 
 For single-start scenarios such as `ping-api`, `ready_ms` and `first_request_ms` are the first and only sample. For repeated startup scenarios such as `cold-start-api`, these fields keep the first sample for backward-friendly quick reads, while `summary` contains aggregate values across samples. Full sample data lives in `startup.json`.
 

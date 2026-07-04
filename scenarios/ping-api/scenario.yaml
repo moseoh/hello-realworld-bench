@@ -6,7 +6,6 @@ variant: jvm-java25
 
 target:
   base_url: "http://localhost:8080"
-  health_path: "/actuator/health"
   endpoint: "/ping"
 
 services:

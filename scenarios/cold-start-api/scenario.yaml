@@ -1,12 +1,11 @@
 name: cold-start-api
-description: "Startup-focused API scenario that measures readiness and the first response after app start."
-question: "How long does the target take to become ready and serve the first response after the application starts?"
+description: "Startup-focused API scenario that measures the first successful business endpoint response after app start."
+question: "How long does the target take to serve the first successful business endpoint response after the application starts?"
 implementation: java/spring-boot
 variant: jvm-java25
 
 target:
   base_url: "http://localhost:8080"
-  health_path: "/actuator/health"
   endpoint: "/ping"
 
 services:

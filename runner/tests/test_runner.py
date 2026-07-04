@@ -14,7 +14,17 @@ class ResultDocumentTest(unittest.TestCase):
             config,
             "run-id",
             {"os": "Darwin", "load_generator": "same-host"},
-            {"clean_build_ms": 1000, "docker_build_ms": 2000, "image_size_mb": 300.5},
+            {
+                "clean_build_ms": 1000,
+                "docker_build_ms": 2000,
+                "image_size_mb": 300.5,
+                "cache": {
+                    "gradle_user_home": "implementation-local .gradle-cache",
+                    "gradle_dependency_cache": "persistent",
+                    "docker_build_cache": "enabled",
+                    "docker_build_input": "prebuilt application artifact",
+                },
+            },
             {
                 "ready_ms": 1200,
                 "first_request_ms": 7,
@@ -37,6 +47,7 @@ class ResultDocumentTest(unittest.TestCase):
         self.assertEqual(result["schema_version"], RESULT_SCHEMA_VERSION)
         self.assertEqual(result["scenario"], "ping-api")
         self.assertEqual(result["build"]["clean_build_ms"], 1000)
+        self.assertEqual(result["build"]["cache"]["docker_build_cache"], "enabled")
         self.assertEqual(result["startup"]["iterations"], 1)
         self.assertEqual(
             result["runtime_metrics"],
@@ -65,7 +76,17 @@ class ResultDocumentTest(unittest.TestCase):
             config,
             "run-id",
             {"os": "Darwin", "load_generator": "same-host"},
-            {"clean_build_ms": 1000, "docker_build_ms": 2000, "image_size_mb": 300.5},
+            {
+                "clean_build_ms": 1000,
+                "docker_build_ms": 2000,
+                "image_size_mb": 300.5,
+                "cache": {
+                    "gradle_user_home": "implementation-local .gradle-cache",
+                    "gradle_dependency_cache": "persistent",
+                    "docker_build_cache": "enabled",
+                    "docker_build_input": "prebuilt application artifact",
+                },
+            },
             {
                 "ready_ms": 1200,
                 "first_request_ms": 7,

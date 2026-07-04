@@ -12,7 +12,7 @@ Can the benchmark runner build, start, load test, collect metrics, and save resu
 
 - runner automation correctness
 - basic HTTP request handling under a short load profile
-- startup readiness timing
+- startup first-success timing
 - build and Docker image build timing
 - basic Docker resource snapshot collection
 

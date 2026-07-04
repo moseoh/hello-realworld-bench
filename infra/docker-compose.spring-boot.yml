@@ -8,9 +8,3 @@ services:
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=75"
     cpus: "2.0"
     mem_limit: "1g"
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health || exit 1"]
-      interval: 2s
-      timeout: 1s
-      retries: 30
-      start_period: 5s

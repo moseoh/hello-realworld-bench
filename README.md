@@ -14,7 +14,7 @@ The first milestone validates the runner itself:
 
 - build measurement
 - Docker image build measurement
-- startup readiness measurement
+- startup first-success measurement
 - k6 load execution
 - Docker resource snapshot collection
 - timestamped machine-readable result output
@@ -40,7 +40,7 @@ Supported scenarios:
 
 The `ping-api` scenario exists to validate benchmark runner automation. It is not a meaningful real-world performance conclusion by itself.
 
-The `cold-start-api` scenario measures repeated container startup readiness and the first `/ping` response after the application starts. It does not model serverless platform cold starts.
+The `cold-start-api` scenario measures repeated time to first successful `/ping` response after the application starts. It does not model serverless platform cold starts.
 
 ## Requirements
 
@@ -71,7 +71,7 @@ make run SCENARIO=cold-start-api
 
 The shorter `spring-boot` form is kept as a compatibility alias for the default Spring Boot JVM variant.
 
-The Makefile calls the uv-managed Python runner. The runner cleans previous containers, builds the app, builds the target image, starts Docker Compose, waits for health, runs warmup and benchmark k6 phases, collects Docker stats, writes results, and shuts down the container.
+The Makefile calls the uv-managed Python runner. The runner cleans previous containers, builds the app, builds the target image, starts Docker Compose, waits for the scenario endpoint to return 200, runs warmup and benchmark k6 phases when enabled, collects Docker stats, writes results, and shuts down the container.
 
 The runner reads scenario and variant metadata from:
 
