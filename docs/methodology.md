@@ -16,9 +16,13 @@ Startup metrics capture how long a container takes to become ready and how long 
 
 Runtime metrics come from the scenario load test. Average latency is less important than p95 and p99 latency because tail behavior is usually more relevant to service reliability.
 
+The MVP extracts request rate, p50, p95, p99, and error rate from the k6 summary JSON.
+
 ### Resource Metrics
 
 Resource metrics capture basic CPU and memory usage from Docker. The MVP collects a one-shot snapshot after the benchmark run.
+
+The MVP records Docker CPU percentage, memory usage, and memory percentage from `docker stats --no-stream`.
 
 ### Environment Metadata
 

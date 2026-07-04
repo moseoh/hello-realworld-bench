@@ -8,6 +8,7 @@ const baseUrl = __ENV.BASE_URL || 'http://localhost:8080';
 export const options = {
   vus,
   duration,
+  summaryTrendStats: ['avg', 'min', 'med', 'p(90)', 'p(95)', 'p(99)', 'max'],
 };
 
 export default function () {

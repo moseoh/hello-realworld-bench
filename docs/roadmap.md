@@ -5,6 +5,10 @@
 - Spring Boot only
 - `ping-api` only
 - build/startup/k6/result JSON
+- config-driven runner using scenario and variant YAML
+- stable extraction for k6 and Docker stats metrics
+
+Phase 0 should be considered complete when `make run` is stable and result JSON fields are consistent enough to compare repeated runs under the same conditions.
 
 ## Phase 1: Transactional Command API
 

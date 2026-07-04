@@ -11,7 +11,13 @@ from pathlib import Path
 
 from .commands import run
 from .config import RunConfig
-from .results import environment_metadata, k6_runtime_metrics, read_json, write_json
+from .results import (
+    docker_resource_metrics,
+    environment_metadata,
+    k6_runtime_metrics,
+    read_json,
+    write_json,
+)
 
 
 @dataclass(frozen=True)
@@ -46,21 +52,27 @@ def run_benchmark(config: RunConfig, root_dir: Path) -> Path:
             write_json(paths.result_dir / "build.json", build)
 
             _log(log, "Measuring startup...")
-            startup = _measure_startup(compose_files, log)
+            startup = _measure_startup(compose_files, config, log)
             write_json(paths.result_dir / "startup.json", startup)
 
             _log(log, "Running warmup...")
             _run_k6(
                 root_dir,
                 config,
-                "10s",
+                str(config.load.get("warmup_duration", "10s")),
                 paths.result_dir / "k6-warmup-summary.json",
                 log,
             )
 
             _log(log, "Running benchmark...")
             k6_summary_path = paths.result_dir / "k6-summary.json"
-            _run_k6(root_dir, config, "30s", k6_summary_path, log)
+            _run_k6(
+                root_dir,
+                config,
+                str(config.load.get("test_duration", "30s")),
+                k6_summary_path,
+                log,
+            )
 
             _log(log, "Collecting Docker stats...")
             docker_stats = _docker_stats(log)
@@ -73,6 +85,7 @@ def run_benchmark(config: RunConfig, root_dir: Path) -> Path:
                 build,
                 startup,
                 read_json(k6_summary_path),
+                docker_stats,
             )
             write_json(paths.result_dir / "result.json", result)
 
@@ -97,8 +110,9 @@ def _validate_paths(config: RunConfig) -> None:
         raise SystemExit(f"Implementation directory not found: {config.app_dir}")
     if not config.variant_file.is_file():
         raise SystemExit(f"Variant file not found: {config.variant_file}")
-    if not (config.scenario_dir / "k6.js").is_file():
-        raise SystemExit(f"Scenario k6 script not found: {config.scenario_dir / 'k6.js'}")
+    script = config.root_dir / str(config.load.get("script", ""))
+    if not script.is_file():
+        raise SystemExit(f"Scenario k6 script not found: {script}")
     if shutil.which("docker") is None:
         raise SystemExit("docker is required.")
 
@@ -116,19 +130,14 @@ def _metadata(config: RunConfig, run_id: str) -> dict[str, object]:
 
 
 def _runtime(config: RunConfig) -> dict[str, object]:
-    return {
-        "language": config.language,
-        "java_version": "25",
-        "framework": config.framework,
-        "spring_boot_version": "4.1.0",
-        "build_mode": "jvm",
-        "native_image": False,
-        "virtual_threads": False,
-        "otel": False,
-    }
+    runtime = dict(config.runtime)
+    runtime.setdefault("language", config.language)
+    runtime.setdefault("framework", config.framework)
+    return runtime
 
 
 def _measure_build(config: RunConfig, log) -> dict[str, object]:
+    java_version = str(config.runtime.get("java_version", "25"))
     clean_build_ms = _measure_ms(
         [
             "docker",
@@ -142,7 +151,7 @@ def _measure_build(config: RunConfig, log) -> dict[str, object]:
             f"{config.app_dir}:/workspace",
             "-w",
             "/workspace",
-            "eclipse-temurin:25-jdk",
+            f"eclipse-temurin:{java_version}-jdk",
             "./gradlew",
             "clean",
             "build",
@@ -165,12 +174,15 @@ def _measure_build(config: RunConfig, log) -> dict[str, object]:
     }
 
 
-def _measure_startup(compose_files: list[Path], log) -> dict[str, object]:
+def _measure_startup(compose_files: list[Path], config: RunConfig, log) -> dict[str, object]:
+    base_url = str(config.target.get("base_url", "http://localhost:8080"))
+    health_path = str(config.target.get("health_path", "/actuator/health"))
+    endpoint = str(config.target.get("endpoint", "/ping"))
     start = time.perf_counter()
     _compose(compose_files, ["up", "-d", "target"], log)
 
     for _ in range(120):
-        if _http_ok("http://localhost:8080/actuator/health"):
+        if _http_ok(f"{base_url}{health_path}"):
             ready_ms = round((time.perf_counter() - start) * 1000)
             break
         time.sleep(1)
@@ -178,7 +190,7 @@ def _measure_startup(compose_files: list[Path], log) -> dict[str, object]:
         raise SystemExit("Target did not become healthy within 120 seconds.")
 
     first_start = time.perf_counter()
-    with urllib.request.urlopen("http://localhost:8080/ping", timeout=5) as response:
+    with urllib.request.urlopen(f"{base_url}{endpoint}", timeout=5) as response:
         response.read()
     first_request_ms = round((time.perf_counter() - first_start) * 1000)
 
@@ -189,13 +201,15 @@ def _measure_startup(compose_files: list[Path], log) -> dict[str, object]:
 
 
 def _run_k6(root_dir: Path, config: RunConfig, duration: str, summary_path: Path, log) -> None:
-    script = config.scenario_dir / "k6.js"
+    script = config.root_dir / str(config.load.get("script"))
+    base_url = str(config.target.get("base_url", "http://localhost:8080"))
+    vus = str(config.load.get("vus", 50))
     if shutil.which("k6"):
         env = os.environ.copy()
         env.update(
             {
-                "BASE_URL": "http://localhost:8080",
-                "VUS": "50",
+                "BASE_URL": base_url,
+                "VUS": vus,
                 "DURATION": duration,
             }
         )
@@ -212,7 +226,7 @@ def _run_k6(root_dir: Path, config: RunConfig, duration: str, summary_path: Path
             "-e",
             "BASE_URL=http://host.docker.internal:8080",
             "-e",
-            "VUS=50",
+            f"VUS={vus}",
             "-e",
             f"DURATION={duration}",
             "-v",
@@ -248,7 +262,11 @@ def _result_document(
     build: dict[str, object],
     startup: dict[str, object],
     k6_summary: dict[str, object],
+    docker_stats: dict[str, object],
 ) -> dict[str, object]:
+    runtime_metrics = k6_runtime_metrics(k6_summary)
+    runtime_metrics.update(docker_resource_metrics(docker_stats))
+
     return {
         "run_id": run_id,
         "project": "hello-realworld-bench",
@@ -266,7 +284,7 @@ def _result_document(
             "ready_ms": startup.get("ready_ms"),
             "first_request_ms": startup.get("first_request_ms"),
         },
-        "runtime_metrics": k6_runtime_metrics(k6_summary),
+        "runtime_metrics": runtime_metrics,
     }
 
 

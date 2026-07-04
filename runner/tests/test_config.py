@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 
 from hrw_runner.config import resolve_run_config
 
@@ -11,6 +12,10 @@ class ResolveRunConfigTest(unittest.TestCase):
         self.assertEqual(config.language, "java")
         self.assertEqual(config.framework, "spring-boot")
         self.assertEqual(config.variant, "jvm-java25")
+        self.assertEqual(config.runtime["java_version"], "25")
+        self.assertEqual(config.runtime["spring_boot_version"], "4.1.0")
+        self.assertEqual(config.load["vus"], 50)
+        self.assertEqual(config.target["endpoint"], "/ping")
 
     def test_uses_canonical_result_prefix(self):
         config = resolve_run_config("java/spring-boot", "ping-api", "jvm-java25")
@@ -19,6 +24,16 @@ class ResolveRunConfigTest(unittest.TestCase):
             config.result_prefix,
             ("java", "spring-boot", "jvm-java25", "ping-api"),
         )
+
+    def test_reads_configuration_from_yaml_files(self):
+        root_dir = Path(__file__).resolve().parents[2]
+
+        config = resolve_run_config("java/spring-boot", "ping-api", "jvm-java25", root_dir)
+
+        self.assertEqual(config.image_tag, "hello-realworld/java-spring-boot-jvm-java25:local")
+        self.assertFalse(config.runtime["native_image"])
+        self.assertEqual(config.load["warmup_duration"], "10s")
+        self.assertEqual(config.load["test_duration"], "30s")
 
 
 if __name__ == "__main__":

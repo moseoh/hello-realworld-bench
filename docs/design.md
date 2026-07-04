@@ -26,6 +26,11 @@ make run
 
 It coordinates cleanup, build measurement, image build measurement, startup measurement, warmup, load test execution, Docker stats collection, and result persistence.
 
+Runner behavior is configuration-driven:
+
+- scenario contract and load profile: `scenarios/<scenario>/scenario.yaml`
+- implementation runtime and image metadata: `implementations/<language>/<framework>/variants/<variant>.yaml`
+
 ## Docker Compose
 
 Docker Compose is the first execution profile. Kubernetes is intentionally out of scope for the MVP and should be added later as a separate profile.
