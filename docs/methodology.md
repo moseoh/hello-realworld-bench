@@ -8,11 +8,15 @@ Hello Real World Bench records benchmark evidence across several categories.
 
 Build metrics capture how long it takes to produce runnable application artifacts and Docker images.
 
+The MVP records Gradle clean build time and Docker image build time separately. The Docker image build should package the artifact produced by the Gradle build step instead of rebuilding the application inside Docker. Gradle dependency cache and Docker layer cache state are recorded in `build.cache`; early runs should not be compared unless cache conditions and run order are understood.
+
 ### Startup Metrics
 
-Startup metrics capture how long a container takes to become ready and how long the first request to the scenario endpoint takes.
+Startup metrics capture how long a container takes until the scenario endpoint first returns a successful response.
 
-For `cold-start-api`, startup means the time from starting the target container until the app reports ready, plus the latency of the first scenario request immediately after readiness. The MVP measures this repeatedly on the same host by stopping and starting the target container between samples.
+For `cold-start-api`, startup means the time from starting the target container until `/ping` first returns HTTP 200. The successful `/ping` request latency is also recorded. The MVP measures this repeatedly on the same host by stopping and starting the target container between samples.
+
+The runner intentionally does not use framework health endpoints for cold-start measurement. Health endpoints can warm different parts of different frameworks and distort the first business endpoint response.
 
 ### Runtime Metrics
 

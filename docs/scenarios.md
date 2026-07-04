@@ -29,7 +29,7 @@ Scenario names should describe service patterns, not technologies. For example, 
 ## Current Scenarios
 
 - [`ping-api`](../scenarios/ping-api/README.md): runner validation scenario for build, startup, k6, Docker stats, and result JSON automation.
-- [`cold-start-api`](../scenarios/cold-start-api/README.md): startup-focused scenario for readiness and first response timing after app start.
+- [`cold-start-api`](../scenarios/cold-start-api/README.md): startup-focused scenario for first successful business endpoint response after app start.
 
 ## Future Scenario Notes
 

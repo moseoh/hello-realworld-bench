@@ -16,6 +16,7 @@ class ResolveRunConfigTest(unittest.TestCase):
         self.assertEqual(config.runtime["spring_boot_version"], "4.1.0")
         self.assertEqual(config.load["vus"], 50)
         self.assertEqual(config.target["endpoint"], "/ping")
+        self.assertNotIn("health_path", config.target)
 
     def test_uses_canonical_result_prefix(self):
         config = resolve_run_config("java/spring-boot", "ping-api", "jvm-java25")
@@ -49,6 +50,7 @@ class ResolveRunConfigTest(unittest.TestCase):
         self.assertEqual(config.startup["iterations"], 5)
         self.assertEqual(config.startup["poll_interval_seconds"], 0.25)
         self.assertEqual(config.target["endpoint"], "/ping")
+        self.assertNotIn("health_path", config.target)
 
 
 if __name__ == "__main__":
