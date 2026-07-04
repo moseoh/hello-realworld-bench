@@ -1,0 +1,40 @@
+name: ping-api
+description: "Minimal HTTP ping endpoint used to validate the benchmark runner."
+question: "Can the benchmark runner build, start, load test, collect metrics, and save results for a target implementation?"
+implementation: spring-boot
+
+target:
+  base_url: "http://localhost:8080"
+  health_path: "/actuator/health"
+  endpoint: "/ping"
+
+services:
+  postgres: false
+  redis: false
+  kafka: false
+  mock_upstream: false
+
+load:
+  tool: k6
+  script: "scenarios/ping-api/k6.js"
+  warmup_duration: "10s"
+  test_duration: "30s"
+  vus: 50
+
+runtime:
+  virtual_threads: false
+  otel: false
+
+metrics:
+  collect:
+    - build_time
+    - docker_image_build_time
+    - startup_ready_time
+    - first_request_latency
+    - rps
+    - p50_latency
+    - p95_latency
+    - p99_latency
+    - error_rate
+    - cpu
+    - memory
