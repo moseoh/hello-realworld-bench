@@ -1,6 +1,6 @@
 services:
   target:
-    image: hello-realworld/spring-boot:local
+    image: hello-realworld/java-spring-boot-jvm-java25:local
     container_name: hrw-target
     ports:
       - "8080:8080"

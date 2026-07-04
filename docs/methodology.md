@@ -24,6 +24,8 @@ Resource metrics capture basic CPU and memory usage from Docker. The MVP collect
 
 Results should include host and environment metadata such as OS, CPU, memory, Docker availability, load generator placement, scenario, and implementation.
 
+Variant metadata should be recorded separately from implementation metadata. For example, `java/spring-boot` identifies the implementation, while `jvm-java25` identifies the build and runtime variant.
+
 ## Load Generator Placement
 
 For the MVP, the load generator runs on the same host as the target container. This is acceptable for validating runner automation, but it must be documented in every result.

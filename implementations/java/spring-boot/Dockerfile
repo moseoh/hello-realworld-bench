@@ -1,4 +1,4 @@
-FROM eclipse-temurin:21-jdk AS builder
+FROM eclipse-temurin:25-jdk AS builder
 
 WORKDIR /workspace
 COPY gradlew gradlew.bat settings.gradle build.gradle ./
@@ -6,7 +6,7 @@ COPY gradle ./gradle
 COPY src ./src
 RUN ./gradlew clean bootJar --no-daemon
 
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:25-jre
 
 WORKDIR /app
 RUN apt-get update \

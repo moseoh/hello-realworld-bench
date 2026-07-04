@@ -1,0 +1,15 @@
+name: jvm-java25
+description: "Spring Boot JVM variant using Java 25."
+
+runtime:
+  language: java
+  java_version: "25"
+  framework: spring-boot
+  spring_boot_version: "4.1.0"
+  build_mode: jvm
+  native_image: false
+  virtual_threads: false
+  otel: false
+
+docker:
+  image_tag: "hello-realworld/java-spring-boot-jvm-java25:local"
