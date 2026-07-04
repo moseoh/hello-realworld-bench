@@ -17,6 +17,8 @@ Phase 0 should be considered complete when `make run` is stable and result JSON 
 - transaction
 - outbox insert
 
+Design draft: [transactional-command-api](scenario-designs/transactional-command-api.md)
+
 ## Phase 2: I/O Aggregation API
 
 - mock upstream server

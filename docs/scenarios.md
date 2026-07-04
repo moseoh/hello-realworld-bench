@@ -35,7 +35,7 @@ Scenario names should describe service patterns, not technologies. For example, 
 
 Future scenarios may include:
 
-- `transactional-command-api`
+- [`transactional-command-api`](scenario-designs/transactional-command-api.md)
 - `read-heavy-query-api`
 - `io-aggregation-api`
 - `event-processing-worker`
