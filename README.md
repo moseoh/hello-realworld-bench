@@ -111,6 +111,8 @@ Results mirror the implementation layout:
 results/<language>/<framework>/<variant>/<scenario>/<run_id>/
 ```
 
+The normalized `result.json` shape is documented in [docs/results-schema.md](docs/results-schema.md).
+
 ## Local App
 
 To run the app with Gradle:

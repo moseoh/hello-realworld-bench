@@ -20,6 +20,8 @@ from .results import (
     write_json,
 )
 
+RESULT_SCHEMA_VERSION = "0.1"
+
 
 @dataclass(frozen=True)
 class RunPaths:
@@ -308,6 +310,7 @@ def _result_document(
     runtime_metrics.update(docker_resource_metrics(docker_stats))
 
     return {
+        "schema_version": RESULT_SCHEMA_VERSION,
         "run_id": run_id,
         "project": "hello-realworld-bench",
         "scenario": config.scenario,
