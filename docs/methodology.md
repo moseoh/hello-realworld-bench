@@ -12,11 +12,15 @@ Build metrics capture how long it takes to produce runnable application artifact
 
 Startup metrics capture how long a container takes to become ready and how long the first request to the scenario endpoint takes.
 
+For `cold-start-api`, startup means the time from starting the target container until the app reports ready, plus the latency of the first scenario request immediately after readiness. The MVP measures this repeatedly on the same host by stopping and starting the target container between samples.
+
 ### Runtime Metrics
 
 Runtime metrics come from the scenario load test. Average latency is less important than p95 and p99 latency because tail behavior is usually more relevant to service reliability.
 
 The MVP extracts request rate, p50, p95, p99, and error rate from the k6 summary JSON.
+
+Some scenarios, such as `cold-start-api`, do not run a sustained k6 load phase. In those cases the k6 summary files record that load was skipped, and the startup result is the primary measurement.
 
 ### Resource Metrics
 

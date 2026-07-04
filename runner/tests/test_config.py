@@ -35,6 +35,21 @@ class ResolveRunConfigTest(unittest.TestCase):
         self.assertEqual(config.load["warmup_duration"], "10s")
         self.assertEqual(config.load["test_duration"], "30s")
 
+    def test_reads_cold_start_configuration(self):
+        root_dir = Path(__file__).resolve().parents[2]
+
+        config = resolve_run_config(
+            "java/spring-boot",
+            "cold-start-api",
+            "jvm-java25",
+            root_dir,
+        )
+
+        self.assertFalse(config.load["enabled"])
+        self.assertEqual(config.startup["iterations"], 5)
+        self.assertEqual(config.startup["poll_interval_seconds"], 0.25)
+        self.assertEqual(config.target["endpoint"], "/ping")
+
 
 if __name__ == "__main__":
     unittest.main()

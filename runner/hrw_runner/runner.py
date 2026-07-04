@@ -16,6 +16,7 @@ from .results import (
     environment_metadata,
     k6_runtime_metrics,
     read_json,
+    summarize_startup_samples,
     write_json,
 )
 
@@ -55,24 +56,29 @@ def run_benchmark(config: RunConfig, root_dir: Path) -> Path:
             startup = _measure_startup(compose_files, config, log)
             write_json(paths.result_dir / "startup.json", startup)
 
-            _log(log, "Running warmup...")
-            _run_k6(
-                root_dir,
-                config,
-                str(config.load.get("warmup_duration", "10s")),
-                paths.result_dir / "k6-warmup-summary.json",
-                log,
-            )
-
-            _log(log, "Running benchmark...")
             k6_summary_path = paths.result_dir / "k6-summary.json"
-            _run_k6(
-                root_dir,
-                config,
-                str(config.load.get("test_duration", "30s")),
-                k6_summary_path,
-                log,
-            )
+            if _load_enabled(config):
+                _log(log, "Running warmup...")
+                _run_k6(
+                    root_dir,
+                    config,
+                    str(config.load.get("warmup_duration", "10s")),
+                    paths.result_dir / "k6-warmup-summary.json",
+                    log,
+                )
+
+                _log(log, "Running benchmark...")
+                _run_k6(
+                    root_dir,
+                    config,
+                    str(config.load.get("test_duration", "30s")),
+                    k6_summary_path,
+                    log,
+                )
+            else:
+                skipped = {"skipped": True, "reason": "load disabled for scenario"}
+                write_json(paths.result_dir / "k6-warmup-summary.json", skipped)
+                write_json(k6_summary_path, skipped)
 
             _log(log, "Collecting Docker stats...")
             docker_stats = _docker_stats(log)
@@ -110,9 +116,10 @@ def _validate_paths(config: RunConfig) -> None:
         raise SystemExit(f"Implementation directory not found: {config.app_dir}")
     if not config.variant_file.is_file():
         raise SystemExit(f"Variant file not found: {config.variant_file}")
-    script = config.root_dir / str(config.load.get("script", ""))
-    if not script.is_file():
-        raise SystemExit(f"Scenario k6 script not found: {script}")
+    if _load_enabled(config):
+        script = config.root_dir / str(config.load.get("script", ""))
+        if not script.is_file():
+            raise SystemExit(f"Scenario k6 script not found: {script}")
     if shutil.which("docker") is None:
         raise SystemExit("docker is required.")
 
@@ -175,19 +182,48 @@ def _measure_build(config: RunConfig, log) -> dict[str, object]:
 
 
 def _measure_startup(compose_files: list[Path], config: RunConfig, log) -> dict[str, object]:
+    iterations = max(1, int(config.startup.get("iterations", 1)))
+    samples = []
+
+    for iteration in range(1, iterations + 1):
+        _log(log, f"Startup iteration {iteration}/{iterations}...")
+        _compose(compose_files, ["down", "-v", "--remove-orphans"], log, allow_failure=True)
+        sample = _measure_startup_once(compose_files, config, log)
+        sample["iteration"] = iteration
+        samples.append(sample)
+
+    summary = summarize_startup_samples(samples)
+    first_sample = samples[0]
+    return {
+        "ready_ms": first_sample["ready_ms"],
+        "first_request_ms": first_sample["first_request_ms"],
+        "iterations": iterations,
+        "samples": samples,
+        "summary": summary,
+    }
+
+
+def _measure_startup_once(
+    compose_files: list[Path],
+    config: RunConfig,
+    log,
+) -> dict[str, object]:
     base_url = str(config.target.get("base_url", "http://localhost:8080"))
     health_path = str(config.target.get("health_path", "/actuator/health"))
     endpoint = str(config.target.get("endpoint", "/ping"))
+    poll_interval = float(config.startup.get("poll_interval_seconds", 1))
+    timeout_seconds = float(config.startup.get("timeout_seconds", 120))
     start = time.perf_counter()
     _compose(compose_files, ["up", "-d", "target"], log)
 
-    for _ in range(120):
+    deadline = start + timeout_seconds
+    while time.perf_counter() < deadline:
         if _http_ok(f"{base_url}{health_path}"):
             ready_ms = round((time.perf_counter() - start) * 1000)
             break
-        time.sleep(1)
+        time.sleep(poll_interval)
     else:
-        raise SystemExit("Target did not become healthy within 120 seconds.")
+        raise SystemExit(f"Target did not become healthy within {timeout_seconds:g} seconds.")
 
     first_start = time.perf_counter()
     with urllib.request.urlopen(f"{base_url}{endpoint}", timeout=5) as response:
@@ -255,6 +291,10 @@ def _docker_stats(log) -> dict[str, object]:
     return json.loads(output.splitlines()[0])
 
 
+def _load_enabled(config: RunConfig) -> bool:
+    return config.load.get("enabled", True) is not False
+
+
 def _result_document(
     config: RunConfig,
     run_id: str,
@@ -283,6 +323,8 @@ def _result_document(
         "startup": {
             "ready_ms": startup.get("ready_ms"),
             "first_request_ms": startup.get("first_request_ms"),
+            "iterations": startup.get("iterations"),
+            "summary": startup.get("summary"),
         },
         "runtime_metrics": runtime_metrics,
     }

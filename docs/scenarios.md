@@ -2,79 +2,34 @@
 
 Scenarios are service-pattern based. They are not named after a single technology.
 
-Each scenario must define:
+Each scenario lives under `scenarios/<scenario-name>/` and should include:
 
 ```text
-name
-question
-what this measures
-what this does not measure
-dependencies
-variants
-metrics
+README.md
+scenario.yaml
+scenario-local assets, such as k6.js when needed
 ```
 
-## ping-api
+The runner reads `scenario.yaml`. The scenario `README.md` explains the benchmark question, scope, dependencies, variants, and metrics for humans.
 
-Name:
+## Scenario Contract
 
-```text
-ping-api
-```
+Every scenario README must define:
 
-Question:
+- name
+- question
+- what this measures
+- what this does not measure
+- dependencies
+- variants
+- metrics
 
-```text
-Can the benchmark runner build, start, load test, collect metrics, and save results for a target implementation?
-```
+Scenario names should describe service patterns, not technologies. For example, prefer `transactional-command-api` over `db-write`.
 
-What this measures:
+## Current Scenarios
 
-- runner automation correctness
-- basic HTTP request handling under a short load profile
-- startup readiness timing
-- build and Docker image build timing
-- basic Docker resource snapshot collection
-
-What this does not measure:
-
-- database performance
-- cache behavior
-- message processing
-- external HTTP aggregation
-- file streaming
-- observability overhead
-- real transactional application behavior
-
-Dependencies:
-
-- target HTTP service only
-
-Default implementation:
-
-- `java/spring-boot`
-
-Default variant:
-
-- `jvm-java25`
-
-Variants:
-
-- none in the MVP
-
-Metrics:
-
-- build time
-- Docker image build time
-- startup ready time
-- first request latency
-- request rate
-- p50 latency
-- p95 latency
-- p99 latency
-- error rate
-- CPU snapshot
-- memory snapshot
+- [`ping-api`](../scenarios/ping-api/README.md): runner validation scenario for build, startup, k6, Docker stats, and result JSON automation.
+- [`cold-start-api`](../scenarios/cold-start-api/README.md): startup-focused scenario for readiness and first response timing after app start.
 
 ## Future Scenario Notes
 
@@ -85,5 +40,4 @@ Future scenarios may include:
 - `io-aggregation-api`
 - `event-processing-worker`
 - `file-streaming-api`
-- `cold-start-api`
 - `observability-overhead-api`
