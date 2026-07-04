@@ -126,9 +126,15 @@ For load-test scenarios, k6 metrics are included:
   "p95_ms": 12.3,
   "p99_ms": 45.6,
   "error_rate": 0,
-  "cpu_percent": 12.34,
+  "cpu_percent": 11.17,
+  "cpu_percent_avg": 11.17,
+  "cpu_percent_max": 12.34,
   "memory_usage": "128.5MiB / 1GiB",
-  "memory_percent": 12.55
+  "memory_usage_max": "128.5MiB / 1GiB",
+  "memory_usage_max_bytes": 134742016,
+  "memory_percent": 11.275,
+  "memory_percent_avg": 11.275,
+  "memory_percent_max": 12.55
 }
 ```
 
@@ -141,6 +147,8 @@ For load-disabled scenarios such as `cold-start-api`, k6 metrics are omitted ins
   "memory_percent": 12.55
 }
 ```
+
+For load-test scenarios, Docker stats are sampled while the benchmark k6 phase is running. `cpu_percent` and `memory_percent` are benchmark-window averages, while `memory_usage` is the maximum observed memory usage string. The `_avg` and `_max` fields make those summaries explicit. Full raw samples live in `docker-stats.json`.
 
 The corresponding `k6-summary.json` records:
 

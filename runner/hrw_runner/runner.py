@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import threading
 import time
 import urllib.request
 from dataclasses import dataclass
@@ -62,6 +63,7 @@ def run_benchmark(config: RunConfig, root_dir: Path) -> Path:
             write_json(paths.result_dir / "startup.json", startup)
 
             k6_summary_path = paths.result_dir / "k6-summary.json"
+            docker_stats = None
             if _load_enabled(config):
                 _log(log, "Running warmup...")
                 _run_k6(
@@ -73,7 +75,7 @@ def run_benchmark(config: RunConfig, root_dir: Path) -> Path:
                 )
 
                 _log(log, "Running benchmark...")
-                _run_k6(
+                docker_stats = _run_k6_with_docker_stats(
                     root_dir,
                     config,
                     str(config.load.get("test_duration", "30s")),
@@ -85,8 +87,9 @@ def run_benchmark(config: RunConfig, root_dir: Path) -> Path:
                 write_json(paths.result_dir / "k6-warmup-summary.json", skipped)
                 write_json(k6_summary_path, skipped)
 
-            _log(log, "Collecting Docker stats...")
-            docker_stats = _docker_stats(log)
+            if docker_stats is None:
+                _log(log, "Collecting Docker stats...")
+                docker_stats = _docker_stats(log)
             write_json(paths.result_dir / "docker-stats.json", docker_stats)
 
             result = _result_document(
@@ -286,6 +289,68 @@ def _run_k6(root_dir: Path, config: RunConfig, duration: str, summary_path: Path
         ],
         log,
     )
+
+
+def _run_k6_with_docker_stats(
+    root_dir: Path,
+    config: RunConfig,
+    duration: str,
+    summary_path: Path,
+    log,
+) -> dict[str, object]:
+    samples: list[dict[str, object]] = []
+    stop_event = threading.Event()
+    interval_seconds = float(config.load.get("docker_stats_interval_seconds", 1))
+    sampler = threading.Thread(
+        target=_sample_docker_stats,
+        args=(samples, stop_event, interval_seconds),
+        daemon=True,
+    )
+
+    _log(log, "Sampling Docker stats during benchmark...")
+    sampler.start()
+    try:
+        _run_k6(root_dir, config, duration, summary_path, log)
+    finally:
+        stop_event.set()
+        sampler.join(timeout=interval_seconds + 1)
+
+    if not samples:
+        fallback = _docker_stats_sample()
+        if fallback is not None:
+            samples.append(fallback)
+
+    return {
+        "sample_interval_seconds": interval_seconds,
+        "samples": samples,
+    }
+
+
+def _sample_docker_stats(
+    samples: list[dict[str, object]],
+    stop_event: threading.Event,
+    interval_seconds: float,
+) -> None:
+    while not stop_event.is_set():
+        sample = _docker_stats_sample()
+        if sample is not None:
+            samples.append(sample)
+        stop_event.wait(interval_seconds)
+
+
+def _docker_stats_sample() -> dict[str, object] | None:
+    try:
+        completed = run(
+            ["docker", "stats", "--no-stream", "--format", "{{json .}}", "hrw-target"],
+            capture=True,
+        )
+    except Exception:
+        return None
+
+    output = completed.stdout.strip()
+    if not output:
+        return None
+    return json.loads(output.splitlines()[0])
 
 
 def _docker_stats(log) -> dict[str, object]:

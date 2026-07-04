@@ -69,6 +69,37 @@ class MetricsExtractionTest(unittest.TestCase):
             },
         )
 
+    def test_summarizes_sampled_docker_resource_metrics(self):
+        stats = {
+            "samples": [
+                {
+                    "CPUPerc": "10.00%",
+                    "MemUsage": "100MiB / 1GiB",
+                    "MemPerc": "10.00%",
+                },
+                {
+                    "CPUPerc": "30.00%",
+                    "MemUsage": "200MiB / 1GiB",
+                    "MemPerc": "20.00%",
+                },
+            ]
+        }
+
+        self.assertEqual(
+            docker_resource_metrics(stats),
+            {
+                "cpu_percent": 20.0,
+                "cpu_percent_avg": 20.0,
+                "cpu_percent_max": 30.0,
+                "memory_usage": "200MiB / 1GiB",
+                "memory_usage_max": "200MiB / 1GiB",
+                "memory_usage_max_bytes": 209715200,
+                "memory_percent": 15.0,
+                "memory_percent_avg": 15.0,
+                "memory_percent_max": 20.0,
+            },
+        )
+
     def test_summarizes_startup_samples(self):
         samples = [
             {"ready_ms": 1200, "first_request_ms": 5},
