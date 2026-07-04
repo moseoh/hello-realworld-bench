@@ -37,6 +37,7 @@ Supported scenarios:
 
 - `ping-api`
 - `cold-start-api`
+- `transactional-command-api`
 
 The `ping-api` scenario exists to validate benchmark runner automation. It is not a meaningful real-world performance conclusion by itself.
 
@@ -69,6 +70,12 @@ Cold start scenario:
 make run SCENARIO=cold-start-api
 ```
 
+Transactional command scenario:
+
+```bash
+make run SCENARIO=transactional-command-api
+```
+
 The shorter `spring-boot` form is kept as a compatibility alias for the default Spring Boot JVM variant.
 
 The Makefile calls the uv-managed Python runner. The runner cleans previous containers, builds the app, builds the target image, starts Docker Compose, waits for the scenario endpoint to return 200, runs warmup and benchmark k6 phases when enabled, collects Docker stats, writes results, and shuts down the container.
@@ -78,6 +85,7 @@ The runner reads scenario and variant metadata from:
 ```text
 scenarios/ping-api/scenario.yaml
 scenarios/cold-start-api/scenario.yaml
+scenarios/transactional-command-api/scenario.yaml
 implementations/java/spring-boot/variants/jvm-java25.yaml
 ```
 
@@ -86,6 +94,7 @@ Scenario details for humans live in each scenario directory:
 ```text
 scenarios/ping-api/README.md
 scenarios/cold-start-api/README.md
+scenarios/transactional-command-api/README.md
 ```
 
 ## Results

@@ -1,0 +1,42 @@
+name: transactional-command-api
+description: "HTTP command API that validates an order, writes it in one PostgreSQL transaction, and inserts an outbox event."
+question: "How does the target behave when handling a command request with validation, domain logic, one database transaction, and an outbox insert?"
+implementation: java/spring-boot
+variant: jvm-java25
+
+target:
+  base_url: "http://localhost:8080"
+  startup_path: "/ping"
+  endpoint: "/orders"
+
+services:
+  postgres: true
+  redis: false
+  kafka: false
+  mock_upstream: false
+
+load:
+  tool: k6
+  script: "scenarios/transactional-command-api/k6.js"
+  warmup_duration: "15s"
+  test_duration: "45s"
+  vus: 25
+
+runtime:
+  virtual_threads: false
+  otel: false
+
+metrics:
+  collect:
+    - build_time
+    - docker_image_build_time
+    - startup_ready_time
+    - first_request_latency
+    - rps
+    - p50_latency
+    - p95_latency
+    - p99_latency
+    - error_rate
+    - cpu_percent
+    - memory_usage
+    - memory_percent

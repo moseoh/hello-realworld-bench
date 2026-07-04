@@ -52,6 +52,21 @@ class ResolveRunConfigTest(unittest.TestCase):
         self.assertEqual(config.target["endpoint"], "/ping")
         self.assertNotIn("health_path", config.target)
 
+    def test_reads_transactional_command_configuration(self):
+        root_dir = Path(__file__).resolve().parents[2]
+
+        config = resolve_run_config(
+            "java/spring-boot",
+            "transactional-command-api",
+            "jvm-java25",
+            root_dir,
+        )
+
+        self.assertEqual(config.target["startup_path"], "/ping")
+        self.assertEqual(config.target["endpoint"], "/orders")
+        self.assertTrue(config.scenario_config["services"]["postgres"])
+        self.assertEqual(config.load["vus"], 25)
+
 
 if __name__ == "__main__":
     unittest.main()
