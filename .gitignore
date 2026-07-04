@@ -1,6 +1,2 @@
-implementations/**/build/
-implementations/**/.gradle/
-implementations/**/.gradle-cache/
-
 results/*
 !results/.gitkeep

@@ -51,18 +51,18 @@ The Spring Boot implementation is generated from Spring Initializr and includes 
 ## Run
 
 ```bash
-./scripts/run.sh spring-boot ping-api
+make run
 ```
 
-Canonical form:
+With explicit values:
 
 ```bash
-./scripts/run.sh java/spring-boot ping-api jvm-java25
+make run IMPLEMENTATION=java/spring-boot SCENARIO=ping-api VARIANT=jvm-java25
 ```
 
 The shorter `spring-boot` form is kept as a compatibility alias for the default Spring Boot JVM variant.
 
-The command cleans previous containers, builds the app, builds the target image, starts Docker Compose, waits for health, runs warmup and benchmark k6 phases, collects Docker stats, writes results, and shuts down the container.
+The Makefile calls the uv-managed Python runner. The runner cleans previous containers, builds the app, builds the target image, starts Docker Compose, waits for health, runs warmup and benchmark k6 phases, collects Docker stats, writes results, and shuts down the container.
 
 ## Results
 

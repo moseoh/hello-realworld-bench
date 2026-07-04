@@ -18,7 +18,7 @@ Guidance for future AI coding agents working on Hello Real World Bench.
 - Do not make universal performance claims.
 - Public docs should be written in English.
 - Avoid over-engineering.
-- Prefer boring, explicit scripts over complex abstractions in early phases.
+- Prefer boring, explicit Python runner modules over complex abstractions in early phases.
 
 ## Scenario Rules
 
