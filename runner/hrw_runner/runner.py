@@ -42,6 +42,9 @@ def run_benchmark(config: RunConfig, root_dir: Path) -> Path:
             root_dir / "infra" / "docker-compose.base.yml",
             root_dir / "infra" / f"docker-compose.{config.compose_profile}.yml",
         ]
+        scenario_compose_file = root_dir / "infra" / f"docker-compose.{config.scenario}.yml"
+        if scenario_compose_file.is_file():
+            compose_files.append(scenario_compose_file)
 
         try:
             _log(log, "Cleaning previous containers...")
@@ -217,7 +220,7 @@ def _measure_startup_once(
     log,
 ) -> dict[str, object]:
     base_url = str(config.target.get("base_url", "http://localhost:8080"))
-    endpoint = str(config.target.get("endpoint", "/ping"))
+    endpoint = str(config.target.get("startup_path") or config.target.get("endpoint", "/ping"))
     poll_interval = float(config.startup.get("poll_interval_seconds", 1))
     timeout_seconds = float(config.startup.get("timeout_seconds", 120))
     target_url = f"{base_url}{endpoint}"
