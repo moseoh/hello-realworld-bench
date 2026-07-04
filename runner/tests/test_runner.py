@@ -41,7 +41,12 @@ class ResultDocumentTest(unittest.TestCase):
                     "http_req_failed": {"value": 0},
                 }
             },
-            {"CPUPerc": "12.34%", "MemUsage": "128.5MiB / 1GiB", "MemPerc": "12.55%"},
+            {
+                "samples": [
+                    {"CPUPerc": "10.00%", "MemUsage": "100MiB / 1GiB", "MemPerc": "10.00%"},
+                    {"CPUPerc": "12.34%", "MemUsage": "128.5MiB / 1GiB", "MemPerc": "12.55%"},
+                ]
+            },
         )
 
         self.assertEqual(result["schema_version"], RESULT_SCHEMA_VERSION)
@@ -57,9 +62,15 @@ class ResultDocumentTest(unittest.TestCase):
                 "p95_ms": 12.3,
                 "p99_ms": 45.6,
                 "error_rate": 0,
-                "cpu_percent": 12.34,
+                "cpu_percent": 11.17,
+                "cpu_percent_avg": 11.17,
+                "cpu_percent_max": 12.34,
                 "memory_usage": "128.5MiB / 1GiB",
-                "memory_percent": 12.55,
+                "memory_usage_max": "128.5MiB / 1GiB",
+                "memory_usage_max_bytes": 134742016,
+                "memory_percent": 11.275,
+                "memory_percent_avg": 11.275,
+                "memory_percent_max": 12.55,
             },
         )
 

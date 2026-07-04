@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import platform
+import re
 import subprocess
 from math import ceil
 from pathlib import Path
@@ -79,6 +80,10 @@ def k6_runtime_metrics(summary: dict[str, Any]) -> dict[str, Any]:
 
 
 def docker_resource_metrics(stats: dict[str, Any]) -> dict[str, Any]:
+    samples = stats.get("samples")
+    if isinstance(samples, list) and samples:
+        return _sampled_docker_resource_metrics(samples)
+
     return {
         "cpu_percent": _percent(stats.get("CPUPerc")),
         "memory_usage": stats.get("MemUsage"),
@@ -101,6 +106,72 @@ def _percent(value: Any) -> float | None:
         return float(stripped)
     except ValueError:
         return None
+
+
+def _sampled_docker_resource_metrics(samples: list[Any]) -> dict[str, Any]:
+    valid_samples = [sample for sample in samples if isinstance(sample, dict)]
+    last_sample = valid_samples[-1]
+    cpu_values = [_percent(sample.get("CPUPerc")) for sample in valid_samples]
+    memory_percent_values = [_percent(sample.get("MemPerc")) for sample in valid_samples]
+    memory_samples = [
+        (sample, _memory_usage_bytes(sample.get("MemUsage"))) for sample in valid_samples
+    ]
+    max_memory_sample = max(
+        memory_samples,
+        key=lambda item: -1 if item[1] is None else item[1],
+    )
+    cpu_percent_avg = _average(cpu_values)
+    memory_percent_avg = _average(memory_percent_values)
+
+    return {
+        "cpu_percent": cpu_percent_avg,
+        "cpu_percent_avg": cpu_percent_avg,
+        "cpu_percent_max": _max(cpu_values),
+        "memory_usage": max_memory_sample[0].get("MemUsage"),
+        "memory_usage_max": max_memory_sample[0].get("MemUsage"),
+        "memory_usage_max_bytes": max_memory_sample[1],
+        "memory_percent": memory_percent_avg,
+        "memory_percent_avg": memory_percent_avg,
+        "memory_percent_max": _max(memory_percent_values),
+    }
+
+
+def _average(values: list[float | None]) -> float | None:
+    numbers = [value for value in values if value is not None]
+    if not numbers:
+        return None
+    return round(sum(numbers) / len(numbers), 4)
+
+
+def _max(values: list[float | None]) -> float | None:
+    numbers = [value for value in values if value is not None]
+    if not numbers:
+        return None
+    return max(numbers)
+
+
+def _memory_usage_bytes(value: Any) -> int | None:
+    if not isinstance(value, str):
+        return None
+    used = value.split("/", 1)[0].strip()
+    match = re.fullmatch(r"([0-9]+(?:\.[0-9]+)?)([A-Za-z]+)?", used)
+    if not match:
+        return None
+    amount = float(match.group(1))
+    unit = (match.group(2) or "B").lower()
+    multipliers = {
+        "b": 1,
+        "kb": 1000,
+        "mb": 1000**2,
+        "gb": 1000**3,
+        "kib": 1024,
+        "mib": 1024**2,
+        "gib": 1024**3,
+    }
+    multiplier = multipliers.get(unit)
+    if multiplier is None:
+        return None
+    return round(amount * multiplier)
 
 
 def _first_present(source: dict[str, Any], *keys: str) -> Any:
