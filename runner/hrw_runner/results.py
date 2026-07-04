@@ -69,7 +69,30 @@ def k6_runtime_metrics(summary: dict[str, Any]) -> dict[str, Any]:
         "p50_ms": duration.get("med"),
         "p95_ms": duration.get("p(95)"),
         "p99_ms": duration.get("p(99)"),
-        "error_rate": failed.get("rate"),
-        "cpu": None,
-        "memory": None,
+        "error_rate": _first_present(failed, "rate", "value"),
     }
+
+
+def docker_resource_metrics(stats: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "cpu_percent": _percent(stats.get("CPUPerc")),
+        "memory_usage": stats.get("MemUsage"),
+        "memory_percent": _percent(stats.get("MemPerc")),
+    }
+
+
+def _percent(value: Any) -> float | None:
+    if not isinstance(value, str):
+        return None
+    stripped = value.strip().removesuffix("%")
+    try:
+        return float(stripped)
+    except ValueError:
+        return None
+
+
+def _first_present(source: dict[str, Any], *keys: str) -> Any:
+    for key in keys:
+        if key in source:
+            return source[key]
+    return None

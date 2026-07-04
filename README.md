@@ -64,6 +64,13 @@ The shorter `spring-boot` form is kept as a compatibility alias for the default 
 
 The Makefile calls the uv-managed Python runner. The runner cleans previous containers, builds the app, builds the target image, starts Docker Compose, waits for health, runs warmup and benchmark k6 phases, collects Docker stats, writes results, and shuts down the container.
 
+The runner reads scenario and variant metadata from:
+
+```text
+scenarios/ping-api/scenario.yaml
+implementations/java/spring-boot/variants/jvm-java25.yaml
+```
+
 ## Results
 
 Each run creates a timestamped directory:
@@ -75,6 +82,7 @@ results/java/spring-boot/jvm-java25/ping-api/2026-07-04T21-30-00_java_spring-boo
 ├── startup.json
 ├── k6-summary.json
 ├── docker-stats.json
+├── result.json
 └── run.log
 ```
 
@@ -105,3 +113,11 @@ Expected response:
 ## Warning
 
 Do not use early MVP output as a general-purpose performance conclusion. The first milestone is about runner correctness and repeatability.
+
+## Runner Development
+
+```bash
+make check
+```
+
+This runs the Python runner tests and the Spring Boot tests in a Java 25 Docker image.

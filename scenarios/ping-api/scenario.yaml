@@ -37,5 +37,6 @@ metrics:
     - p95_latency
     - p99_latency
     - error_rate
-    - cpu
-    - memory
+    - cpu_percent
+    - memory_usage
+    - memory_percent
