@@ -1,0 +1,44 @@
+name: cold-start-api
+description: "Startup-focused API scenario that measures readiness and the first response after app start."
+question: "How long does the target take to become ready and serve the first response after the application starts?"
+implementation: java/spring-boot
+variant: jvm-java25
+
+target:
+  base_url: "http://localhost:8080"
+  health_path: "/actuator/health"
+  endpoint: "/ping"
+
+services:
+  postgres: false
+  redis: false
+  kafka: false
+  mock_upstream: false
+
+startup:
+  iterations: 5
+  poll_interval_seconds: 0.25
+  timeout_seconds: 120
+
+load:
+  enabled: false
+
+runtime:
+  virtual_threads: false
+  otel: false
+
+metrics:
+  collect:
+    - startup_ready_time
+    - first_request_latency
+    - startup_ready_time_min
+    - startup_ready_time_median
+    - startup_ready_time_p95
+    - startup_ready_time_max
+    - first_request_latency_min
+    - first_request_latency_median
+    - first_request_latency_p95
+    - first_request_latency_max
+    - cpu_percent
+    - memory_usage
+    - memory_percent

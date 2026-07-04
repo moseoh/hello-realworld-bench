@@ -33,11 +33,14 @@ Supported implementation:
 
 - `java/spring-boot` with the `jvm-java25` variant
 
-Supported scenario:
+Supported scenarios:
 
 - `ping-api`
+- `cold-start-api`
 
 The `ping-api` scenario exists to validate benchmark runner automation. It is not a meaningful real-world performance conclusion by itself.
+
+The `cold-start-api` scenario measures repeated container startup readiness and the first `/ping` response after the application starts. It does not model serverless platform cold starts.
 
 ## Requirements
 
@@ -60,6 +63,12 @@ With explicit values:
 make run IMPLEMENTATION=java/spring-boot SCENARIO=ping-api VARIANT=jvm-java25
 ```
 
+Cold start scenario:
+
+```bash
+make run SCENARIO=cold-start-api
+```
+
 The shorter `spring-boot` form is kept as a compatibility alias for the default Spring Boot JVM variant.
 
 The Makefile calls the uv-managed Python runner. The runner cleans previous containers, builds the app, builds the target image, starts Docker Compose, waits for health, runs warmup and benchmark k6 phases, collects Docker stats, writes results, and shuts down the container.
@@ -68,7 +77,15 @@ The runner reads scenario and variant metadata from:
 
 ```text
 scenarios/ping-api/scenario.yaml
+scenarios/cold-start-api/scenario.yaml
 implementations/java/spring-boot/variants/jvm-java25.yaml
+```
+
+Scenario details for humans live in each scenario directory:
+
+```text
+scenarios/ping-api/README.md
+scenarios/cold-start-api/README.md
 ```
 
 ## Results
@@ -76,7 +93,7 @@ implementations/java/spring-boot/variants/jvm-java25.yaml
 Each run creates a timestamped directory:
 
 ```text
-results/java/spring-boot/jvm-java25/ping-api/2026-07-04T21-30-00_java_spring-boot_jvm-java25_ping-api/
+results/java/spring-boot/jvm-java25/<scenario>/2026-07-04T21-30-00_java_spring-boot_jvm-java25_<scenario>/
 ├── metadata.json
 ├── build.json
 ├── startup.json

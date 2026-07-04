@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 import platform
 import subprocess
+from math import ceil
 from pathlib import Path
+from statistics import median
 from typing import Any
 
 
@@ -59,6 +61,9 @@ def _memory_gb() -> str:
 
 
 def k6_runtime_metrics(summary: dict[str, Any]) -> dict[str, Any]:
+    if summary.get("skipped") is True:
+        return {}
+
     metrics = summary.get("metrics", {})
     http_reqs = metrics.get("http_reqs", {})
     duration = metrics.get("http_req_duration", {})
@@ -81,6 +86,13 @@ def docker_resource_metrics(stats: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def summarize_startup_samples(samples: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "ready_ms": _summarize_numeric_values(samples, "ready_ms"),
+        "first_request_ms": _summarize_numeric_values(samples, "first_request_ms"),
+    }
+
+
 def _percent(value: Any) -> float | None:
     if not isinstance(value, str):
         return None
@@ -96,3 +108,23 @@ def _first_present(source: dict[str, Any], *keys: str) -> Any:
         if key in source:
             return source[key]
     return None
+
+
+def _summarize_numeric_values(samples: list[dict[str, Any]], key: str) -> dict[str, Any]:
+    values = [sample[key] for sample in samples if isinstance(sample.get(key), (int, float))]
+    if not values:
+        return {
+            "min": None,
+            "median": None,
+            "p95": None,
+            "max": None,
+        }
+
+    sorted_values = sorted(values)
+    p95_index = max(0, ceil(len(sorted_values) * 0.95) - 1)
+    return {
+        "min": sorted_values[0],
+        "median": median(sorted_values),
+        "p95": sorted_values[p95_index],
+        "max": sorted_values[-1],
+    }

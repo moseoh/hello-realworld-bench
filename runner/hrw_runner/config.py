@@ -22,6 +22,7 @@ class RunConfig:
     image_tag: str
     target: dict[str, object]
     load: dict[str, object]
+    startup: dict[str, object]
     runtime: dict[str, object]
     scenario_config: dict[str, object]
     variant_config: dict[str, object]
@@ -63,6 +64,7 @@ def resolve_run_config(
     variant_config = _read_yaml(variant_file)
     target = _dict_value(scenario_config, "target")
     load = _dict_value(scenario_config, "load")
+    startup = _optional_dict_value(scenario_config, "startup")
     runtime = _dict_value(variant_config, "runtime")
     docker = _dict_value(variant_config, "docker")
     image_tag = str(
@@ -85,6 +87,7 @@ def resolve_run_config(
         image_tag=image_tag,
         target=target,
         load=load,
+        startup=startup,
         runtime=runtime,
         scenario_config=scenario_config,
         variant_config=variant_config,
@@ -101,6 +104,13 @@ def _read_yaml(path: Path) -> dict[str, object]:
 
 def _dict_value(source: dict[str, object], key: str) -> dict[str, object]:
     value = source.get(key)
+    if not isinstance(value, dict):
+        raise ValueError(f"Expected '{key}' object in YAML configuration")
+    return value
+
+
+def _optional_dict_value(source: dict[str, object], key: str) -> dict[str, object]:
+    value = source.get(key, {})
     if not isinstance(value, dict):
         raise ValueError(f"Expected '{key}' object in YAML configuration")
     return value

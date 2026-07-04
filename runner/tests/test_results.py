@@ -1,6 +1,10 @@
 import unittest
 
-from hrw_runner.results import docker_resource_metrics, k6_runtime_metrics
+from hrw_runner.results import (
+    docker_resource_metrics,
+    k6_runtime_metrics,
+    summarize_startup_samples,
+)
 
 
 class MetricsExtractionTest(unittest.TestCase):
@@ -43,6 +47,12 @@ class MetricsExtractionTest(unittest.TestCase):
 
         self.assertEqual(k6_runtime_metrics(summary)["error_rate"], 0)
 
+    def test_omits_k6_metrics_when_load_is_skipped(self):
+        self.assertEqual(
+            k6_runtime_metrics({"skipped": True, "reason": "load disabled for scenario"}),
+            {},
+        )
+
     def test_extracts_docker_resource_metrics(self):
         stats = {
             "CPUPerc": "12.34%",
@@ -56,6 +66,33 @@ class MetricsExtractionTest(unittest.TestCase):
                 "cpu_percent": 12.34,
                 "memory_usage": "128.5MiB / 1GiB",
                 "memory_percent": 12.55,
+            },
+        )
+
+    def test_summarizes_startup_samples(self):
+        samples = [
+            {"ready_ms": 1200, "first_request_ms": 5},
+            {"ready_ms": 1000, "first_request_ms": 4},
+            {"ready_ms": 1400, "first_request_ms": 8},
+            {"ready_ms": 1100, "first_request_ms": 6},
+            {"ready_ms": 1300, "first_request_ms": 7},
+        ]
+
+        self.assertEqual(
+            summarize_startup_samples(samples),
+            {
+                "ready_ms": {
+                    "min": 1000,
+                    "median": 1200,
+                    "p95": 1400,
+                    "max": 1400,
+                },
+                "first_request_ms": {
+                    "min": 4,
+                    "median": 6,
+                    "p95": 8,
+                    "max": 8,
+                },
             },
         )
 
