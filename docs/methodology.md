@@ -34,6 +34,8 @@ Results should include host and environment metadata such as OS, CPU, memory, Do
 
 Variant metadata should be recorded separately from implementation metadata. For example, `java/spring-boot` identifies the implementation, while `jvm-java25` identifies the build and runtime variant.
 
+The normalized result shape is documented in [results-schema.md](results-schema.md). Raw scenario artifacts may contain more detail than `result.json`.
+
 ## Load Generator Placement
 
 For the MVP, the load generator runs on the same host as the target container. This is acceptable for validating runner automation, but it must be documented in every result.

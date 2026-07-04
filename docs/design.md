@@ -80,4 +80,6 @@ Results mirror the implementation layout:
 results/java/spring-boot/jvm-java25/ping-api/<run_id>/
 ```
 
+The normalized `result.json` contract is documented in [results-schema.md](results-schema.md). Scenario-specific raw details remain in files such as `startup.json` and `k6-summary.json`.
+
 The first target is runner correctness, not performance ranking.
