@@ -18,10 +18,10 @@ result JSON
 
 ## Runner
 
-The runner is a shell script entry point:
+The runner is a uv-managed Python entry point wrapped by the top-level Makefile:
 
 ```bash
-./scripts/run.sh spring-boot ping-api
+make run
 ```
 
 It coordinates cleanup, build measurement, image build measurement, startup measurement, warmup, load test execution, Docker stats collection, and result persistence.
