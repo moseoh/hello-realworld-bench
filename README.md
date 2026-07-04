@@ -31,7 +31,7 @@ Experimental MVP.
 
 Supported implementation:
 
-- Spring Boot 3 + Java 21
+- `java/spring-boot` with the `jvm-java25` variant
 
 Supported scenario:
 
@@ -44,7 +44,7 @@ The `ping-api` scenario exists to validate benchmark runner automation. It is no
 - Docker
 - Docker Compose
 - k6
-- Java 21 for local development
+- Java 25 for local development
 
 The Spring Boot implementation is generated from Spring Initializr and includes the Gradle wrapper. The runner prefers local k6. If local k6 is unavailable, it can fall back to the `grafana/k6` Docker image.
 
@@ -54,6 +54,14 @@ The Spring Boot implementation is generated from Spring Initializr and includes 
 ./scripts/run.sh spring-boot ping-api
 ```
 
+Canonical form:
+
+```bash
+./scripts/run.sh java/spring-boot ping-api jvm-java25
+```
+
+The shorter `spring-boot` form is kept as a compatibility alias for the default Spring Boot JVM variant.
+
 The command cleans previous containers, builds the app, builds the target image, starts Docker Compose, waits for health, runs warmup and benchmark k6 phases, collects Docker stats, writes results, and shuts down the container.
 
 ## Results
@@ -61,7 +69,7 @@ The command cleans previous containers, builds the app, builds the target image,
 Each run creates a timestamped directory:
 
 ```text
-results/2026-07-04T21-30-00_spring-boot_ping-api/
+results/java/spring-boot/jvm-java25/ping-api/2026-07-04T21-30-00_java_spring-boot_jvm-java25_ping-api/
 ├── metadata.json
 ├── build.json
 ├── startup.json
@@ -72,12 +80,18 @@ results/2026-07-04T21-30-00_spring-boot_ping-api/
 
 Some schema fields may be `null` during the MVP. The important contract is that result files are stable, timestamped, and machine-readable where practical.
 
+Results mirror the implementation layout:
+
+```text
+results/<language>/<framework>/<variant>/<scenario>/<run_id>/
+```
+
 ## Local App
 
 To run the app with Gradle:
 
 ```bash
-cd implementations/spring-boot
+cd implementations/java/spring-boot
 ./gradlew bootRun
 curl http://localhost:8080/ping
 ```

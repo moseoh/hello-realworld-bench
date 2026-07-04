@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 <implementation> <result-dir> <base-url> <health-path> <endpoint>" >&2
+  echo "Usage: $0 <compose-profile> <result-dir> <base-url> <health-path> <endpoint>" >&2
 }
 
 if [[ $# -ne 5 ]]; then
@@ -10,15 +10,15 @@ if [[ $# -ne 5 ]]; then
   exit 2
 fi
 
-IMPLEMENTATION="$1"
+COMPOSE_PROFILE="$1"
 RESULT_DIR="$2"
 BASE_URL="$3"
 HEALTH_PATH="$4"
 ENDPOINT="$5"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-if [[ "$IMPLEMENTATION" != "spring-boot" ]]; then
-  echo "Unsupported implementation: $IMPLEMENTATION" >&2
+if [[ "$COMPOSE_PROFILE" != "spring-boot" ]]; then
+  echo "Unsupported compose profile: $COMPOSE_PROFILE" >&2
   exit 2
 fi
 
@@ -26,7 +26,7 @@ now_ms() {
   perl -MTime::HiRes=time -e 'printf "%.0f\n", time() * 1000'
 }
 
-COMPOSE_FILES=(-f "$ROOT_DIR/infra/docker-compose.base.yml" -f "$ROOT_DIR/infra/docker-compose.$IMPLEMENTATION.yml")
+COMPOSE_FILES=(-f "$ROOT_DIR/infra/docker-compose.base.yml" -f "$ROOT_DIR/infra/docker-compose.$COMPOSE_PROFILE.yml")
 
 mkdir -p "$RESULT_DIR"
 

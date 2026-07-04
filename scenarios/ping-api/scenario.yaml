@@ -1,7 +1,8 @@
 name: ping-api
 description: "Minimal HTTP ping endpoint used to validate the benchmark runner."
 question: "Can the benchmark runner build, start, load test, collect metrics, and save results for a target implementation?"
-implementation: spring-boot
+implementation: java/spring-boot
+variant: jvm-java25
 
 target:
   base_url: "http://localhost:8080"

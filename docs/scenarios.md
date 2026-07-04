@@ -50,6 +50,14 @@ Dependencies:
 
 - target HTTP service only
 
+Default implementation:
+
+- `java/spring-boot`
+
+Default variant:
+
+- `jvm-java25`
+
 Variants:
 
 - none in the MVP

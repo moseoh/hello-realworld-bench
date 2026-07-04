@@ -2,21 +2,22 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 <implementation> <scenario>" >&2
+  echo "Usage: $0 <implementation> <scenario> [variant]" >&2
+  echo "Examples:" >&2
+  echo "  $0 spring-boot ping-api" >&2
+  echo "  $0 java/spring-boot ping-api jvm-java25" >&2
 }
 
-if [[ $# -ne 2 ]]; then
+if [[ $# -lt 2 || $# -gt 3 ]]; then
   usage
   exit 2
 fi
 
-IMPLEMENTATION="$1"
+REQUESTED_IMPLEMENTATION="$1"
 SCENARIO="$2"
+VARIANT="${3:-jvm-java25}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCENARIO_DIR="$ROOT_DIR/scenarios/$SCENARIO"
-APP_DIR="$ROOT_DIR/implementations/$IMPLEMENTATION"
-COMPOSE_FILES=(-f "$ROOT_DIR/infra/docker-compose.base.yml" -f "$ROOT_DIR/infra/docker-compose.$IMPLEMENTATION.yml")
-IMAGE_TAG="hello-realworld/$IMPLEMENTATION:local"
 BASE_URL="http://localhost:8080"
 HEALTH_PATH="/actuator/health"
 ENDPOINT="/ping"
@@ -24,8 +25,33 @@ WARMUP_DURATION="10s"
 TEST_DURATION="30s"
 VUS="50"
 
-if [[ "$IMPLEMENTATION" != "spring-boot" ]]; then
+case "$REQUESTED_IMPLEMENTATION" in
+  spring-boot)
+    IMPLEMENTATION="java/spring-boot"
+    ;;
+  java/spring-boot)
+    IMPLEMENTATION="$REQUESTED_IMPLEMENTATION"
+    ;;
+  *)
+    echo "Unsupported implementation: $REQUESTED_IMPLEMENTATION" >&2
+    exit 2
+    ;;
+esac
+
+LANGUAGE="${IMPLEMENTATION%%/*}"
+FRAMEWORK="${IMPLEMENTATION#*/}"
+APP_DIR="$ROOT_DIR/implementations/$IMPLEMENTATION"
+VARIANT_FILE="$APP_DIR/variants/$VARIANT.yaml"
+COMPOSE_PROFILE="$FRAMEWORK"
+COMPOSE_FILES=(-f "$ROOT_DIR/infra/docker-compose.base.yml" -f "$ROOT_DIR/infra/docker-compose.$COMPOSE_PROFILE.yml")
+
+if [[ "$IMPLEMENTATION" != "java/spring-boot" ]]; then
   echo "Unsupported implementation: $IMPLEMENTATION" >&2
+  exit 2
+fi
+
+if [[ "$VARIANT" != "jvm-java25" ]]; then
+  echo "Unsupported variant for $IMPLEMENTATION: $VARIANT" >&2
   exit 2
 fi
 
@@ -36,6 +62,11 @@ fi
 
 if [[ ! -d "$APP_DIR" ]]; then
   echo "Implementation directory not found: $APP_DIR" >&2
+  exit 2
+fi
+
+if [[ ! -f "$VARIANT_FILE" ]]; then
+  echo "Variant file not found: $VARIANT_FILE" >&2
   exit 2
 fi
 
@@ -89,8 +120,9 @@ run_k6() {
   fi
 }
 
-RUN_ID="$(timestamp)_${IMPLEMENTATION}_${SCENARIO}"
-RESULT_DIR="$ROOT_DIR/results/$RUN_ID"
+IMAGE_TAG="hello-realworld/${LANGUAGE}-${FRAMEWORK}-${VARIANT}:local"
+RUN_ID="$(timestamp)_${LANGUAGE}_${FRAMEWORK}_${VARIANT}_${SCENARIO}"
+RESULT_DIR="$ROOT_DIR/results/$LANGUAGE/$FRAMEWORK/$VARIANT/$SCENARIO/$RUN_ID"
 RUN_LOG="$RESULT_DIR/run.log"
 mkdir -p "$RESULT_DIR"
 touch "$RUN_LOG"
@@ -119,10 +151,14 @@ cat > "$RESULT_DIR/metadata.json" <<JSON
   "project": "hello-realworld-bench",
   "scenario": "$(json_string "$SCENARIO")",
   "implementation": "$(json_string "$IMPLEMENTATION")",
+  "variant": "$(json_string "$VARIANT")",
   "runtime": {
-    "language": "java",
-    "java_version": "21",
-    "framework": "spring-boot",
+    "language": "$(json_string "$LANGUAGE")",
+    "java_version": "25",
+    "framework": "$(json_string "$FRAMEWORK")",
+    "spring_boot_version": "4.1.0",
+    "build_mode": "jvm",
+    "native_image": false,
     "virtual_threads": false,
     "otel": false
   },
@@ -144,7 +180,7 @@ echo "Measuring build..."
 "$ROOT_DIR/scripts/measure-build.sh" "$IMPLEMENTATION" "$RESULT_DIR" "$IMAGE_TAG"
 
 echo "Measuring startup..."
-"$ROOT_DIR/scripts/measure-startup.sh" "$IMPLEMENTATION" "$RESULT_DIR" "$BASE_URL" "$HEALTH_PATH" "$ENDPOINT"
+"$ROOT_DIR/scripts/measure-startup.sh" "$COMPOSE_PROFILE" "$RESULT_DIR" "$BASE_URL" "$HEALTH_PATH" "$ENDPOINT"
 
 echo "Running warmup..."
 run_k6 "$WARMUP_DURATION" "$RESULT_DIR/k6-warmup-summary.json" "$SCENARIO_DIR/k6.js"
@@ -167,10 +203,14 @@ cat > "$RESULT_DIR/result.json" <<JSON
   "project": "hello-realworld-bench",
   "scenario": "$(json_string "$SCENARIO")",
   "implementation": "$(json_string "$IMPLEMENTATION")",
+  "variant": "$(json_string "$VARIANT")",
   "runtime": {
-    "language": "java",
-    "java_version": "21",
-    "framework": "spring-boot",
+    "language": "$(json_string "$LANGUAGE")",
+    "java_version": "25",
+    "framework": "$(json_string "$FRAMEWORK")",
+    "spring_boot_version": "4.1.0",
+    "build_mode": "jvm",
+    "native_image": false,
     "virtual_threads": false,
     "otel": false
   },

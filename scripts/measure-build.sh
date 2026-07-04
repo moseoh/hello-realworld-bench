@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 <implementation> <result-dir> <image-tag>" >&2
+  echo "Usage: $0 <implementation-path> <result-dir> <image-tag>" >&2
 }
 
 if [[ $# -ne 3 ]]; then
@@ -10,14 +10,14 @@ if [[ $# -ne 3 ]]; then
   exit 2
 fi
 
-IMPLEMENTATION="$1"
+IMPLEMENTATION_PATH="$1"
 RESULT_DIR="$2"
 IMAGE_TAG="$3"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP_DIR="$ROOT_DIR/implementations/$IMPLEMENTATION"
+APP_DIR="$ROOT_DIR/implementations/$IMPLEMENTATION_PATH"
 
-if [[ "$IMPLEMENTATION" != "spring-boot" ]]; then
-  echo "Unsupported implementation: $IMPLEMENTATION" >&2
+if [[ "$IMPLEMENTATION_PATH" != "java/spring-boot" ]]; then
+  echo "Unsupported implementation: $IMPLEMENTATION_PATH" >&2
   exit 2
 fi
 
@@ -35,19 +35,13 @@ measure_ms() {
 }
 
 run_gradle_build() {
-  if [[ -x "$APP_DIR/gradlew" ]]; then
-    (cd "$APP_DIR" && ./gradlew clean build --no-daemon)
-  elif command -v gradle >/dev/null 2>&1; then
-    (cd "$APP_DIR" && gradle clean build --no-daemon)
-  else
-    docker run --rm \
-      -u "$(id -u):$(id -g)" \
-      -e GRADLE_USER_HOME=/workspace/.gradle-cache \
-      -v "$APP_DIR:/workspace" \
-      -w /workspace \
-      gradle:8.10.2-jdk21 \
-      gradle clean build --no-daemon
-  fi
+  docker run --rm \
+    -u "$(id -u):$(id -g)" \
+    -e GRADLE_USER_HOME=/workspace/.gradle-cache \
+    -v "$APP_DIR:/workspace" \
+    -w /workspace \
+    eclipse-temurin:25-jdk \
+    ./gradlew clean build --no-daemon
 }
 
 mkdir -p "$RESULT_DIR"
