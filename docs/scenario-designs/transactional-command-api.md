@@ -179,14 +179,18 @@ These should not be required for the first implementation unless they are cheap 
 Spring Boot should use boring framework defaults:
 
 - Spring Web MVC
-- `JdbcTemplate`
+- Spring Data JPA
 - PostgreSQL driver
 - HikariCP through Spring Boot defaults
 - Flyway for schema migrations
 
-Avoid JPA for the first version unless there is a clear reason. The scenario should measure the command pattern, not ORM mapping complexity.
+The first implementation should use JPA because it is a common production default for Spring Boot business applications. This makes the scenario closer to typical service code than a hand-written JDBC implementation.
+
+JDBC can be added later only as an explicit variant or separate implementation decision. Do not silently swap JPA and JDBC inside the same scenario result set, because that would change what the benchmark measures.
 
 Generated IDs should be UUID strings created by the application. This keeps the endpoint contract portable across implementations and avoids depending on PostgreSQL-specific ID generation for the first version.
+
+Application-generated IDs are preferred for this scenario because they are portable across frameworks and databases, work naturally with outbox/event payloads, and avoid coupling the response contract to database-generated sequence values. Auto-increment IDs are still common in production systems, but they are less neutral for a cross-runtime benchmark.
 
 The runner should use a fresh Docker Compose volume per run through the existing cleanup flow. The database should start empty for every benchmark run.
 
@@ -220,4 +224,5 @@ Do not use this scenario to claim universal database or framework performance.
 - Use application-generated UUID strings for IDs.
 - Start each benchmark run with a fresh Compose volume.
 - Use a fixed bounded set of customer IDs and SKUs in k6, selected randomly per request.
-- Use Spring `JdbcTemplate` for the first Spring Boot implementation.
+- Use Spring Data JPA for the first Spring Boot implementation.
+- Treat JDBC as a future explicit variant, not an interchangeable implementation detail.
