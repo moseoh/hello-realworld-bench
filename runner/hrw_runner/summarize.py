@@ -41,6 +41,18 @@ def collect_result_rows(root_dir: Path) -> list[dict[str, Any]]:
     return sorted(rows, key=lambda row: str(row.get("run_id") or ""), reverse=True)
 
 
+def filter_latest_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    latest_rows = []
+    seen_keys = set()
+    for row in sorted(rows, key=lambda item: str(item.get("run_id") or ""), reverse=True):
+        key = (row.get("scenario"), row.get("implementation"), row.get("variant"))
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+        latest_rows.append(row)
+    return latest_rows
+
+
 def format_table(rows: list[dict[str, Any]]) -> str:
     if not rows:
         return "No result.json files found."
