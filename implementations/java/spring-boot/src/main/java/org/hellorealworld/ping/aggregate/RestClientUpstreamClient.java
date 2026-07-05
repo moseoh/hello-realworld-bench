@@ -14,12 +14,14 @@ class RestClientUpstreamClient implements UpstreamClient {
 
 	RestClientUpstreamClient(
 			@Value("${mock.upstream.base-url:http://localhost:8081}") String baseUrl,
-			@Value("${AGGREGATION_UPSTREAM_TIMEOUT_MS:${aggregation.upstream.timeout-ms:1000}}") long timeoutMs
+			@Value("${AGGREGATION_UPSTREAM_TIMEOUT_MS:${aggregation.upstream.timeout-ms:0}}") long timeoutMs
 	) {
 		SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-		Duration timeout = Duration.ofMillis(timeoutMs);
-		requestFactory.setConnectTimeout(timeout);
-		requestFactory.setReadTimeout(timeout);
+		if (timeoutMs > 0) {
+			Duration timeout = Duration.ofMillis(timeoutMs);
+			requestFactory.setConnectTimeout(timeout);
+			requestFactory.setReadTimeout(timeout);
+		}
 		this.restClient = RestClient.builder()
 				.baseUrl(baseUrl)
 				.requestFactory(requestFactory)

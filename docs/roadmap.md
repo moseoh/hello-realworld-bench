@@ -32,9 +32,7 @@ Runnable base scenario: [io-aggregation-api](../scenarios/io-aggregation-api/REA
 
 Runnable timeout scenario: [io-aggregation-timeout-api](../scenarios/io-aggregation-timeout-api/README.md)
 
-Remaining Phase 2 work:
-
-- virtual thread variant for Spring Boot
+Runnable Spring Boot virtual thread variant: `jvm-java25-virtual-threads`
 
 ## Phase 3: Add Second Implementation
 

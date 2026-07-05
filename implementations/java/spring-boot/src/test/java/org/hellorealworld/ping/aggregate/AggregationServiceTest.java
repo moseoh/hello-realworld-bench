@@ -1,9 +1,9 @@
 package org.hellorealworld.ping.aggregate;
 
 import java.util.List;
-import java.util.concurrent.Executors;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.core.task.SimpleAsyncTaskExecutor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -13,7 +13,7 @@ class AggregationServiceTest {
 	void aggregatesUpstreamResponses() {
 		AggregationService service = new AggregationService(
 				new StubUpstreamClient(),
-				Executors.newSingleThreadExecutor()
+				new SimpleAsyncTaskExecutor("test-")
 		);
 
 		AggregateResponse response = service.aggregate("customer-001", "SKU-001");
@@ -27,7 +27,7 @@ class AggregationServiceTest {
 	void usesInventoryFallbackWhenUpstreamFails() {
 		AggregationService service = new AggregationService(
 				new InventoryFailureUpstreamClient(),
-				Executors.newSingleThreadExecutor()
+				new SimpleAsyncTaskExecutor("test-")
 		);
 
 		AggregateResponse response = service.aggregate("customer-001", "SKU-001");

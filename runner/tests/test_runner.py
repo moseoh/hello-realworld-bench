@@ -4,6 +4,7 @@ from pathlib import Path
 from hrw_runner.config import resolve_run_config
 from hrw_runner.runner import (
     RESULT_SCHEMA_VERSION,
+    _compose_files,
     _dependency_services,
     _result_document,
 )
@@ -162,6 +163,29 @@ class StartupDependencyTest(unittest.TestCase):
         )
 
         self.assertEqual(_dependency_services(config), ["mock-upstream"])
+
+
+class ComposeFilesTest(unittest.TestCase):
+    def test_includes_variant_compose_before_scenario_compose(self):
+        root_dir = Path(__file__).resolve().parents[2]
+        config = resolve_run_config(
+            "java/spring-boot",
+            "io-aggregation-api",
+            "jvm-java25-virtual-threads",
+            root_dir,
+        )
+
+        names = [path.name for path in _compose_files(config, root_dir)]
+
+        self.assertEqual(
+            names,
+            [
+                "docker-compose.base.yml",
+                "docker-compose.spring-boot.yml",
+                "docker-compose.spring-boot.jvm-java25-virtual-threads.yml",
+                "docker-compose.io-aggregation-api.yml",
+            ],
+        )
 
 
 if __name__ == "__main__":

@@ -33,8 +33,26 @@ class ResolveRunConfigTest(unittest.TestCase):
 
         self.assertEqual(config.image_tag, "hello-realworld/java-spring-boot-jvm-java25:local")
         self.assertFalse(config.runtime["native_image"])
+        self.assertFalse(config.runtime["virtual_threads"])
         self.assertEqual(config.load["warmup_duration"], "10s")
         self.assertEqual(config.load["test_duration"], "30s")
+
+    def test_reads_virtual_thread_variant_configuration(self):
+        root_dir = Path(__file__).resolve().parents[2]
+
+        config = resolve_run_config(
+            "java/spring-boot",
+            "io-aggregation-api",
+            "jvm-java25-virtual-threads",
+            root_dir,
+        )
+
+        self.assertEqual(config.variant, "jvm-java25-virtual-threads")
+        self.assertTrue(config.runtime["virtual_threads"])
+        self.assertEqual(
+            config.image_tag,
+            "hello-realworld/java-spring-boot-jvm-java25-virtual-threads:local",
+        )
 
     def test_reads_cold_start_configuration(self):
         root_dir = Path(__file__).resolve().parents[2]

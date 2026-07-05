@@ -1,30 +1,17 @@
 package org.hellorealworld.ping.aggregate;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
-import jakarta.annotation.PreDestroy;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.stereotype.Service;
 
 @Service
 class AggregationService {
 
 	private final UpstreamClient upstreamClient;
-	private final ExecutorService executor;
+	private final AsyncTaskExecutor executor;
 
-	@Autowired
-	AggregationService(UpstreamClient upstreamClient) {
-		this(
-				upstreamClient,
-				Executors.newThreadPerTaskExecutor(
-						Thread.ofPlatform().name("aggregate-upstream-", 0).factory()
-				)
-		);
-	}
-
-	AggregationService(UpstreamClient upstreamClient, ExecutorService executor) {
+	AggregationService(UpstreamClient upstreamClient, AsyncTaskExecutor executor) {
 		this.upstreamClient = upstreamClient;
 		this.executor = executor;
 	}
@@ -49,10 +36,5 @@ class AggregationService {
 				recommendations.join().items(),
 				inventory.join()
 		);
-	}
-
-	@PreDestroy
-	void shutdown() {
-		executor.shutdown();
 	}
 }
