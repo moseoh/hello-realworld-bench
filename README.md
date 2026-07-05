@@ -31,7 +31,7 @@ Experimental MVP.
 
 Supported implementation:
 
-- `java/spring-boot` with the `jvm-java25` variant
+- `java/spring-boot` with the `jvm-java25` and `jvm-java25-virtual-threads` variants
 
 Supported scenarios:
 
@@ -90,6 +90,12 @@ I/O aggregation timeout scenario:
 make run SCENARIO=io-aggregation-timeout-api
 ```
 
+Spring Boot virtual thread variant:
+
+```bash
+make run SCENARIO=io-aggregation-timeout-api VARIANT=jvm-java25-virtual-threads
+```
+
 The shorter `spring-boot` form is kept as a compatibility alias for the default Spring Boot JVM variant.
 
 The Makefile calls the uv-managed Python runner. The runner cleans previous containers, builds the app, builds the target image, starts Docker Compose, waits for the scenario endpoint to return 200, runs warmup and benchmark k6 phases when enabled, collects Docker stats, writes results, and shuts down the container.
@@ -103,6 +109,7 @@ scenarios/transactional-command-api/scenario.yaml
 scenarios/io-aggregation-api/scenario.yaml
 scenarios/io-aggregation-timeout-api/scenario.yaml
 implementations/java/spring-boot/variants/jvm-java25.yaml
+implementations/java/spring-boot/variants/jvm-java25-virtual-threads.yaml
 ```
 
 Scenario details for humans live in each scenario directory:

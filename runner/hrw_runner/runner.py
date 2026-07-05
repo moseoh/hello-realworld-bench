@@ -39,13 +39,7 @@ def run_benchmark(config: RunConfig, root_dir: Path) -> Path:
         _log(log, f"Run ID: {paths.run_id}")
         _validate_paths(config)
 
-        compose_files = [
-            root_dir / "infra" / "docker-compose.base.yml",
-            root_dir / "infra" / f"docker-compose.{config.compose_profile}.yml",
-        ]
-        scenario_compose_file = root_dir / "infra" / f"docker-compose.{config.scenario}.yml"
-        if scenario_compose_file.is_file():
-            compose_files.append(scenario_compose_file)
+        compose_files = _compose_files(config, root_dir)
 
         try:
             _log(log, "Cleaning previous containers...")
@@ -130,6 +124,25 @@ def _validate_paths(config: RunConfig) -> None:
             raise SystemExit(f"Scenario k6 script not found: {script}")
     if shutil.which("docker") is None:
         raise SystemExit("docker is required.")
+
+
+def _compose_files(config: RunConfig, root_dir: Path) -> list[Path]:
+    compose_files = [
+        root_dir / "infra" / "docker-compose.base.yml",
+        root_dir / "infra" / f"docker-compose.{config.compose_profile}.yml",
+    ]
+
+    variant_compose_file = (
+        root_dir / "infra" / f"docker-compose.{config.compose_profile}.{config.variant}.yml"
+    )
+    if variant_compose_file.is_file():
+        compose_files.append(variant_compose_file)
+
+    scenario_compose_file = root_dir / "infra" / f"docker-compose.{config.scenario}.yml"
+    if scenario_compose_file.is_file():
+        compose_files.append(scenario_compose_file)
+
+    return compose_files
 
 
 def _metadata(config: RunConfig, run_id: str) -> dict[str, object]:

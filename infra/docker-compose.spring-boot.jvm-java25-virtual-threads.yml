@@ -1,0 +1,6 @@
+services:
+  target:
+    image: hello-realworld/java-spring-boot-jvm-java25-virtual-threads:local
+    environment:
+      SPRING_THREADS_VIRTUAL_ENABLED: "true"
+      SPRING_MAIN_KEEP_ALIVE: "true"
