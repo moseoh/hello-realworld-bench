@@ -126,10 +126,13 @@ Summarize local benchmark results:
 
 ```bash
 make summarize
+make summarize-latest
 make summarize-json
+make summarize-latest-json
 ```
 
 `make summarize` prints a compact table from `results/**/result.json`. `make summarize-json` emits the same rows as JSON for later static dashboard tooling.
+Use the `latest` variants to keep only the newest run for each scenario, implementation, and variant combination.
 
 ## Local App
 

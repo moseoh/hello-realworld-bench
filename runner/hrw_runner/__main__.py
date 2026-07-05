@@ -5,7 +5,7 @@ from pathlib import Path
 
 from .config import resolve_run_config
 from .runner import run_benchmark
-from .summarize import collect_result_rows, format_table, rows_to_json
+from .summarize import collect_result_rows, filter_latest_rows, format_table, rows_to_json
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -13,11 +13,15 @@ def main(argv: list[str] | None = None) -> int:
     root_dir = Path.cwd()
 
     if args and args[0] == "summarize":
-        if len(args) > 2 or (len(args) == 2 and args[1] != "--json"):
-            print("Usage: python -m hrw_runner summarize [--json]", file=sys.stderr)
+        summarize_args = args[1:]
+        valid_flags = {"--json", "--latest-only"}
+        if any(arg not in valid_flags for arg in summarize_args):
+            print("Usage: python -m hrw_runner summarize [--latest-only] [--json]", file=sys.stderr)
             return 2
         rows = collect_result_rows(root_dir)
-        if len(args) == 2:
+        if "--latest-only" in summarize_args:
+            rows = filter_latest_rows(rows)
+        if "--json" in summarize_args:
             print(rows_to_json(rows), end="")
         else:
             print(format_table(rows))
@@ -26,7 +30,7 @@ def main(argv: list[str] | None = None) -> int:
     if len(args) not in (2, 3):
         print(
             "Usage: python -m hrw_runner <implementation> <scenario> [variant]\n"
-            "       python -m hrw_runner summarize [--json]",
+            "       python -m hrw_runner summarize [--latest-only] [--json]",
             file=sys.stderr,
         )
         return 2
