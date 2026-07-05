@@ -2,7 +2,11 @@ services:
   target:
     environment:
       MOCK_UPSTREAM_BASE_URL: "http://mock-upstream:8080"
-      AGGREGATION_UPSTREAM_TIMEOUT_MS: "350"
+      AGGREGATION_HTTP_CONNECT_TIMEOUT_MS: "500"
+      AGGREGATION_HTTP_RESPONSE_TIMEOUT_MS: "350"
+      AGGREGATION_HTTP_CONNECTION_REQUEST_TIMEOUT_MS: "500"
+      AGGREGATION_HTTP_MAX_CONNECTIONS: "128"
+      AGGREGATION_HTTP_MAX_CONNECTIONS_PER_ROUTE: "128"
     depends_on:
       mock-upstream:
         condition: service_started
@@ -10,6 +14,12 @@ services:
   mock-upstream:
     image: wiremock/wiremock:3.13.2
     container_name: hrw-mock-upstream
+    command:
+      - "--no-request-journal"
+      - "--container-threads"
+      - "32"
+      - "--jetty-accept-queue-size"
+      - "200"
     ports:
       - "8081:8080"
     volumes:

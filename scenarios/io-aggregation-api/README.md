@@ -26,6 +26,8 @@ How does the target behave when a request performs multiple upstream HTTP calls 
 
 - `mock-upstream`, implemented with WireMock
 
+HTTP client and mock upstream baseline settings are documented in [../../docs/http-baseline.md](../../docs/http-baseline.md).
+
 ## Variants
 
 Initial variant:
