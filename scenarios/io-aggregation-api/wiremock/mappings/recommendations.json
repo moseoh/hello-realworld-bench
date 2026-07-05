@@ -1,0 +1,25 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPath": "/recommendations"
+  },
+  "response": {
+    "status": 200,
+    "fixedDelayMilliseconds": 35,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "items": [
+        {
+          "sku": "SKU-101",
+          "score": 0.91
+        },
+        {
+          "sku": "SKU-102",
+          "score": 0.84
+        }
+      ]
+    }
+  }
+}

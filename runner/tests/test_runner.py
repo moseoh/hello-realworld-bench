@@ -152,6 +152,17 @@ class StartupDependencyTest(unittest.TestCase):
 
         self.assertEqual(_dependency_services(config), [])
 
+    def test_finds_mock_upstream_dependency_service(self):
+        root_dir = Path(__file__).resolve().parents[2]
+        config = resolve_run_config(
+            "java/spring-boot",
+            "io-aggregation-api",
+            "jvm-java25",
+            root_dir,
+        )
+
+        self.assertEqual(_dependency_services(config), ["mock-upstream"])
+
 
 if __name__ == "__main__":
     unittest.main()
