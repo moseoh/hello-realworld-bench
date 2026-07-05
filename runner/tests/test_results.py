@@ -102,16 +102,22 @@ class MetricsExtractionTest(unittest.TestCase):
 
     def test_summarizes_startup_samples(self):
         samples = [
-            {"ready_ms": 1200, "first_request_ms": 5},
-            {"ready_ms": 1000, "first_request_ms": 4},
-            {"ready_ms": 1400, "first_request_ms": 8},
-            {"ready_ms": 1100, "first_request_ms": 6},
-            {"ready_ms": 1300, "first_request_ms": 7},
+            {"dependency_ready_ms": 0, "ready_ms": 1200, "first_request_ms": 5},
+            {"dependency_ready_ms": 10, "ready_ms": 1000, "first_request_ms": 4},
+            {"dependency_ready_ms": 20, "ready_ms": 1400, "first_request_ms": 8},
+            {"dependency_ready_ms": 30, "ready_ms": 1100, "first_request_ms": 6},
+            {"dependency_ready_ms": 40, "ready_ms": 1300, "first_request_ms": 7},
         ]
 
         self.assertEqual(
             summarize_startup_samples(samples),
             {
+                "dependency_ready_ms": {
+                    "min": 0,
+                    "median": 20,
+                    "p95": 40,
+                    "max": 40,
+                },
                 "ready_ms": {
                     "min": 1000,
                     "median": 1200,

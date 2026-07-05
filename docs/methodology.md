@@ -12,9 +12,11 @@ The MVP records Gradle clean build time and Docker image build time separately. 
 
 ### Startup Metrics
 
-Startup metrics capture how long a container takes until the scenario endpoint first returns a successful response.
+Startup metrics capture how long the target container takes until the scenario endpoint first returns a successful response.
 
 For `cold-start-api`, startup means the time from starting the target container until `/ping` first returns HTTP 200. The successful `/ping` request latency is also recorded. The MVP measures this repeatedly on the same host by stopping and starting the target container between samples.
+
+For scenarios with support services, such as PostgreSQL or mock upstream HTTP services, the runner starts those dependencies first and waits for them before measuring the target container. Dependency startup time is recorded separately as `dependency_ready_ms`; target startup time is recorded as `ready_ms`.
 
 The runner intentionally does not use framework health endpoints for cold-start measurement. Health endpoints can warm different parts of different frameworks and distort the first business endpoint response.
 
@@ -28,9 +30,7 @@ Some scenarios, such as `cold-start-api`, do not run a sustained k6 load phase. 
 
 ### Resource Metrics
 
-Resource metrics capture basic CPU and memory usage from Docker. The MVP collects a one-shot snapshot after the benchmark run.
-
-The MVP records Docker CPU percentage, memory usage, and memory percentage from `docker stats --no-stream`.
+Resource metrics capture basic CPU and memory usage from Docker. For load-test scenarios, the MVP samples Docker stats while the benchmark k6 phase is running and records average and maximum CPU and memory summaries. For load-disabled scenarios, the runner records a one-shot Docker stats snapshot after startup measurement.
 
 ### Environment Metadata
 

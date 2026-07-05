@@ -89,10 +89,17 @@ Values may be `null` only when a measurement could not be collected.
 
 ```json
 {
+  "dependency_ready_ms": 0,
   "ready_ms": 1200,
   "first_request_ms": 7,
   "iterations": 1,
   "summary": {
+    "dependency_ready_ms": {
+      "min": 0,
+      "median": 0,
+      "p95": 0,
+      "max": 0
+    },
     "ready_ms": {
       "min": 1200,
       "median": 1200,
@@ -109,7 +116,9 @@ Values may be `null` only when a measurement could not be collected.
 }
 ```
 
-`ready_ms` means time from container start until the scenario endpoint first returns HTTP 200. It does not mean a framework health endpoint reported ready. `first_request_ms` is the latency of the successful request that completed that first-success check.
+`dependency_ready_ms` is the time spent starting scenario support services before the target container is measured. For example, a PostgreSQL-backed scenario starts PostgreSQL first and waits for it to become ready before measuring the target application.
+
+`ready_ms` means time from target container start until the scenario endpoint first returns HTTP 200. It does not include dependency container startup time. It does not mean a framework health endpoint reported ready. `first_request_ms` is the latency of the successful request that completed that first-success check.
 
 For single-start scenarios such as `ping-api`, `ready_ms` and `first_request_ms` are the first and only sample. For repeated startup scenarios such as `cold-start-api`, these fields keep the first sample for backward-friendly quick reads, while `summary` contains aggregate values across samples. Full sample data lives in `startup.json`.
 

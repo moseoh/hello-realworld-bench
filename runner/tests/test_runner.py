@@ -2,7 +2,11 @@ import unittest
 from pathlib import Path
 
 from hrw_runner.config import resolve_run_config
-from hrw_runner.runner import RESULT_SCHEMA_VERSION, _result_document
+from hrw_runner.runner import (
+    RESULT_SCHEMA_VERSION,
+    _dependency_services,
+    _result_document,
+)
 
 
 class ResultDocumentTest(unittest.TestCase):
@@ -26,10 +30,12 @@ class ResultDocumentTest(unittest.TestCase):
                 },
             },
             {
+                "dependency_ready_ms": 0,
                 "ready_ms": 1200,
                 "first_request_ms": 7,
                 "iterations": 1,
                 "summary": {
+                    "dependency_ready_ms": {"min": 0, "median": 0, "p95": 0, "max": 0},
                     "ready_ms": {"min": 1200, "median": 1200, "p95": 1200, "max": 1200},
                     "first_request_ms": {"min": 7, "median": 7, "p95": 7, "max": 7},
                 },
@@ -53,6 +59,7 @@ class ResultDocumentTest(unittest.TestCase):
         self.assertEqual(result["scenario"], "ping-api")
         self.assertEqual(result["build"]["clean_build_ms"], 1000)
         self.assertEqual(result["build"]["cache"]["docker_build_cache"], "enabled")
+        self.assertEqual(result["startup"]["dependency_ready_ms"], 0)
         self.assertEqual(result["startup"]["iterations"], 1)
         self.assertEqual(
             result["runtime_metrics"],
@@ -99,10 +106,12 @@ class ResultDocumentTest(unittest.TestCase):
                 },
             },
             {
+                "dependency_ready_ms": 0,
                 "ready_ms": 1200,
                 "first_request_ms": 7,
                 "iterations": 5,
                 "summary": {
+                    "dependency_ready_ms": {"min": 0, "median": 0, "p95": 0, "max": 0},
                     "ready_ms": {"min": 1000, "median": 1200, "p95": 1400, "max": 1400},
                     "first_request_ms": {"min": 4, "median": 6, "p95": 8, "max": 8},
                 },
@@ -113,6 +122,7 @@ class ResultDocumentTest(unittest.TestCase):
 
         self.assertEqual(result["schema_version"], RESULT_SCHEMA_VERSION)
         self.assertEqual(result["scenario"], "cold-start-api")
+        self.assertEqual(result["startup"]["dependency_ready_ms"], 0)
         self.assertEqual(result["startup"]["iterations"], 5)
         self.assertEqual(
             result["runtime_metrics"],
@@ -122,6 +132,25 @@ class ResultDocumentTest(unittest.TestCase):
                 "memory_percent": 12.55,
             },
         )
+
+
+class StartupDependencyTest(unittest.TestCase):
+    def test_finds_enabled_scenario_dependency_services(self):
+        root_dir = Path(__file__).resolve().parents[2]
+        config = resolve_run_config(
+            "java/spring-boot",
+            "transactional-command-api",
+            "jvm-java25",
+            root_dir,
+        )
+
+        self.assertEqual(_dependency_services(config), ["postgres"])
+
+    def test_omits_disabled_dependency_services(self):
+        root_dir = Path(__file__).resolve().parents[2]
+        config = resolve_run_config("java/spring-boot", "ping-api", "jvm-java25", root_dir)
+
+        self.assertEqual(_dependency_services(config), [])
 
 
 if __name__ == "__main__":

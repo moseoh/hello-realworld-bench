@@ -93,6 +93,7 @@ def docker_resource_metrics(stats: dict[str, Any]) -> dict[str, Any]:
 
 def summarize_startup_samples(samples: list[dict[str, Any]]) -> dict[str, Any]:
     return {
+        "dependency_ready_ms": _summarize_numeric_values(samples, "dependency_ready_ms"),
         "ready_ms": _summarize_numeric_values(samples, "ready_ms"),
         "first_request_ms": _summarize_numeric_values(samples, "first_request_ms"),
     }
