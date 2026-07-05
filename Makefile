@@ -2,10 +2,16 @@ IMPLEMENTATION ?= java/spring-boot
 SCENARIO ?= ping-api
 VARIANT ?= jvm-java25
 
-.PHONY: run test-runner test-spring check
+.PHONY: run summarize summarize-json test-runner test-spring check
 
 run:
 	PYTHONPATH=runner uv run --project runner python -m hrw_runner $(IMPLEMENTATION) $(SCENARIO) $(VARIANT)
+
+summarize:
+	@PYTHONPATH=runner uv run --project runner python -m hrw_runner summarize
+
+summarize-json:
+	@PYTHONPATH=runner uv run --project runner python -m hrw_runner summarize --json
 
 test-runner:
 	PYTHONPATH=runner uv run --project runner python -m unittest discover -s runner/tests
