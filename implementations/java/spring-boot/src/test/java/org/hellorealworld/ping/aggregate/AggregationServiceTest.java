@@ -1,6 +1,7 @@
 package org.hellorealworld.ping.aggregate;
 
 import java.util.List;
+import java.util.concurrent.Executors;
 
 import org.junit.jupiter.api.Test;
 
@@ -10,13 +11,31 @@ class AggregationServiceTest {
 
 	@Test
 	void aggregatesUpstreamResponses() {
-		AggregationService service = new AggregationService(new StubUpstreamClient());
+		AggregationService service = new AggregationService(
+				new StubUpstreamClient(),
+				Executors.newSingleThreadExecutor()
+		);
 
 		AggregateResponse response = service.aggregate("customer-001", "SKU-001");
 
 		assertThat(response.customer().id()).isEqualTo("customer-001");
 		assertThat(response.recommendations()).hasSize(2);
 		assertThat(response.inventory().available()).isTrue();
+	}
+
+	@Test
+	void usesInventoryFallbackWhenUpstreamFails() {
+		AggregationService service = new AggregationService(
+				new InventoryFailureUpstreamClient(),
+				Executors.newSingleThreadExecutor()
+		);
+
+		AggregateResponse response = service.aggregate("customer-001", "SKU-001");
+
+		assertThat(response.customer().id()).isEqualTo("customer-001");
+		assertThat(response.inventory().sku()).isEqualTo("SKU-001");
+		assertThat(response.inventory().available()).isFalse();
+		assertThat(response.inventory().quantity()).isZero();
 	}
 
 	private static class StubUpstreamClient implements UpstreamClient {
@@ -36,6 +55,13 @@ class AggregationServiceTest {
 		@Override
 		public InventoryStatus fetchInventory(String sku) {
 			return new InventoryStatus(sku, true, 42);
+		}
+	}
+
+	private static class InventoryFailureUpstreamClient extends StubUpstreamClient {
+		@Override
+		public InventoryStatus fetchInventory(String sku) {
+			throw new IllegalStateException("inventory timeout");
 		}
 	}
 }

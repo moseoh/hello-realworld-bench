@@ -82,6 +82,21 @@ class ResolveRunConfigTest(unittest.TestCase):
         self.assertTrue(config.scenario_config["services"]["mock_upstream"])
         self.assertEqual(config.load["vus"], 25)
 
+    def test_reads_io_aggregation_timeout_configuration(self):
+        root_dir = Path(__file__).resolve().parents[2]
+
+        config = resolve_run_config(
+            "java/spring-boot",
+            "io-aggregation-timeout-api",
+            "jvm-java25",
+            root_dir,
+        )
+
+        self.assertEqual(config.target["startup_path"], "/ping")
+        self.assertEqual(config.target["endpoint"], "/aggregate")
+        self.assertTrue(config.scenario_config["services"]["mock_upstream"])
+        self.assertEqual(config.load["vus"], 5)
+
 
 if __name__ == "__main__":
     unittest.main()
