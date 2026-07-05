@@ -1,0 +1,18 @@
+services:
+  target:
+    environment:
+      MOCK_UPSTREAM_BASE_URL: "http://mock-upstream:8080"
+      AGGREGATION_UPSTREAM_TIMEOUT_MS: "350"
+    depends_on:
+      mock-upstream:
+        condition: service_started
+
+  mock-upstream:
+    image: wiremock/wiremock:3.13.2
+    container_name: hrw-mock-upstream
+    ports:
+      - "8081:8080"
+    volumes:
+      - "../scenarios/io-aggregation-timeout-api/wiremock:/home/wiremock:ro"
+    cpus: "1.0"
+    mem_limit: "512m"

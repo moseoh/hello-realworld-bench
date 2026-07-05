@@ -39,6 +39,7 @@ Supported scenarios:
 - `cold-start-api`
 - `transactional-command-api`
 - `io-aggregation-api`
+- `io-aggregation-timeout-api`
 
 The `ping-api` scenario exists to validate benchmark runner automation. It is not a meaningful real-world performance conclusion by itself.
 
@@ -83,6 +84,12 @@ I/O aggregation scenario:
 make run SCENARIO=io-aggregation-api
 ```
 
+I/O aggregation timeout scenario:
+
+```bash
+make run SCENARIO=io-aggregation-timeout-api
+```
+
 The shorter `spring-boot` form is kept as a compatibility alias for the default Spring Boot JVM variant.
 
 The Makefile calls the uv-managed Python runner. The runner cleans previous containers, builds the app, builds the target image, starts Docker Compose, waits for the scenario endpoint to return 200, runs warmup and benchmark k6 phases when enabled, collects Docker stats, writes results, and shuts down the container.
@@ -94,6 +101,7 @@ scenarios/ping-api/scenario.yaml
 scenarios/cold-start-api/scenario.yaml
 scenarios/transactional-command-api/scenario.yaml
 scenarios/io-aggregation-api/scenario.yaml
+scenarios/io-aggregation-timeout-api/scenario.yaml
 implementations/java/spring-boot/variants/jvm-java25.yaml
 ```
 
@@ -104,6 +112,7 @@ scenarios/ping-api/README.md
 scenarios/cold-start-api/README.md
 scenarios/transactional-command-api/README.md
 scenarios/io-aggregation-api/README.md
+scenarios/io-aggregation-timeout-api/README.md
 ```
 
 ## Results

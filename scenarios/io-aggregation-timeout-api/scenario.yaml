@@ -1,0 +1,43 @@
+name: io-aggregation-timeout-api
+description: "HTTP aggregation API where one upstream is slower than the target client timeout and should fall back."
+question: "How does the target behave when an aggregation request must return despite one slow upstream dependency?"
+implementation: java/spring-boot
+variant: jvm-java25
+
+target:
+  base_url: "http://localhost:8080"
+  startup_path: "/ping"
+  endpoint: "/aggregate"
+
+services:
+  postgres: false
+  redis: false
+  kafka: false
+  mock_upstream: true
+
+load:
+  tool: k6
+  script: "scenarios/io-aggregation-timeout-api/k6.js"
+  warmup_duration: "15s"
+  test_duration: "45s"
+  vus: 5
+
+runtime:
+  virtual_threads: false
+  otel: false
+
+metrics:
+  collect:
+    - build_time
+    - docker_image_build_time
+    - dependency_ready_time
+    - startup_ready_time
+    - first_request_latency
+    - rps
+    - p50_latency
+    - p95_latency
+    - p99_latency
+    - error_rate
+    - cpu_percent
+    - memory_usage
+    - memory_percent

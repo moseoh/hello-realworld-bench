@@ -30,9 +30,10 @@ Runnable scenario: [transactional-command-api](../scenarios/transactional-comman
 
 Runnable base scenario: [io-aggregation-api](../scenarios/io-aggregation-api/README.md)
 
+Runnable timeout scenario: [io-aggregation-timeout-api](../scenarios/io-aggregation-timeout-api/README.md)
+
 Remaining Phase 2 work:
 
-- timeout variant
 - virtual thread variant for Spring Boot
 
 ## Phase 3: Add Second Implementation

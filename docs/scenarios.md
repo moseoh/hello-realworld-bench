@@ -32,6 +32,7 @@ Scenario names should describe service patterns, not technologies. For example, 
 - [`cold-start-api`](../scenarios/cold-start-api/README.md): startup-focused scenario for first successful business endpoint response after app start.
 - [`transactional-command-api`](../scenarios/transactional-command-api/README.md): stateful command API scenario with PostgreSQL, JPA, one transaction, and an outbox insert.
 - [`io-aggregation-api`](../scenarios/io-aggregation-api/README.md): HTTP fan-out scenario with a mock upstream service and response aggregation.
+- [`io-aggregation-timeout-api`](../scenarios/io-aggregation-timeout-api/README.md): HTTP fan-out scenario where one slow upstream should time out and fall back.
 
 ## Future Scenario Notes
 
