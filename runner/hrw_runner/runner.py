@@ -209,6 +209,7 @@ def _measure_startup(compose_files: list[Path], config: RunConfig, log) -> dict[
     summary = summarize_startup_samples(samples)
     first_sample = samples[0]
     return {
+        "dependency_ready_ms": first_sample["dependency_ready_ms"],
         "ready_ms": first_sample["ready_ms"],
         "first_request_ms": first_sample["first_request_ms"],
         "iterations": iterations,
@@ -227,8 +228,9 @@ def _measure_startup_once(
     poll_interval = float(config.startup.get("poll_interval_seconds", 1))
     timeout_seconds = float(config.startup.get("timeout_seconds", 120))
     target_url = f"{base_url}{endpoint}"
+    dependency_ready_ms = _prestart_dependency_services(compose_files, config, log)
     start = time.perf_counter()
-    _compose(compose_files, ["up", "-d", "target"], log)
+    _compose(compose_files, ["up", "-d", "--no-deps", "target"], log)
 
     deadline = start + timeout_seconds
     while time.perf_counter() < deadline:
@@ -243,9 +245,43 @@ def _measure_startup_once(
         )
 
     return {
+        "dependency_ready_ms": dependency_ready_ms,
         "ready_ms": ready_ms,
         "first_request_ms": first_request_ms,
     }
+
+
+def _prestart_dependency_services(
+    compose_files: list[Path],
+    config: RunConfig,
+    log,
+) -> int:
+    services = _dependency_services(config)
+    if not services:
+        return 0
+
+    _log(log, f"Prestarting dependency services: {', '.join(services)}")
+    start = time.perf_counter()
+    _compose(compose_files, ["up", "-d", "--wait", *services], log)
+    return round((time.perf_counter() - start) * 1000)
+
+
+def _dependency_services(config: RunConfig) -> list[str]:
+    services = config.scenario_config.get("services", {})
+    if not isinstance(services, dict):
+        return []
+
+    service_names = {
+        "postgres": "postgres",
+        "redis": "redis",
+        "kafka": "kafka",
+        "mock_upstream": "mock-upstream",
+    }
+    return [
+        service_name
+        for key, service_name in service_names.items()
+        if services.get(key) is True
+    ]
 
 
 def _run_k6(root_dir: Path, config: RunConfig, duration: str, summary_path: Path, log) -> None:
@@ -397,6 +433,7 @@ def _result_document(
             "cache": build.get("cache"),
         },
         "startup": {
+            "dependency_ready_ms": startup.get("dependency_ready_ms"),
             "ready_ms": startup.get("ready_ms"),
             "first_request_ms": startup.get("first_request_ms"),
             "iterations": startup.get("iterations"),
