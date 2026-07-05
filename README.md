@@ -122,6 +122,15 @@ results/<language>/<framework>/<variant>/<scenario>/<run_id>/
 
 The normalized `result.json` shape is documented in [docs/results-schema.md](docs/results-schema.md).
 
+Summarize local benchmark results:
+
+```bash
+make summarize
+make summarize-json
+```
+
+`make summarize` prints a compact table from `results/**/result.json`. `make summarize-json` emits the same rows as JSON for later static dashboard tooling.
+
 ## Local App
 
 To run the app with Gradle:
