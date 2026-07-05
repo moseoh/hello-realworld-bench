@@ -10,6 +10,7 @@ Hello Real World Bench compares implementations through shared scenario contract
 - Use the same resource limits where possible.
 - Use the same database or mock dependencies when a scenario requires them.
 - Use the same load profile.
+- Use the same outbound HTTP client behavior for HTTP scenarios.
 - Do not use framework-specific cheating.
 - Document optimizations.
 - Present results as trade-offs, not universal rankings.
@@ -25,6 +26,10 @@ Docker Compose health checks should not call benchmarked endpoints during startu
 ## Resource Limits
 
 The MVP uses Docker Compose resource constraints. Later profiles may add stricter CPU and memory controls, but they should remain scenario-level configuration rather than implementation-specific tuning.
+
+## HTTP Baseline
+
+HTTP scenarios must keep target HTTP client behavior and mock upstream settings comparable across implementations. The current baseline is documented in [http-baseline.md](http-baseline.md).
 
 ## Build Conditions
 

@@ -1,9 +1,7 @@
 package org.hellorealworld.ping.aggregate;
 
-import java.time.Duration;
-
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -14,14 +12,8 @@ class RestClientUpstreamClient implements UpstreamClient {
 
 	RestClientUpstreamClient(
 			@Value("${mock.upstream.base-url:http://localhost:8081}") String baseUrl,
-			@Value("${AGGREGATION_UPSTREAM_TIMEOUT_MS:${aggregation.upstream.timeout-ms:0}}") long timeoutMs
+			HttpComponentsClientHttpRequestFactory requestFactory
 	) {
-		SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-		if (timeoutMs > 0) {
-			Duration timeout = Duration.ofMillis(timeoutMs);
-			requestFactory.setConnectTimeout(timeout);
-			requestFactory.setReadTimeout(timeout);
-		}
 		this.restClient = RestClient.builder()
 				.baseUrl(baseUrl)
 				.requestFactory(requestFactory)

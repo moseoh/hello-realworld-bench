@@ -26,6 +26,8 @@ Runtime metrics come from the scenario load test. Average latency is less import
 
 The MVP extracts request rate, p50, p95, p99, and error rate from the k6 summary JSON.
 
+For HTTP aggregation scenarios, target outbound HTTP client settings and mock upstream settings are part of the benchmark contract. The baseline is documented in [http-baseline.md](http-baseline.md).
+
 Some scenarios, such as `cold-start-api`, do not run a sustained k6 load phase. In those cases the k6 summary files record that load was skipped, and the startup result is the primary measurement.
 
 ### Resource Metrics

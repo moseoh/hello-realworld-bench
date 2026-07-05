@@ -25,6 +25,8 @@ How does the target behave when an aggregation request must return despite one s
 
 - `mock-upstream`, implemented with WireMock
 
+HTTP client and mock upstream baseline settings are documented in [../../docs/http-baseline.md](../../docs/http-baseline.md).
+
 ## Variants
 
 Initial variant:
