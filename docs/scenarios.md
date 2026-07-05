@@ -31,13 +31,13 @@ Scenario names should describe service patterns, not technologies. For example, 
 - [`ping-api`](../scenarios/ping-api/README.md): runner validation scenario for build, startup, k6, Docker stats, and result JSON automation.
 - [`cold-start-api`](../scenarios/cold-start-api/README.md): startup-focused scenario for first successful business endpoint response after app start.
 - [`transactional-command-api`](../scenarios/transactional-command-api/README.md): stateful command API scenario with PostgreSQL, JPA, one transaction, and an outbox insert.
+- [`io-aggregation-api`](../scenarios/io-aggregation-api/README.md): HTTP fan-out scenario with a mock upstream service and response aggregation.
 
 ## Future Scenario Notes
 
 Future scenarios may include:
 
 - `read-heavy-query-api`
-- `io-aggregation-api`
 - `event-processing-worker`
 - `file-streaming-api`
 - `observability-overhead-api`
