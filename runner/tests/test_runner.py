@@ -58,6 +58,10 @@ class ResultDocumentTest(unittest.TestCase):
 
         self.assertEqual(result["schema_version"], RESULT_SCHEMA_VERSION)
         self.assertEqual(result["scenario"], "ping-api")
+        self.assertNotIn("language", config.runtime)
+        self.assertNotIn("framework", config.runtime)
+        self.assertEqual(result["runtime"]["language"], "java")
+        self.assertEqual(result["runtime"]["framework"], "spring-boot")
         self.assertEqual(result["build"]["clean_build_ms"], 1000)
         self.assertEqual(result["build"]["cache"]["docker_build_cache"], "enabled")
         self.assertEqual(result["startup"]["dependency_ready_ms"], 0)

@@ -159,8 +159,8 @@ def _metadata(config: RunConfig, run_id: str) -> dict[str, object]:
 
 def _runtime(config: RunConfig) -> dict[str, object]:
     runtime = dict(config.runtime)
-    runtime.setdefault("language", config.language)
-    runtime.setdefault("framework", config.framework)
+    runtime["language"] = config.language
+    runtime["framework"] = config.framework
     return runtime
 
 

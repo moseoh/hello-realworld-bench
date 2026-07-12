@@ -310,22 +310,20 @@ class ResolveRunConfigTest(unittest.TestCase):
                 "language": "java",
                 "framework": "other",
                 "programming_model": "synchronous",
-                "default_variant": "other-java25",
+                "default_variant": "jvm-java25",
                 "default_build_profile": "local-gradle-docker",
             },
         )
         self._write_yaml(
-            app_dir / "variants/other-java25.yaml",
+            app_dir / "variants/jvm-java25.yaml",
             {
                 "schema_version": "1.0",
-                "id": "other-java25",
+                "id": "jvm-java25",
                 "contract_version": "1.0",
                 "description": "Other Java 25 variant.",
                 "implementation": "java/other",
                 "runtime": {
-                    "language": "java",
                     "java_version": "25",
-                    "framework": "other",
                     "build_mode": "jvm",
                 },
                 "docker": {"image_tag": "hello-realworld/java-other:local"},
@@ -337,16 +335,16 @@ class ResolveRunConfigTest(unittest.TestCase):
         self.assertEqual(config.implementation, "java/other")
         self.assertEqual(config.language, "java")
         self.assertEqual(config.framework, "other")
-        self.assertEqual(config.variant, "other-java25")
+        self.assertEqual(config.variant, "jvm-java25")
         self.assertEqual(config.app_dir, app_dir)
         self.assertEqual(config.scenario_dir, root_dir / "scenarios/ping-api")
         self.assertEqual(
             config.variant_file,
-            app_dir / "variants/other-java25.yaml",
+            app_dir / "variants/jvm-java25.yaml",
         )
         self.assertEqual(
             config.result_prefix,
-            ("java", "other", "other-java25", "ping-api"),
+            ("java", "other", "jvm-java25", "ping-api"),
         )
 
     def test_rejects_any_selected_draft_profile(self):

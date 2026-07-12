@@ -56,8 +56,6 @@ class ContractValidationTest(unittest.TestCase):
                 "description": "Default variant.",
                 "implementation": "python/example",
                 "runtime": {
-                    "language": "python",
-                    "framework": "example",
                     "build_mode": "interpreted",
                 },
                 "docker": {"image_tag": "example:local"},
@@ -206,6 +204,28 @@ class ContractValidationTest(unittest.TestCase):
 
         self.assertIn("build_profile", str(context.exception))
         self.assertIn("was unexpected", str(context.exception))
+
+    def test_read_variant_accepts_runtime_without_implementation_identity(self):
+        path = self.root_dir / "implementations/python/example/variants/default.yaml"
+
+        document = read_contract(path, "variant", self.root_dir)
+
+        self.assertEqual(document.value["runtime"], {"build_mode": "interpreted"})
+
+    def test_read_variant_rejects_runtime_implementation_identity(self):
+        path = self.root_dir / "implementations/python/example/variants/default.yaml"
+        value = self.read_yaml("implementations/python/example/variants/default.yaml")
+        value["runtime"].update({"language": "ruby", "framework": "other"})
+        self.write_yaml("implementations/python/example/variants/default.yaml", value)
+
+        with self.assertRaises(ContractValidationError) as context:
+            read_contract(path, "variant", self.root_dir)
+
+        error = str(context.exception)
+        self.assertIn("$.runtime", error)
+        self.assertIn("framework", error)
+        self.assertIn("language", error)
+        self.assertIn("unexpected", error)
 
     def test_read_contract_rejects_non_object_documents(self):
         path = self.root_dir / "contracts/build-profiles/build.yaml"
@@ -640,6 +660,24 @@ class ContractValidationTest(unittest.TestCase):
 
         self.assertIn("duplicate implementation identity", str(context.exception))
         self.assertIn("python/example", str(context.exception))
+
+    def test_validate_repository_rejects_duplicate_variant_identity_at_a_different_version(
+        self,
+    ):
+        value = self.read_yaml("implementations/python/example/variants/default.yaml")
+        value["contract_version"] = "2.0"
+        self.write_yaml(
+            "implementations/python/example/variants/duplicate.yaml",
+            value,
+        )
+
+        with self.assertRaises(ContractValidationError) as context:
+            validate_repository_contracts(self.root_dir)
+
+        error = str(context.exception)
+        self.assertIn("duplicate variant identity", error)
+        self.assertIn("implementations/python/example/variants/default.yaml", error)
+        self.assertIn("implementations/python/example/variants/duplicate.yaml", error)
 
     def test_validate_repository_requires_implementation_identity_to_match_path(self):
         implementation = self.read_yaml("implementations/python/example/implementation.yaml")

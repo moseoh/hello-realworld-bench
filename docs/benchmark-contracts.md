@@ -22,6 +22,12 @@ performance conclusion.
 | Measurement protocol | `contracts/measurement-protocols/<protocol>.yaml` | Evidence family, trial count, warmup, and measured duration. |
 | Build profile | `contracts/build-profiles/<profile>.yaml` | Build tool, dependency-cache state, image-cache state, and image input. |
 
+Variant identifiers are unique within their owning implementation, so different
+implementations may use the same variant identifier. Every other contract kind
+has repository-wide identity by contract kind and identifier. Language and
+framework identity comes only from the implementation contract; result metadata
+combines those canonical values with the selected variant's runtime fields.
+
 A service scenario does not select an implementation, runtime, or implementation
 variant. The command selects the implementation and may override a variant or any
 profile selection. When values are omitted, the implementation supplies the

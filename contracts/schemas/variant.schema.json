@@ -25,13 +25,10 @@
     "runtime": {
       "type": "object",
       "additionalProperties": false,
-      "minProperties": 3,
-      "required": ["language", "framework", "build_mode"],
+      "required": ["build_mode"],
       "properties": {
-        "language": { "type": "string", "minLength": 1 },
         "version": { "type": "string", "minLength": 1 },
         "java_version": { "type": "string", "minLength": 1 },
-        "framework": { "type": "string", "minLength": 1 },
         "framework_version": { "type": "string", "minLength": 1 },
         "spring_boot_version": { "type": "string", "minLength": 1 },
         "build_mode": { "type": "string", "minLength": 1 },

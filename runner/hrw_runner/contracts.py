@@ -189,16 +189,26 @@ def _validate_document_identities(
     documents: list[ContractDocument], root_dir: Path
 ) -> list[str]:
     errors: list[str] = []
-    identities: dict[tuple[str, str], ContractDocument] = {}
+    identities: dict[tuple[str, ...], ContractDocument] = {}
     for document in documents:
-        identity = (document.kind, str(document.value["id"]))
+        document_id = str(document.value["id"])
+        if document.kind == "variant":
+            identity = (
+                document.kind,
+                str(document.value["implementation"]),
+                document_id,
+            )
+            display_identity = f"{identity[1]}, {identity[2]}"
+        else:
+            identity = (document.kind, document_id)
+            display_identity = document_id
         original = identities.get(identity)
         if original is None:
             identities[identity] = document
             continue
         errors.append(
             f"{_display_path(document.path, root_dir)}: $.id: duplicate "
-            f"{document.kind} identity ({identity[1]}); already defined by "
+            f"{document.kind} identity ({display_identity}); already defined by "
             f"{_display_path(original.path, root_dir)}"
         )
     return errors
