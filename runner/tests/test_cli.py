@@ -141,6 +141,26 @@ class CliTest(unittest.TestCase):
         run.assert_called_once_with(config, PROJECT_ROOT)
         self.assertIn("Result directory:", output.getvalue())
 
+    def test_run_set_uses_the_resolved_measurement_protocol(self):
+        config = object()
+        output = io.StringIO()
+        with (
+            patch("pathlib.Path.cwd", return_value=PROJECT_ROOT),
+            patch("hrw_runner.__main__.resolve_run_config", return_value=config),
+            patch(
+                "hrw_runner.__main__.run_benchmark_set",
+                return_value=PROJECT_ROOT / "results/run-set",
+            ) as run_set,
+            redirect_stdout(output),
+        ):
+            exit_code = main(
+                ["run-set", "java/spring-boot", "ping-api", "jvm-java25"]
+            )
+
+        self.assertEqual(exit_code, 0)
+        run_set.assert_called_once_with(config, PROJECT_ROOT)
+        self.assertIn("Run set directory:", output.getvalue())
+
     def test_run_passes_all_profile_flags_after_the_optional_variant(self):
         config = object()
         output = io.StringIO()

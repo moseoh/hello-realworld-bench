@@ -6,10 +6,13 @@ ENVIRONMENT_PROFILE ?=
 MEASUREMENT_PROTOCOL ?=
 BUILD_PROFILE ?=
 
-.PHONY: run summarize summarize-json summarize-latest summarize-latest-json validate-contracts test-runner test-spring check
+.PHONY: run run-set summarize summarize-json summarize-latest summarize-latest-json validate-contracts test-runner test-spring check
 
 run:
 	PYTHONPATH=runner uv run --project runner python -m hrw_runner $(IMPLEMENTATION) $(SCENARIO) $(if $(strip $(VARIANT)),$(VARIANT)) $(if $(strip $(LOAD_PROFILE)),--load-profile $(LOAD_PROFILE)) $(if $(strip $(ENVIRONMENT_PROFILE)),--environment-profile $(ENVIRONMENT_PROFILE)) $(if $(strip $(MEASUREMENT_PROTOCOL)),--measurement-protocol $(MEASUREMENT_PROTOCOL)) $(if $(strip $(BUILD_PROFILE)),--build-profile $(BUILD_PROFILE))
+
+run-set:
+	PYTHONPATH=runner uv run --project runner python -m hrw_runner run-set $(IMPLEMENTATION) $(SCENARIO) $(if $(strip $(VARIANT)),$(VARIANT)) $(if $(strip $(LOAD_PROFILE)),--load-profile $(LOAD_PROFILE)) $(if $(strip $(ENVIRONMENT_PROFILE)),--environment-profile $(ENVIRONMENT_PROFILE)) $(if $(strip $(MEASUREMENT_PROTOCOL)),--measurement-protocol $(MEASUREMENT_PROTOCOL)) $(if $(strip $(BUILD_PROFILE)),--build-profile $(BUILD_PROFILE))
 
 summarize:
 	@PYTHONPATH=runner uv run --project runner python -m hrw_runner summarize

@@ -62,6 +62,13 @@ The Spring Boot implementation is generated from Spring Initializr and includes 
 make run
 ```
 
+Run the contract-defined number of independent trials while building the target
+only once:
+
+```bash
+make run-set
+```
+
 With explicit values:
 
 ```bash
@@ -124,6 +131,11 @@ The shorter `spring-boot` form is kept as a compatibility alias for the default 
 
 The Makefile calls the uv-managed Python runner. Before starting measurement, the runner resolves and strictly validates an exact-run manifest against the current checkout. It then uses the manifest's ordered Compose assets, cleans previous containers, builds the app and target image, measures startup, runs warmup and benchmark k6 phases when enabled, collects Docker stats, writes results, and shuts down the container.
 
+`make run` keeps the original single-result development workflow. `make run-set`
+is the repeatable evidence workflow: it builds once, executes the selected
+measurement protocol's `trials`, resets Compose state between trials, and validates
+the complete digest chain before returning successfully.
+
 The implementation contract owns the default variant and build profile. Each
 service scenario owns the default load profile, environment profile, and
 measurement protocol. The runner reads these contracts from:
@@ -177,6 +189,32 @@ results/java/spring-boot/jvm-java25/<scenario>/2026-07-04T21-30-00_java_spring-b
 ├── result.json
 └── run.log
 ```
+
+Each run set creates shared build and manifest evidence plus independent trial
+directories:
+
+```text
+results/<language>/<framework>/<variant>/<scenario>/<run_set_id>/
+├── resolved-manifest.json
+├── metadata.json
+├── build.json
+├── run-set.json
+├── run.log
+└── trials/
+    └── 01/
+        ├── trial.json
+        ├── result.json
+        ├── time-series.json
+        ├── artifact-manifest.json
+        ├── startup.json
+        ├── k6-summary.json
+        ├── docker-stats.json
+        ├── target.log
+        └── run.log
+```
+
+The evidence document relationships and cross-file checksum rules are documented
+in [docs/evidence-model.md](docs/evidence-model.md).
 
 Some schema fields may be `null` during the MVP. The important contract is that result files are stable, timestamped, and machine-readable where practical.
 

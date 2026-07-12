@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from dataclasses import replace
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from hrw_runner.config import resolve_run_config
 from hrw_runner.manifest import validate_resolved_manifest
@@ -13,10 +13,14 @@ from hrw_runner.runner import (
     RunPaths,
     _compose_files,
     _dependency_services,
+    _docker_stats_json_line,
     _metadata,
     _result_document,
     _run_k6,
+    _sample_docker_stats,
+    _trial_validity,
     run_benchmark,
+    run_benchmark_set,
 )
 
 
@@ -157,6 +161,50 @@ class ResultDocumentTest(unittest.TestCase):
                 "memory_percent": 12.55,
             },
         )
+
+
+class TrialValidityTest(unittest.TestCase):
+    def test_marks_failed_k6_checks_invalid(self):
+        status, reasons = _trial_validity(
+            {"metrics": {"checks": {"passes": 9, "fails": 1}}}
+        )
+
+        self.assertEqual(status, "invalid")
+        self.assertEqual(reasons, ["k6 reported 1 failed checks"])
+
+    def test_accepts_successful_or_load_disabled_trials(self):
+        self.assertEqual(
+            _trial_validity({"metrics": {"checks": {"passes": 10, "fails": 0}}}),
+            ("valid", []),
+        )
+        self.assertEqual(
+            _trial_validity({"skipped": True, "reason": "load disabled"}),
+            ("valid", []),
+        )
+
+
+class DockerStatsSamplingTest(unittest.TestCase):
+    @patch("hrw_runner.runner.time.perf_counter", side_effect=[0.4, 1.4])
+    @patch("hrw_runner.runner.subprocess.Popen")
+    def test_collects_one_sample_per_streamed_docker_stats_row(self, popen, _clock):
+        process = popen.return_value
+        process.stdout = iter(
+            [
+                '\x1b[H{"CPUPerc":"1%","MemUsage":"1MiB / 1GiB"}\x1b[K\n',
+                '\x1b[J\x1b[H{"CPUPerc":"2%","MemUsage":"2MiB / 1GiB"}\x1b[K\n',
+            ]
+        )
+        stop = Mock()
+        stop.is_set.return_value = False
+        samples = []
+
+        _sample_docker_stats(samples, stop, 1.0, 0.0)
+
+        self.assertEqual([sample["elapsed_ms"] for sample in samples], [400, 1400])
+        process.terminate.assert_called_once()
+
+    def test_ignores_terminal_control_only_rows(self):
+        self.assertIsNone(_docker_stats_json_line("\x1b[K\n"))
 
 
 class StartupDependencyTest(unittest.TestCase):
@@ -300,6 +348,70 @@ class ManifestRunFlowTest(unittest.TestCase):
 
         compose.assert_not_called()
         measure_build.assert_not_called()
+
+
+class RunSetFlowTest(unittest.TestCase):
+    @patch("hrw_runner.runner.validate_run_set_evidence")
+    @patch("hrw_runner.runner.sha256_file", return_value="c" * 64)
+    @patch("hrw_runner.runner._execute_trial")
+    @patch("hrw_runner.runner._measure_build", return_value={"clean_build_ms": 1})
+    @patch("hrw_runner.runner._compose_files", return_value=[])
+    @patch("hrw_runner.runner.validate_resolved_manifest")
+    @patch("hrw_runner.runner.build_resolved_manifest")
+    @patch("hrw_runner.runner.read_git_provenance", return_value={})
+    @patch("hrw_runner.runner._compose")
+    @patch("hrw_runner.runner._validate_paths")
+    def test_builds_once_and_executes_every_protocol_trial(
+        self,
+        _validate_paths,
+        _compose,
+        _provenance,
+        build_manifest,
+        _validate_manifest,
+        _compose_files,
+        measure_build,
+        execute_trial,
+        _sha256_file,
+        _validate_evidence,
+    ):
+        root_dir = Path(__file__).resolve().parents[2]
+        base_config = resolve_run_config(
+            "java/spring-boot", "ping-api", "jvm-java25", root_dir
+        )
+        config = replace(
+            base_config,
+            measurement_protocol_config={
+                **base_config.measurement_protocol_config,
+                "trials": 3,
+            },
+        )
+        build_manifest.return_value = {
+            "manifest_digest": MANIFEST_DIGEST,
+            "cohort": {"fingerprint": COHORT_FINGERPRINT},
+        }
+        execute_trial.side_effect = [
+            {
+                "trial_id": f"trial-{index:02d}",
+                "status": "valid",
+                "result": {"runtime_metrics": {"rps": float(index)}},
+            }
+            for index in range(1, 4)
+        ]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            result_dir = Path(temp_dir) / "run-set"
+            with patch(
+                "hrw_runner.runner._run_set_paths",
+                return_value=RunPaths(result_dir=result_dir, run_id="run-set-id"),
+            ):
+                actual = run_benchmark_set(config, root_dir)
+            run_set = json.loads((result_dir / "run-set.json").read_text())
+
+        self.assertEqual(actual, result_dir)
+        measure_build.assert_called_once()
+        self.assertEqual(execute_trial.call_count, 3)
+        self.assertEqual(run_set["expected_trials"], 3)
+        self.assertEqual(run_set["summary"]["valid_trial_count"], 3)
 
 
 class MetadataTest(unittest.TestCase):

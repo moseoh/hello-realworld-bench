@@ -186,6 +186,27 @@ class ResolveRunConfigTest(unittest.TestCase):
         self.assertEqual(config.measurement_protocol_config["trials"], 5)
         self.assertEqual(config.startup["iterations"], 5)
 
+    def test_service_trial_count_does_not_repeat_startup_inside_each_trial(self):
+        root_dir = self._copy_runnable_contracts()
+        self._copy_profile(
+            root_dir,
+            "measurement-protocols/development-service.yaml",
+            "measurement-protocols/three-trial-service.yaml",
+            "three-trial-service",
+            changes={"trials": 3},
+        )
+
+        config = resolve_run_config(
+            "java/spring-boot",
+            "ping-api",
+            None,
+            root_dir,
+            measurement_protocol="three-trial-service",
+        )
+
+        self.assertEqual(config.measurement_protocol_config["trials"], 3)
+        self.assertEqual(config.startup["iterations"], 1)
+
     def test_rejects_incompatible_measurement_evidence_family(self):
         with self.assertRaisesRegex(
             ValueError,
@@ -235,14 +256,6 @@ class ResolveRunConfigTest(unittest.TestCase):
                     "warmup_seconds": 10,
                     "measured_seconds": 20,
                 },
-            ),
-            (
-                "measurement-protocols/development-service.yaml",
-                "measurement-protocols/unsupported-service-trials.yaml",
-                "unsupported-service-trials",
-                "measurement_protocol",
-                "measurement protocol",
-                {"trials": 2},
             ),
             (
                 "build-profiles/local-gradle-docker.yaml",

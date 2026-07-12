@@ -5,7 +5,7 @@ from pathlib import Path
 
 from .config import resolve_run_config
 from .contracts import ContractValidationError, validate_repository_contracts
-from .runner import run_benchmark
+from .runner import run_benchmark, run_benchmark_set
 from .summarize import collect_result_rows, filter_latest_rows, format_table, rows_to_json
 
 
@@ -21,6 +21,9 @@ _USAGE = (
     "[--load-profile ID] [--environment-profile ID] "
     "[--measurement-protocol ID] [--build-profile ID]\n"
     "       python -m hrw_runner summarize [--latest-only] [--json]\n"
+    "       python -m hrw_runner run-set <implementation> <scenario> [variant] "
+    "[--load-profile ID] [--environment-profile ID] "
+    "[--measurement-protocol ID] [--build-profile ID]\n"
     "       python -m hrw_runner validate"
 )
 
@@ -56,7 +59,9 @@ def main(argv: list[str] | None = None) -> int:
             print(format_table(rows))
         return 0
 
-    parsed_run_args = _parse_run_args(args)
+    run_set_mode = bool(args and args[0] == "run-set")
+    run_args = args[1:] if run_set_mode else args
+    parsed_run_args = _parse_run_args(run_args)
     if parsed_run_args is None:
         print(_USAGE, file=sys.stderr)
         return 2
@@ -71,12 +76,17 @@ def main(argv: list[str] | None = None) -> int:
             root_dir,
             **profile_overrides,
         )
-        result_dir = run_benchmark(config, root_dir)
+        result_dir = (
+            run_benchmark_set(config, root_dir)
+            if run_set_mode
+            else run_benchmark(config, root_dir)
+        )
     except Exception as exc:
         print(str(exc), file=sys.stderr)
         return 1
 
-    print(f"Result directory: {result_dir}")
+    label = "Run set directory" if run_set_mode else "Result directory"
+    print(f"{label}: {result_dir}")
     return 0
 
 
