@@ -12,6 +12,11 @@ from pathlib import Path
 
 from .commands import run
 from .config import RunConfig
+from .manifest import (
+    build_resolved_manifest,
+    read_git_provenance,
+    validate_resolved_manifest,
+)
 from .results import (
     docker_resource_metrics,
     environment_metadata,
@@ -21,7 +26,14 @@ from .results import (
     write_json,
 )
 
-RESULT_SCHEMA_VERSION = "0.1"
+RESULT_SCHEMA_VERSION = "0.2"
+
+_COMPOSE_ROLE_ORDER = {
+    "environment-compose": 0,
+    "implementation-compose": 1,
+    "variant-compose": 2,
+    "scenario-compose": 3,
+}
 
 
 @dataclass(frozen=True)
@@ -39,13 +51,29 @@ def run_benchmark(config: RunConfig, root_dir: Path) -> Path:
         _log(log, f"Run ID: {paths.run_id}")
         _validate_paths(config)
 
-        compose_files = _compose_files(config, root_dir)
+        source = read_git_provenance(root_dir)
+        manifest = build_resolved_manifest(config, paths.run_id, source)
+        validate_resolved_manifest(manifest, root_dir)
+        write_json(paths.result_dir / "resolved-manifest.json", manifest)
+        manifest_digest = str(manifest["manifest_digest"])
+        cohort = manifest["cohort"]
+        assert isinstance(cohort, dict)
+        cohort_fingerprint = str(cohort["fingerprint"])
+        _log(log, f"manifest_digest: {manifest_digest}")
+        _log(log, f"cohort_fingerprint: {cohort_fingerprint}")
+
+        compose_files = _compose_files(manifest, root_dir)
 
         try:
             _log(log, "Cleaning previous containers...")
             _compose(compose_files, ["down", "-v", "--remove-orphans"], log, allow_failure=True)
 
-            metadata = _metadata(config, paths.run_id)
+            metadata = _metadata(
+                config,
+                paths.run_id,
+                manifest_digest,
+                cohort_fingerprint,
+            )
             write_json(paths.result_dir / "metadata.json", metadata)
 
             _log(log, "Measuring build...")
@@ -89,6 +117,8 @@ def run_benchmark(config: RunConfig, root_dir: Path) -> Path:
             result = _result_document(
                 config,
                 paths.run_id,
+                manifest_digest,
+                cohort_fingerprint,
                 metadata["environment"],
                 build,
                 startup,
@@ -136,28 +166,55 @@ def _scenario_script(config: RunConfig) -> Path:
     return script
 
 
-def _compose_files(config: RunConfig, root_dir: Path) -> list[Path]:
-    compose_files = [
-        root_dir / "infra" / "docker-compose.base.yml",
-        root_dir / "infra" / f"docker-compose.{config.compose_profile}.yml",
-    ]
+def _compose_files(manifest: dict[str, object], root_dir: Path) -> list[Path]:
+    assets = manifest.get("assets")
+    if not isinstance(assets, list):
+        raise ValueError("Invalid compose assets in resolved manifest")
 
-    variant_compose_file = (
-        root_dir / "infra" / f"docker-compose.{config.compose_profile}.{config.variant}.yml"
-    )
-    if variant_compose_file.is_file():
-        compose_files.append(variant_compose_file)
+    compose_assets = []
+    for asset in assets:
+        if not isinstance(asset, dict) or asset.get("role") not in _COMPOSE_ROLE_ORDER:
+            continue
+        relative_path = asset.get("path")
+        if not isinstance(relative_path, str):
+            raise ValueError("Invalid compose asset path in resolved manifest")
+        path = root_dir / relative_path
+        try:
+            resolved_path = path.resolve(strict=True)
+            resolved_path.relative_to(root_dir.resolve(strict=True))
+        except (FileNotFoundError, ValueError):
+            raise ValueError(f"Invalid compose asset path: {relative_path}") from None
+        if (
+            resolved_path != path.absolute()
+            or not path.is_file()
+            or path.parent != root_dir / "infra"
+            or not path.name.startswith("docker-compose.")
+            or path.suffix not in {".yml", ".yaml"}
+        ):
+            raise ValueError(f"Invalid compose asset path: {relative_path}")
+        compose_assets.append((str(asset["role"]), path))
 
-    scenario_compose_file = root_dir / "infra" / f"docker-compose.{config.scenario}.yml"
-    if scenario_compose_file.is_file():
-        compose_files.append(scenario_compose_file)
+    roles = [role for role, _path in compose_assets]
+    if len(roles) != len(set(roles)):
+        raise ValueError("Invalid duplicate compose asset role in resolved manifest")
+    required_roles = {"environment-compose", "implementation-compose"}
+    if not required_roles.issubset(roles):
+        raise ValueError("Invalid compose assets in resolved manifest: required roles missing")
 
-    return compose_files
+    compose_assets.sort(key=lambda item: _COMPOSE_ROLE_ORDER[item[0]])
+    return [path for _role, path in compose_assets]
 
 
-def _metadata(config: RunConfig, run_id: str) -> dict[str, object]:
+def _metadata(
+    config: RunConfig,
+    run_id: str,
+    manifest_digest: str,
+    cohort_fingerprint: str,
+) -> dict[str, object]:
     return {
         "run_id": run_id,
+        "manifest_digest": manifest_digest,
+        "cohort_fingerprint": cohort_fingerprint,
         "project": "hello-realworld-bench",
         "scenario": config.scenario,
         "implementation": config.implementation,
@@ -431,6 +488,8 @@ def _load_enabled(config: RunConfig) -> bool:
 def _result_document(
     config: RunConfig,
     run_id: str,
+    manifest_digest: str,
+    cohort_fingerprint: str,
     environment: dict[str, object],
     build: dict[str, object],
     startup: dict[str, object],
@@ -443,6 +502,8 @@ def _result_document(
     return {
         "schema_version": RESULT_SCHEMA_VERSION,
         "run_id": run_id,
+        "manifest_digest": manifest_digest,
+        "cohort_fingerprint": cohort_fingerprint,
         "project": "hello-realworld-bench",
         "scenario": config.scenario,
         "implementation": config.implementation,

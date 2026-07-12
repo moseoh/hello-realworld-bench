@@ -35,6 +35,10 @@ Runner behavior is configuration-driven:
 
 The complete ownership model and current catalog status are documented in [benchmark-contracts.md](benchmark-contracts.md). Current runs use development profiles for local Docker Compose execution. Run resolution rejects any selected draft profile, and draft profiles do not define official benchmark results.
 
+Before measurement, the runner persists and validates a checkout-bound resolved
+manifest. That manifest is the source of the ordered Compose overlay list and links
+the exact inputs to result metadata. See [resolved-run-manifest.md](resolved-run-manifest.md).
+
 ## Build Measurement
 
 The MVP records two separate build phases:
@@ -92,6 +96,6 @@ Results mirror the implementation layout:
 results/java/spring-boot/jvm-java25/ping-api/<run_id>/
 ```
 
-The normalized `result.json` contract is documented in [results-schema.md](results-schema.md). Scenario-specific raw details remain in files such as `startup.json` and `k6-summary.json`.
+The normalized `result.json` contract is documented in [results-schema.md](results-schema.md). `resolved-manifest.json` records exact inputs and comparison-cohort identity. Scenario-specific raw details remain in files such as `startup.json` and `k6-summary.json`.
 
 The first target is runner correctness, not performance ranking.

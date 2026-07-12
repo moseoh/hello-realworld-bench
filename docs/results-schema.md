@@ -2,11 +2,11 @@
 
 `result.json` is the normalized machine-readable summary for one benchmark run. Raw files such as `startup.json`, `k6-summary.json`, `docker-stats.json`, and `run.log` remain available in the same result directory for debugging.
 
-The MVP schema version is:
+The schema version is:
 
 ```json
 {
-  "schema_version": "0.1"
+  "schema_version": "0.2"
 }
 ```
 
@@ -18,8 +18,10 @@ Every `result.json` file must include these top-level fields:
 
 ```json
 {
-  "schema_version": "0.1",
+  "schema_version": "0.2",
   "run_id": "2026-07-04T21-30-00_java_spring-boot_jvm-java25_ping-api",
+  "manifest_digest": "<64-character SHA-256 digest>",
+  "cohort_fingerprint": "<64-character SHA-256 digest>",
   "project": "hello-realworld-bench",
   "scenario": "ping-api",
   "implementation": "java/spring-boot",
@@ -31,6 +33,11 @@ Every `result.json` file must include these top-level fields:
   "runtime_metrics": {}
 }
 ```
+
+`manifest_digest` and `cohort_fingerprint` are required. They must exactly match
+`resolved-manifest.json` at `manifest_digest` and `cohort.fingerprint`, respectively,
+and the same top-level fields in `metadata.json`. See
+[resolved-run-manifest.md](resolved-run-manifest.md) for their inclusion rules.
 
 ## Runtime
 
