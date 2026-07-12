@@ -2,6 +2,12 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://hellorealworld.dev/contracts/schemas/scenario.schema.json",
   "title": "Benchmark scenario contract",
+  "$defs": {
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?![\\s\\S])"
+    }
+  },
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -23,7 +29,7 @@
   ],
   "properties": {
     "schema_version": { "const": "1.0" },
-    "id": { "type": "string", "minLength": 1 },
+    "id": { "$ref": "#/$defs/slug" },
     "contract_version": {
       "type": "string",
       "pattern": "^[0-9]+\\.[0-9]+(?:\\.[0-9]+)?$"
@@ -58,7 +64,7 @@
         "additionalProperties": false,
         "required": ["id", "description"],
         "properties": {
-          "id": { "type": "string", "minLength": 1 },
+          "id": { "$ref": "#/$defs/slug" },
           "description": { "type": "string", "minLength": 1 }
         }
       }
@@ -72,9 +78,9 @@
         "load_profile"
       ],
       "properties": {
-        "environment_profile": { "type": "string", "minLength": 1 },
-        "measurement_protocol": { "type": "string", "minLength": 1 },
-        "load_profile": { "type": "string", "minLength": 1 }
+        "environment_profile": { "$ref": "#/$defs/slug" },
+        "measurement_protocol": { "$ref": "#/$defs/slug" },
+        "load_profile": { "$ref": "#/$defs/slug" }
       }
     },
     "target": {

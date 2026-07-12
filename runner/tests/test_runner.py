@@ -1,5 +1,9 @@
+import io
+import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
+from unittest.mock import patch
 
 from hrw_runner.config import resolve_run_config
 from hrw_runner.runner import (
@@ -7,6 +11,7 @@ from hrw_runner.runner import (
     _compose_files,
     _dependency_services,
     _result_document,
+    _run_k6,
 )
 
 
@@ -190,6 +195,109 @@ class ComposeFilesTest(unittest.TestCase):
                 "docker-compose.io-aggregation-api.yml",
             ],
         )
+
+
+class ScenarioScriptPathTest(unittest.TestCase):
+    def setUp(self):
+        self.root_dir = Path(__file__).resolve().parents[2]
+        self.config = resolve_run_config(
+            "java/spring-boot",
+            "ping-api",
+            "jvm-java25",
+            self.root_dir,
+        )
+
+    @patch("hrw_runner.runner._run_logged")
+    @patch("hrw_runner.runner.shutil.which", return_value="/usr/local/bin/k6")
+    def test_run_k6_rejects_scripts_outside_scenario_or_not_regular_js_files(
+        self, _which, _run_logged
+    ):
+        for script in (
+            "scenarios/io-aggregation-api/k6.js",
+            "scenarios/ping-api/README.md",
+            "scenarios/ping-api/missing.js",
+        ):
+            with self.subTest(script=script):
+                config = replace(
+                    self.config,
+                    load={**self.config.load, "script": script},
+                )
+
+                with self.assertRaisesRegex(SystemExit, "Invalid scenario k6 script"):
+                    _run_k6(
+                        self.root_dir,
+                        config,
+                        "1s",
+                        self.root_dir / "summary.json",
+                        io.StringIO(),
+                    )
+
+    @patch("hrw_runner.runner._run_logged")
+    @patch("hrw_runner.runner.shutil.which", return_value="/usr/local/bin/k6")
+    def test_run_k6_rejects_scenario_script_symlink_escape(
+        self, _which, run_logged
+    ):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root_dir = Path(temp_dir)
+            scenario_dir = root_dir / "scenarios/ping-api"
+            scenario_dir.mkdir(parents=True)
+            outside_script = root_dir / "outside.js"
+            outside_script.write_text("export default function () {}\n")
+            script = scenario_dir / "escape.js"
+            try:
+                script.symlink_to(outside_script)
+            except OSError as error:
+                self.skipTest(f"symlinks are not available: {error}")
+            config = replace(
+                self.config,
+                root_dir=root_dir,
+                scenario_dir=scenario_dir,
+                load={**self.config.load, "script": "scenarios/ping-api/escape.js"},
+            )
+
+            with self.assertRaisesRegex(SystemExit, "Invalid scenario k6 script"):
+                _run_k6(
+                    root_dir,
+                    config,
+                    "1s",
+                    root_dir / "summary.json",
+                    io.StringIO(),
+                )
+
+        run_logged.assert_not_called()
+
+    @patch("hrw_runner.runner._run_logged")
+    @patch("hrw_runner.runner.shutil.which", return_value="/usr/local/bin/k6")
+    def test_local_k6_uses_validated_scenario_script(self, _which, run_logged):
+        summary_path = self.root_dir / "summary.json"
+
+        _run_k6(
+            self.root_dir,
+            self.config,
+            "1s",
+            summary_path,
+            io.StringIO(),
+        )
+
+        args = run_logged.call_args.args[0]
+        self.assertEqual(
+            args[-1],
+            str((self.root_dir / "scenarios/ping-api/k6.js").resolve()),
+        )
+
+    @patch("hrw_runner.runner._run_logged")
+    @patch("hrw_runner.runner.shutil.which", return_value=None)
+    def test_docker_k6_uses_validated_scenario_script(self, _which, run_logged):
+        _run_k6(
+            self.root_dir,
+            self.config,
+            "1s",
+            self.root_dir / "summary.json",
+            io.StringIO(),
+        )
+
+        args = run_logged.call_args.args[0]
+        self.assertEqual(args[-1], "/work/scenarios/ping-api/k6.js")
 
 
 if __name__ == "__main__":

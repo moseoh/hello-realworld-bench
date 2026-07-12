@@ -78,6 +78,21 @@ and every `implementations/<language>/<framework>/` directory must contain
 `implementation.yaml`. YAML outside the documented contract paths is not parsed as
 a contract.
 
+Path-derived identifiers and references use portable lowercase slugs. A slug
+matches `[a-z0-9]+` segments separated only by single hyphens. Scenario, profile,
+and variant identifiers, scenario variant identifiers, language and framework
+values, and default variant and profile references all use this form.
+Implementation identifiers and variant implementation references contain exactly
+two slugs separated by one slash, as `<language>/<framework>`.
+
+When scenario load is enabled, `load.script` must be a canonical POSIX
+repository-relative path under `scenarios/<scenario-id>/`, may name a nested file,
+and must end in `.js`. Absolute paths, backslashes, empty, dot, or dot-dot path
+segments, duplicate separators, and paths that require normalization are invalid.
+The path must identify an existing regular file, and its resolved path must remain
+inside the owning scenario directory so that symlinks cannot escape that boundary.
+Load-disabled scenarios do not require a script.
+
 Successful validation prints the number of discovered contract files. Invalid
 repositories return exit code `1` and print all parse, schema, semantic, path, and
 reference errors in deterministic order to standard error. Run resolution performs

@@ -152,6 +152,7 @@ def validate_repository_contracts(root_dir: Path) -> list[ContractDocument]:
 
     errors.extend(_validate_document_identities(documents, root))
     errors.extend(_validate_document_paths(documents, root))
+    errors.extend(_validate_scenario_load_scripts(documents, root))
     errors.extend(_validate_references(documents, root))
     if errors:
         raise ContractValidationError(errors)
@@ -251,6 +252,58 @@ def _validate_document_paths(
                     f"{display_path}: $.framework: implementation framework "
                     f"'{document.value['framework']}' must match path '{framework}'"
                 )
+    return errors
+
+
+def _validate_scenario_load_scripts(
+    documents: list[ContractDocument], root_dir: Path
+) -> list[str]:
+    errors: list[str] = []
+    for document in documents:
+        if document.kind != "scenario":
+            continue
+        load = document.value["load"]
+        if not isinstance(load, dict) or load.get("enabled") is not True:
+            continue
+
+        script = str(load["script"])
+        display_path = _display_path(document.path, root_dir)
+        error_prefix = f"{display_path}: $.load.script:"
+        parts = script.split("/")
+        scenario_id = str(document.value["id"])
+        expected_prefix = ["scenarios", scenario_id]
+
+        if (
+            script.startswith("/")
+            or "\\" in script
+            or any(part in {"", ".", ".."} for part in parts)
+        ):
+            errors.append(
+                f"{error_prefix} must be a canonical POSIX repository-relative path"
+            )
+            continue
+        if parts[:2] != expected_prefix or len(parts) < 3:
+            errors.append(
+                f"{error_prefix} must be under scenarios/{scenario_id}/"
+            )
+            continue
+        if not script.endswith(".js"):
+            errors.append(f"{error_prefix} must end in .js")
+            continue
+
+        script_path = root_dir / script
+        scenario_dir = document.path.parent.resolve()
+        resolved_script = script_path.resolve()
+        try:
+            resolved_script.relative_to(scenario_dir)
+        except ValueError:
+            errors.append(
+                f"{error_prefix} resolved path must remain under scenarios/{scenario_id}/"
+            )
+            continue
+        if not resolved_script.is_file():
+            errors.append(f"{error_prefix} must reference an existing regular file")
+
     return errors
 
 

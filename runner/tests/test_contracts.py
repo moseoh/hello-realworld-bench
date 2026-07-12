@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 import yaml
+from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError
 
 from hrw_runner.contracts import (
@@ -158,6 +159,19 @@ class ContractValidationTest(unittest.TestCase):
     def read_yaml(self, relative_path):
         return yaml.safe_load((self.root_dir / relative_path).read_text())
 
+    def enable_scenario_load(self, script):
+        relative_path = "scenarios/example-scenario/scenario.yaml"
+        value = self.read_yaml(relative_path)
+        value["load"] = {
+            "enabled": True,
+            "tool": "k6",
+            "script": script,
+            "warmup_duration": "1s",
+            "test_duration": "1s",
+            "vus": 1,
+        }
+        self.write_yaml(relative_path, value)
+
     def test_canonical_digest_ignores_mapping_order(self):
         self.assertEqual(
             canonical_contract_digest({"b": 2, "a": 1}),
@@ -169,6 +183,13 @@ class ContractValidationTest(unittest.TestCase):
             with self.subTest(value=value):
                 with self.assertRaises(ValueError):
                     canonical_contract_digest({"value": value})
+
+    def test_all_contract_schemas_are_valid_draft_2020_12(self):
+        schema_dir = self.root_dir / "contracts/schemas"
+
+        for path in sorted(schema_dir.glob("*.schema.json")):
+            with self.subTest(schema=path.name):
+                Draft202012Validator.check_schema(json.loads(path.read_text()))
 
     def test_read_contract_reports_schema_error_with_path_and_location(self):
         path = self.root_dir / "implementations/python/example/implementation.yaml"
@@ -211,6 +232,218 @@ class ContractValidationTest(unittest.TestCase):
         document = read_contract(path, "variant", self.root_dir)
 
         self.assertEqual(document.value["runtime"], {"build_mode": "interpreted"})
+
+    def test_read_contract_rejects_non_portable_variant_ids(self):
+        path = self.root_dir / "implementations/python/example/variants/default.yaml"
+        original = self.read_yaml("implementations/python/example/variants/default.yaml")
+
+        for invalid_id in (
+            ".",
+            "..",
+            "has/slash",
+            "Upper",
+            "two words",
+            "-leading",
+            "trailing-",
+            "double--hyphen",
+        ):
+            with self.subTest(invalid_id=invalid_id):
+                value = copy.deepcopy(original)
+                value["id"] = invalid_id
+                self.write_yaml(
+                    "implementations/python/example/variants/default.yaml",
+                    value,
+                )
+
+                with self.assertRaises(ContractValidationError) as context:
+                    read_contract(path, "variant", self.root_dir)
+
+                self.assertIn("$.id", str(context.exception))
+
+    def test_read_contract_applies_slug_rule_to_all_simple_ids_and_references(self):
+        cases = (
+            (
+                "implementation",
+                "implementations/python/example/implementation.yaml",
+                ("language",),
+            ),
+            (
+                "implementation",
+                "implementations/python/example/implementation.yaml",
+                ("framework",),
+            ),
+            (
+                "implementation",
+                "implementations/python/example/implementation.yaml",
+                ("default_variant",),
+            ),
+            (
+                "implementation",
+                "implementations/python/example/implementation.yaml",
+                ("default_build_profile",),
+            ),
+            ("scenario", "scenarios/example-scenario/scenario.yaml", ("id",)),
+            (
+                "scenario",
+                "scenarios/example-scenario/scenario.yaml",
+                ("variants", 0, "id"),
+            ),
+            (
+                "scenario",
+                "scenarios/example-scenario/scenario.yaml",
+                ("default_profiles", "environment_profile"),
+            ),
+            (
+                "scenario",
+                "scenarios/example-scenario/scenario.yaml",
+                ("default_profiles", "measurement_protocol"),
+            ),
+            (
+                "scenario",
+                "scenarios/example-scenario/scenario.yaml",
+                ("default_profiles", "load_profile"),
+            ),
+            ("variant", "implementations/python/example/variants/default.yaml", ("id",)),
+            ("load-profile", "contracts/load-profiles/development.yaml", ("id",)),
+            ("environment-profile", "contracts/environment-profiles/local.yaml", ("id",)),
+            ("measurement-protocol", "contracts/measurement-protocols/service.yaml", ("id",)),
+            ("build-profile", "contracts/build-profiles/build.yaml", ("id",)),
+        )
+
+        for kind, relative_path, keys in cases:
+            with self.subTest(kind=kind, path=relative_path, keys=keys):
+                value = self.read_yaml(relative_path)
+                target = value
+                for key in keys[:-1]:
+                    target = target[key]
+                target[keys[-1]] = "."
+                self.write_yaml(relative_path, value)
+
+                with self.assertRaises(ContractValidationError) as context:
+                    read_contract(self.root_dir / relative_path, kind, self.root_dir)
+
+                self.assertIn("does not match", str(context.exception))
+
+                self.create_repository()
+
+    def test_read_contract_requires_two_slug_implementation_ids_and_references(self):
+        cases = (
+            ("implementation", "implementations/python/example/implementation.yaml", "id"),
+            ("variant", "implementations/python/example/variants/default.yaml", "implementation"),
+        )
+        invalid_ids = (
+            "python",
+            "python/example/extra",
+            "Python/example",
+            "python/../example",
+        )
+
+        for kind, relative_path, field in cases:
+            for invalid_id in invalid_ids:
+                with self.subTest(kind=kind, field=field, invalid_id=invalid_id):
+                    value = self.read_yaml(relative_path)
+                    value[field] = invalid_id
+                    self.write_yaml(relative_path, value)
+
+                    with self.assertRaises(ContractValidationError) as context:
+                        read_contract(self.root_dir / relative_path, kind, self.root_dir)
+
+                    self.assertIn(f"$.{field}", str(context.exception))
+
+                    self.create_repository()
+
+    def test_read_contract_rejects_trailing_whitespace_in_simple_ids_and_references(
+        self,
+    ):
+        cases = (
+            (
+                "implementation",
+                "implementations/python/example/implementation.yaml",
+                ("language",),
+            ),
+            (
+                "implementation",
+                "implementations/python/example/implementation.yaml",
+                ("framework",),
+            ),
+            (
+                "implementation",
+                "implementations/python/example/implementation.yaml",
+                ("default_variant",),
+            ),
+            (
+                "implementation",
+                "implementations/python/example/implementation.yaml",
+                ("default_build_profile",),
+            ),
+            ("scenario", "scenarios/example-scenario/scenario.yaml", ("id",)),
+            (
+                "scenario",
+                "scenarios/example-scenario/scenario.yaml",
+                ("variants", 0, "id"),
+            ),
+            (
+                "scenario",
+                "scenarios/example-scenario/scenario.yaml",
+                ("default_profiles", "environment_profile"),
+            ),
+            (
+                "scenario",
+                "scenarios/example-scenario/scenario.yaml",
+                ("default_profiles", "measurement_protocol"),
+            ),
+            (
+                "scenario",
+                "scenarios/example-scenario/scenario.yaml",
+                ("default_profiles", "load_profile"),
+            ),
+            ("variant", "implementations/python/example/variants/default.yaml", ("id",)),
+            ("load-profile", "contracts/load-profiles/development.yaml", ("id",)),
+            ("environment-profile", "contracts/environment-profiles/local.yaml", ("id",)),
+            ("measurement-protocol", "contracts/measurement-protocols/service.yaml", ("id",)),
+            ("build-profile", "contracts/build-profiles/build.yaml", ("id",)),
+        )
+
+        for kind, relative_path, keys in cases:
+            for whitespace in ("\n", "\r", " "):
+                with self.subTest(kind=kind, keys=keys, whitespace=repr(whitespace)):
+                    value = self.read_yaml(relative_path)
+                    target = value
+                    for key in keys[:-1]:
+                        target = target[key]
+                    target[keys[-1]] += whitespace
+                    self.write_yaml(relative_path, value)
+
+                    with self.assertRaises(ContractValidationError):
+                        read_contract(self.root_dir / relative_path, kind, self.root_dir)
+
+                    self.create_repository()
+
+    def test_read_contract_rejects_trailing_whitespace_in_composite_references(self):
+        cases = (
+            (
+                "implementation",
+                "implementations/python/example/implementation.yaml",
+                "id",
+            ),
+            (
+                "variant",
+                "implementations/python/example/variants/default.yaml",
+                "implementation",
+            ),
+        )
+
+        for kind, relative_path, field in cases:
+            for whitespace in ("\n", "\r", " "):
+                with self.subTest(kind=kind, field=field, whitespace=repr(whitespace)):
+                    value = self.read_yaml(relative_path)
+                    value[field] += whitespace
+                    self.write_yaml(relative_path, value)
+
+                    with self.assertRaises(ContractValidationError):
+                        read_contract(self.root_dir / relative_path, kind, self.root_dir)
+
+                    self.create_repository()
 
     def test_read_variant_rejects_runtime_implementation_identity(self):
         path = self.root_dir / "implementations/python/example/variants/default.yaml"
@@ -783,6 +1016,83 @@ class ContractValidationTest(unittest.TestCase):
         self.assertIn("implementations/python/example/implementation.yaml", str(context.exception))
         self.assertIn("default_build_profile", str(context.exception))
         self.assertIn("missing build-profile", str(context.exception))
+
+    def test_validate_repository_accepts_direct_and_nested_scenario_scripts(self):
+        for script in (
+            "scenarios/example-scenario/k6.js",
+            "scenarios/example-scenario/load/nested.js",
+        ):
+            with self.subTest(script=script):
+                script_path = self.root_dir / script
+                script_path.parent.mkdir(parents=True, exist_ok=True)
+                script_path.write_text("export default function () {}\n")
+                self.enable_scenario_load(script)
+
+                validate_repository_contracts(self.root_dir)
+
+    def test_validate_repository_rejects_noncanonical_scenario_script_paths(self):
+        cases = (
+            "/scenarios/example-scenario/k6.js",
+            "scenarios/example-scenario/../example-scenario/k6.js",
+            "scenarios/example-scenario\\k6.js",
+            "scenarios//example-scenario/k6.js",
+            "scenarios/example-scenario/./k6.js",
+        )
+
+        for script in cases:
+            with self.subTest(script=script):
+                self.enable_scenario_load(script)
+
+                with self.assertRaises(ContractValidationError) as context:
+                    validate_repository_contracts(self.root_dir)
+
+                self.assertIn(
+                    "scenarios/example-scenario/scenario.yaml: $.load.script",
+                    str(context.exception),
+                )
+
+    def test_validate_repository_rejects_wrong_owner_missing_and_non_js_scripts(self):
+        other_scenario = self.read_yaml("scenarios/example-scenario/scenario.yaml")
+        other_scenario["id"] = "other"
+        self.write_yaml("scenarios/other/scenario.yaml", other_scenario)
+        wrong_owner = self.root_dir / "scenarios/other/k6.js"
+        wrong_owner.write_text("export default function () {}\n")
+        non_js = self.root_dir / "scenarios/example-scenario/k6.txt"
+        non_js.write_text("not JavaScript\n")
+
+        for script in (
+            "scenarios/other/k6.js",
+            "scenarios/example-scenario/missing.js",
+            "scenarios/example-scenario/k6.txt",
+        ):
+            with self.subTest(script=script):
+                self.enable_scenario_load(script)
+
+                with self.assertRaises(ContractValidationError) as context:
+                    validate_repository_contracts(self.root_dir)
+
+                self.assertIn(
+                    "scenarios/example-scenario/scenario.yaml: $.load.script",
+                    str(context.exception),
+                )
+
+    def test_validate_repository_rejects_scenario_script_symlink_escape(self):
+        outside_script = self.root_dir / "outside.js"
+        outside_script.write_text("export default function () {}\n")
+        script = self.root_dir / "scenarios/example-scenario/escape.js"
+        try:
+            script.symlink_to(outside_script)
+        except OSError as error:
+            self.skipTest(f"symlinks are not available: {error}")
+        self.enable_scenario_load("scenarios/example-scenario/escape.js")
+
+        with self.assertRaises(ContractValidationError) as context:
+            validate_repository_contracts(self.root_dir)
+
+        self.assertIn(
+            "scenarios/example-scenario/scenario.yaml: $.load.script",
+            str(context.exception),
+        )
 
     def test_validate_repository_rejects_variant_for_different_implementation(self):
         value = self.read_yaml("implementations/python/example/variants/default.yaml")

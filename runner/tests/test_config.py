@@ -517,10 +517,9 @@ class ResolveRunConfigTest(unittest.TestCase):
 
     def _copy_scenario(self, root_dir: Path, scenario_id: str) -> None:
         scenario_dir = root_dir / "scenarios" / scenario_id
-        scenario_dir.mkdir(parents=True)
-        shutil.copy2(
-            PROJECT_ROOT / "scenarios" / scenario_id / "scenario.yaml",
-            scenario_dir / "scenario.yaml",
+        shutil.copytree(
+            PROJECT_ROOT / "scenarios" / scenario_id,
+            scenario_dir,
         )
 
     def _copy_profile(
