@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hellorealworld.dev/contracts/schemas/run-set.schema.json",
+  "title": "Benchmark run set",
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "relativePath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*[\\u0000-\\u001f\\u007f])(?!\\.{1,2}(?:/|(?![\\s\\S])))(?!.*[/]\\.{1,2}(?:/|(?![\\s\\S])))[^/]+(?:/[^/]+)*(?![\\s\\S])"
+    },
+    "metricGroup": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["min", "median", "max", "trials"],
+        "properties": {
+          "min": { "type": "number" },
+          "median": { "type": "number" },
+          "max": { "type": "number" },
+          "trials": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["trial_id", "value"],
+              "properties": {
+                "trial_id": { "type": "string", "minLength": 1 },
+                "value": { "type": "number" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_set_id",
+    "run_id",
+    "status",
+    "started_at",
+    "finished_at",
+    "manifest_digest",
+    "cohort_fingerprint",
+    "expected_trials",
+    "trials",
+    "summary"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "run_set_id": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "status": { "const": "complete" },
+    "started_at": { "type": "string", "format": "date-time" },
+    "finished_at": { "type": "string", "format": "date-time" },
+    "manifest_digest": { "$ref": "#/$defs/digest" },
+    "cohort_fingerprint": { "$ref": "#/$defs/digest" },
+    "expected_trials": { "type": "integer", "minimum": 1 },
+    "trials": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["trial_id", "index", "status", "path", "sha256"],
+        "properties": {
+          "trial_id": { "type": "string", "minLength": 1 },
+          "index": { "type": "integer", "minimum": 1 },
+          "status": { "enum": ["valid", "invalid", "failed"] },
+          "path": { "$ref": "#/$defs/relativePath" },
+          "sha256": { "$ref": "#/$defs/digest" }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trial_count", "valid_trial_count", "runtime_metrics", "startup_metrics"],
+      "properties": {
+        "trial_count": { "type": "integer", "minimum": 1 },
+        "valid_trial_count": { "type": "integer", "minimum": 0 },
+        "runtime_metrics": { "$ref": "#/$defs/metricGroup" },
+        "startup_metrics": { "$ref": "#/$defs/metricGroup" }
+      }
+    }
+  }
+}

@@ -3,15 +3,25 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import subprocess
 import threading
 import time
 import urllib.request
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 
 from .commands import run
 from .config import RunConfig
+from .evidence import (
+    build_artifact_manifest,
+    build_compact_time_series,
+    build_trial_summary,
+    sha256_file,
+    summarize_trials,
+    validate_evidence_document,
+    validate_run_set_evidence,
+)
 from .manifest import (
     build_resolved_manifest,
     read_git_provenance,
@@ -40,6 +50,234 @@ _COMPOSE_ROLE_ORDER = {
 class RunPaths:
     result_dir: Path
     run_id: str
+
+
+def run_benchmark_set(config: RunConfig, root_dir: Path) -> Path:
+    paths = _run_set_paths(config, root_dir)
+    paths.result_dir.mkdir(parents=True, exist_ok=False)
+    run_log = paths.result_dir / "run.log"
+    trial_count = int(config.measurement_protocol_config["trials"])
+    trial_config = _single_trial_config(config)
+
+    with run_log.open("a") as log:
+        _log(log, f"Run set ID: {paths.run_id}")
+        _validate_paths(trial_config)
+        source = read_git_provenance(root_dir)
+        manifest = build_resolved_manifest(trial_config, paths.run_id, source)
+        validate_resolved_manifest(manifest, root_dir)
+        write_json(paths.result_dir / "resolved-manifest.json", manifest)
+        manifest_digest = str(manifest["manifest_digest"])
+        cohort = manifest["cohort"]
+        assert isinstance(cohort, dict)
+        cohort_fingerprint = str(cohort["fingerprint"])
+        compose_files = _compose_files(manifest, root_dir)
+        started_at = _utc_timestamp()
+
+        try:
+            _log(log, "Cleaning previous containers...")
+            _compose(compose_files, ["down", "-v", "--remove-orphans"], log)
+            write_json(
+                paths.result_dir / "metadata.json",
+                _metadata(
+                    trial_config,
+                    paths.run_id,
+                    manifest_digest,
+                    cohort_fingerprint,
+                ),
+            )
+            _log(log, "Measuring shared build...")
+            build = _measure_build(trial_config, log)
+            write_json(paths.result_dir / "build.json", build)
+
+            trial_documents = []
+            trial_references = []
+            for index in range(1, trial_count + 1):
+                trial_id = f"trial-{index:02d}"
+                trial_dir = paths.result_dir / "trials" / f"{index:02d}"
+                _log(log, f"Running {trial_id} ({index}/{trial_count})...")
+                trial = _execute_trial(
+                    trial_config,
+                    root_dir,
+                    compose_files,
+                    paths.run_id,
+                    trial_id,
+                    index,
+                    trial_dir,
+                    manifest_digest,
+                    cohort_fingerprint,
+                    build,
+                )
+                trial_documents.append(trial)
+                trial_references.append(
+                    {
+                        "trial_id": trial_id,
+                        "index": index,
+                        "status": trial["status"],
+                        "path": f"trials/{index:02d}/trial.json",
+                        "sha256": sha256_file(trial_dir / "trial.json"),
+                    }
+                )
+
+            run_set = {
+                "schema_version": "1.0",
+                "run_set_id": paths.run_id,
+                "run_id": paths.run_id,
+                "status": "complete",
+                "started_at": started_at,
+                "finished_at": _utc_timestamp(),
+                "manifest_digest": manifest_digest,
+                "cohort_fingerprint": cohort_fingerprint,
+                "expected_trials": trial_count,
+                "trials": trial_references,
+                "summary": summarize_trials(trial_documents),
+            }
+            validate_evidence_document(run_set, "run-set", root_dir)
+            write_json(paths.result_dir / "run-set.json", run_set)
+            validate_run_set_evidence(paths.result_dir, root_dir)
+            _log(log, f"Run set written to: {paths.result_dir}")
+            return paths.result_dir
+        finally:
+            _compose(compose_files, ["down", "-v", "--remove-orphans"], log)
+
+
+def _execute_trial(
+    config: RunConfig,
+    root_dir: Path,
+    compose_files: list[Path],
+    run_set_id: str,
+    trial_id: str,
+    trial_index: int,
+    trial_dir: Path,
+    manifest_digest: str,
+    cohort_fingerprint: str,
+    build: dict[str, object],
+) -> dict[str, object]:
+    trial_dir.mkdir(parents=True, exist_ok=False)
+    trial_log_path = trial_dir / "run.log"
+    started_at = _utc_timestamp()
+    cleaned = False
+    with trial_log_path.open("a") as log:
+        try:
+            _compose(compose_files, ["down", "-v", "--remove-orphans"], log)
+            metadata = _metadata(config, trial_id, manifest_digest, cohort_fingerprint)
+            metadata["run_set_id"] = run_set_id
+            metadata["trial_index"] = trial_index
+            write_json(trial_dir / "metadata.json", metadata)
+
+            startup = _measure_startup(compose_files, config, log)
+            write_json(trial_dir / "startup.json", startup)
+            k6_summary_path = trial_dir / "k6-summary.json"
+            docker_stats = None
+            if _load_enabled(config):
+                _run_k6(
+                    root_dir,
+                    config,
+                    str(config.load.get("warmup_duration", "10s")),
+                    trial_dir / "k6-warmup-summary.json",
+                    log,
+                )
+                docker_stats = _run_k6_with_docker_stats(
+                    root_dir,
+                    config,
+                    str(config.load.get("test_duration", "30s")),
+                    k6_summary_path,
+                    log,
+                )
+            else:
+                skipped = {"skipped": True, "reason": "load disabled for scenario"}
+                write_json(trial_dir / "k6-warmup-summary.json", skipped)
+                write_json(k6_summary_path, skipped)
+
+            if docker_stats is None:
+                docker_stats = _docker_stats(log)
+            write_json(trial_dir / "docker-stats.json", docker_stats)
+            samples = docker_stats.get("samples", [])
+            if not isinstance(samples, list):
+                samples = []
+            interval = float(docker_stats.get("sample_interval_seconds", 1))
+            time_series = build_compact_time_series(trial_id, interval, samples)
+            validate_evidence_document(time_series, "time-series", root_dir)
+            time_series_path = trial_dir / "time-series.json"
+            write_json(time_series_path, time_series)
+
+            result = _result_document(
+                config,
+                trial_id,
+                manifest_digest,
+                cohort_fingerprint,
+                metadata["environment"],
+                build,
+                startup,
+                read_json(k6_summary_path),
+                docker_stats,
+            )
+            result["run_set_id"] = run_set_id
+            result["trial_index"] = trial_index
+            write_json(trial_dir / "result.json", result)
+            status, invalid_reasons = _trial_validity(read_json(k6_summary_path))
+            _write_target_log(compose_files, trial_dir, log)
+            _compose(compose_files, ["down", "-v", "--remove-orphans"], log)
+            cleaned = True
+            artifact_manifest = build_artifact_manifest(trial_id, trial_dir)
+            validate_evidence_document(
+                artifact_manifest, "artifact-manifest", root_dir
+            )
+            artifact_manifest_path = trial_dir / "artifact-manifest.json"
+            write_json(artifact_manifest_path, artifact_manifest)
+            trial_document = {
+                "schema_version": "1.0",
+                "trial_id": trial_id,
+                "run_id": run_set_id,
+                "status": status,
+                "started_at": started_at,
+                "finished_at": _utc_timestamp(),
+                "manifest_digest": manifest_digest,
+                "cohort_fingerprint": cohort_fingerprint,
+                "summary": build_trial_summary(result),
+                "time_series": {
+                    "path": "time-series.json",
+                    "sha256": sha256_file(time_series_path),
+                },
+                "artifact_manifest": {
+                    "path": "artifact-manifest.json",
+                    "sha256": sha256_file(artifact_manifest_path),
+                },
+            }
+            if invalid_reasons:
+                trial_document["invalid_reasons"] = invalid_reasons
+            validate_evidence_document(trial_document, "trial", root_dir)
+            write_json(trial_dir / "trial.json", trial_document)
+            return {**trial_document, "result": result}
+        finally:
+            if not cleaned:
+                _compose(
+                    compose_files,
+                    ["down", "-v", "--remove-orphans"],
+                    log,
+                )
+
+
+def _single_trial_config(config: RunConfig) -> RunConfig:
+    if config.measurement_protocol_config["evidence_family"] != "lifecycle":
+        return config
+    return replace(config, startup={**config.startup, "iterations": 1})
+
+
+def _trial_validity(k6_summary: dict[str, object]) -> tuple[str, list[str]]:
+    if k6_summary.get("skipped") is True:
+        return "valid", []
+    metrics = k6_summary.get("metrics", {})
+    if not isinstance(metrics, dict):
+        return "invalid", ["k6 summary is missing metrics"]
+    checks = metrics.get("checks", {})
+    if not isinstance(checks, dict):
+        return "invalid", ["k6 summary is missing check results"]
+    fails = checks.get("fails")
+    if not isinstance(fails, (int, float)):
+        return "invalid", ["k6 summary is missing check failure count"]
+    if fails > 0:
+        return "invalid", [f"k6 reported {int(fails)} failed checks"]
+    return "valid", []
 
 
 def run_benchmark(config: RunConfig, root_dir: Path) -> Path:
@@ -141,6 +379,16 @@ def _run_paths(config: RunConfig, root_dir: Path) -> RunPaths:
     )
     result_dir = root_dir / "results" / Path(*config.result_prefix) / run_id
     return RunPaths(result_dir=result_dir, run_id=run_id)
+
+
+def _run_set_paths(config: RunConfig, root_dir: Path) -> RunPaths:
+    timestamp = datetime.now(UTC).strftime("%Y-%m-%dT%H-%M-%S")
+    run_set_id = (
+        f"{timestamp}_{config.language}_{config.framework}_{config.variant}_"
+        f"{config.scenario}_run-set"
+    )
+    result_dir = root_dir / "results" / Path(*config.result_prefix) / run_set_id
+    return RunPaths(result_dir=result_dir, run_id=run_set_id)
 
 
 def _validate_paths(config: RunConfig) -> None:
@@ -417,9 +665,10 @@ def _run_k6_with_docker_stats(
     samples: list[dict[str, object]] = []
     stop_event = threading.Event()
     interval_seconds = float(config.load.get("docker_stats_interval_seconds", 1))
+    sample_start = time.perf_counter()
     sampler = threading.Thread(
         target=_sample_docker_stats,
-        args=(samples, stop_event, interval_seconds),
+        args=(samples, stop_event, interval_seconds, sample_start),
         daemon=True,
     )
 
@@ -434,6 +683,7 @@ def _run_k6_with_docker_stats(
     if not samples:
         fallback = _docker_stats_sample()
         if fallback is not None:
+            fallback["elapsed_ms"] = round((time.perf_counter() - sample_start) * 1000)
             samples.append(fallback)
 
     return {
@@ -446,12 +696,50 @@ def _sample_docker_stats(
     samples: list[dict[str, object]],
     stop_event: threading.Event,
     interval_seconds: float,
+    sample_start: float,
 ) -> None:
-    while not stop_event.is_set():
-        sample = _docker_stats_sample()
-        if sample is not None:
+    process = subprocess.Popen(
+        ["docker", "stats", "--format", "{{json .}}", "hrw-target"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+    )
+    interval_ms = max(1, round(interval_seconds * 1000))
+    next_elapsed_ms = 0
+    try:
+        assert process.stdout is not None
+        for line in process.stdout:
+            if stop_event.is_set():
+                break
+            sample = _docker_stats_json_line(line)
+            if sample is None:
+                continue
+            elapsed_ms = round((time.perf_counter() - sample_start) * 1000)
+            if elapsed_ms < next_elapsed_ms:
+                continue
+            sample["elapsed_ms"] = elapsed_ms
             samples.append(sample)
-        stop_event.wait(interval_seconds)
+            while next_elapsed_ms <= elapsed_ms:
+                next_elapsed_ms += interval_ms
+    finally:
+        process.terminate()
+        try:
+            process.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
+
+
+def _docker_stats_json_line(line: str) -> dict[str, object] | None:
+    start = line.find("{")
+    end = line.rfind("}")
+    if start < 0 or end < start:
+        return None
+    try:
+        value = json.loads(line[start : end + 1])
+    except json.JSONDecodeError:
+        return None
+    return value if isinstance(value, dict) else None
 
 
 def _docker_stats_sample() -> dict[str, object] | None:
@@ -591,3 +879,7 @@ def _log(log, message: str) -> None:
     print(message, flush=True)
     log.write(message + "\n")
     log.flush()
+
+
+def _utc_timestamp() -> str:
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")

@@ -299,8 +299,7 @@ def _resolve_startup_config(
         )
     else:
         supported_timing = (
-            trials == 1
-            and measurement_protocol_config["timing_source"] == "scenario"
+            measurement_protocol_config["timing_source"] == "scenario"
             and measurement_protocol_config["warmup_seconds"] is None
             and measurement_protocol_config["measured_seconds"] is None
         )
@@ -311,7 +310,7 @@ def _resolve_startup_config(
         )
 
     startup = dict(_optional_dict_value(scenario_config, "startup"))
-    startup["iterations"] = trials
+    startup["iterations"] = trials if expected_evidence == "lifecycle" else 1
     return startup
 
 

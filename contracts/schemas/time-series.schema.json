@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hellorealworld.dev/contracts/schemas/time-series.schema.json",
+  "title": "Benchmark compact time series",
+  "$defs": {
+    "metricValue": { "type": ["number", "null"] }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "trial_id", "sample_interval_ms", "samples"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "trial_id": { "type": "string", "minLength": 1 },
+    "sample_interval_ms": { "type": "integer", "minimum": 1 },
+    "samples": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "elapsed_ms",
+          "target_cpu_percent",
+          "target_memory_bytes",
+          "target_memory_percent"
+        ],
+        "properties": {
+          "elapsed_ms": { "type": "integer", "minimum": 0 },
+          "target_cpu_percent": { "$ref": "#/$defs/metricValue" },
+          "target_memory_bytes": { "type": ["integer", "null"], "minimum": 0 },
+          "target_memory_percent": { "$ref": "#/$defs/metricValue" }
+        }
+      }
+    }
+  }
+}

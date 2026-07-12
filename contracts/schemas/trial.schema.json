@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hellorealworld.dev/contracts/schemas/trial.schema.json",
+  "title": "Benchmark trial evidence",
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "relativePath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*[\\u0000-\\u001f\\u007f])(?!\\.{1,2}(?:/|(?![\\s\\S])))(?!.*[/]\\.{1,2}(?:/|(?![\\s\\S])))[^/]+(?:/[^/]+)*(?![\\s\\S])"
+    },
+    "metricName": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*(?![\\s\\S])"
+    },
+    "evidenceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "$ref": "#/$defs/relativePath" },
+        "sha256": { "$ref": "#/$defs/digest" }
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "trial_id",
+    "manifest_digest",
+    "cohort_fingerprint",
+    "status",
+    "started_at",
+    "finished_at",
+    "summary",
+    "time_series",
+    "artifact_manifest"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "run_id": { "type": "string", "minLength": 1 },
+    "trial_id": { "type": "string", "minLength": 1 },
+    "manifest_digest": { "$ref": "#/$defs/digest" },
+    "cohort_fingerprint": { "$ref": "#/$defs/digest" },
+    "status": {
+      "type": "string",
+      "enum": ["valid", "invalid", "failed"]
+    },
+    "invalid_reasons": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "started_at": { "type": "string", "format": "date-time" },
+    "finished_at": { "type": "string", "format": "date-time" },
+    "summary": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "unit", "value", "source_artifacts"],
+        "properties": {
+          "name": { "$ref": "#/$defs/metricName" },
+          "unit": { "type": "string", "minLength": 1 },
+          "value": { "type": ["number", "null"] },
+          "source_artifacts": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "$ref": "#/$defs/relativePath" }
+          }
+        }
+      }
+    },
+    "time_series": { "$ref": "#/$defs/evidenceRef" },
+    "artifact_manifest": { "$ref": "#/$defs/evidenceRef" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "valid" } }, "required": ["status"] },
+      "then": { "not": { "required": ["invalid_reasons"] } },
+      "else": { "required": ["invalid_reasons"] }
+    }
+  ]
+}

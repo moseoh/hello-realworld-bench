@@ -59,6 +59,12 @@ definitions for future official-profile work, not executable or official
 benchmark profiles. Results produced by the current local runner are not official
 benchmark results.
 
+The protocol `trials` field owns run-set repetition. Service startup is measured
+once inside each trial. Lifecycle protocols also execute one lifecycle measurement
+per trial; the legacy `make run` command retains its original aggregate startup
+behavior for compatibility, while `make run-set` emits independently traceable
+trial evidence.
+
 ## Validation
 
 Validate every contract in the repository:
