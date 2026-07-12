@@ -119,6 +119,27 @@ class ResolveRunConfigTest(unittest.TestCase):
                 load_profile="development-local",
             )
 
+    def test_rejects_invalid_load_profile_contract_before_resolution(self):
+        root_dir = self._copy_runnable_contracts()
+        profile_path = root_dir / "contracts/load-profiles/development-local.yaml"
+        profile = yaml.safe_load(profile_path.read_text())
+        profile["timing"]["measured_seconds"] = 30
+        profile_path.write_text(yaml.safe_dump(profile, sort_keys=False))
+
+        with self.assertRaises(ContractValidationError) as context:
+            resolve_run_config("java/spring-boot", "ping-api", None, root_dir)
+
+        self.assertEqual(
+            str(context.exception).splitlines(),
+            [
+                "contracts/load-profiles/development-local.yaml: "
+                "$.timing.measured_seconds: must be null or omitted when $.model "
+                "is 'closed'",
+                "scenarios/ping-api/scenario.yaml: $.default_profiles.load_profile: "
+                "missing load-profile 'development-local'",
+            ],
+        )
+
     def test_measurement_protocol_trials_own_lifecycle_startup_iterations(self):
         root_dir = self._copy_runnable_contracts()
         self._copy_scenario(root_dir, "cold-start-api")

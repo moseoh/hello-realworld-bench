@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -37,6 +38,34 @@ _SCENARIO_PROFILE_REFERENCE_KINDS = {
 
 _PROFILE_KINDS = {*_SCENARIO_PROFILE_REFERENCE_KINDS.values(), "build-profile"}
 
+_YAML_MERGE_TAG = "tag:yaml.org,2002:merge"
+_YAML_MERGE_KEY = object()
+
+
+class _UniqueKeySafeLoader(yaml.SafeLoader):
+    def construct_mapping(self, node, deep=False):
+        seen = set()
+        for key_node, _ in node.value:
+            if key_node.tag == _YAML_MERGE_TAG:
+                key = _YAML_MERGE_KEY
+                display_key = "<<"
+            else:
+                key = self.construct_object(key_node, deep=deep)
+                display_key = key
+            try:
+                duplicate = key in seen
+            except TypeError:
+                continue
+            if duplicate:
+                raise yaml.constructor.ConstructorError(
+                    "while constructing a mapping",
+                    node.start_mark,
+                    f"found duplicate key {display_key!r}",
+                    key_node.start_mark,
+                )
+            seen.add(key)
+        return super().construct_mapping(node, deep=deep)
+
 
 @dataclass(frozen=True)
 class ContractDocument:
@@ -53,14 +82,20 @@ class ContractValidationError(ValueError):
 
 
 def canonical_contract_digest(value: dict[str, object]) -> str:
-    canonical = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    canonical = json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+        allow_nan=False,
+    )
     return hashlib.sha256(canonical.encode()).hexdigest()
 
 
 def read_contract(path: Path, kind: str, root_dir: Path) -> ContractDocument:
     display_path = _display_path(path, root_dir)
     try:
-        value = yaml.safe_load(path.read_text())
+        value = yaml.load(path.read_text(), Loader=_UniqueKeySafeLoader)
     except yaml.YAMLError as error:
         problem = getattr(error, "problem", None) or str(error).splitlines()[0]
         mark = getattr(error, "problem_mark", None)
@@ -88,13 +123,26 @@ def read_contract(path: Path, kind: str, root_dir: Path) -> ContractDocument:
             ]
         )
 
+    finite_number_errors = _validate_finite_numbers(value)
+    if finite_number_errors:
+        raise ContractValidationError(
+            [f"{display_path}: {error}" for error in finite_number_errors]
+        )
+
+    if kind == "load-profile":
+        semantic_errors = _validate_load_profile_semantics(value)
+        if semantic_errors:
+            raise ContractValidationError(
+                [f"{display_path}: {error}" for error in semantic_errors]
+            )
+
     return ContractDocument(kind, path, value, canonical_contract_digest(value))
 
 
 def validate_repository_contracts(root_dir: Path) -> list[ContractDocument]:
     root = root_dir
     documents: list[ContractDocument] = []
-    errors: list[str] = []
+    errors = _validate_required_contract_paths(root)
 
     for kind, path in _discover_contract_paths(root):
         try:
@@ -117,6 +165,24 @@ def _discover_contract_paths(root_dir: Path) -> list[tuple[str, Path]]:
         for path in root_dir.glob(pattern)
     ]
     return sorted(paths, key=lambda item: _display_path(item[1], root_dir))
+
+
+def _validate_required_contract_paths(root_dir: Path) -> list[str]:
+    required_paths = [
+        ("scenario", directory / "scenario.yaml")
+        for directory in root_dir.glob("scenarios/*")
+        if directory.is_dir()
+    ]
+    required_paths.extend(
+        ("implementation", directory / "implementation.yaml")
+        for directory in root_dir.glob("implementations/*/*")
+        if directory.is_dir()
+    )
+    return [
+        f"{_display_path(path, root_dir)}: $: missing required {kind} contract"
+        for kind, path in required_paths
+        if not path.is_file()
+    ]
 
 
 def _validate_document_identities(
@@ -246,14 +312,183 @@ def _validate_references(
     return errors
 
 
+def _validate_load_profile_semantics(value: dict[str, object]) -> list[str]:
+    model = value["model"]
+    executor = value["executor"]
+    timing = value["timing"]
+    phases = value["phases"]
+    assert isinstance(timing, dict)
+    assert isinstance(phases, list)
+    errors: list[str] = []
+
+    def add_error(path: tuple[str | int, ...], message: str) -> None:
+        errors.append(f"{_json_location(path)}: {message}")
+
+    if model == "disabled":
+        if executor != "none":
+            add_error(
+                ("executor",),
+                "must be 'none' when $.model is 'disabled'",
+            )
+        if timing.get("source") != "disabled":
+            add_error(
+                ("timing", "source"),
+                "must be 'disabled' when $.model is 'disabled'",
+            )
+        for field in ("warmup_seconds", "measured_seconds"):
+            if field in timing:
+                add_error(
+                    ("timing", field),
+                    "must not be defined when $.model is 'disabled'",
+                )
+        if phases:
+            add_error(
+                ("phases",),
+                "must be empty when $.model is 'disabled'",
+            )
+        return errors
+
+    if model == "closed":
+        if executor != "constant-vus":
+            add_error(
+                ("executor",),
+                "must be 'constant-vus' when $.model is 'closed'",
+            )
+        if timing.get("source") != "scenario":
+            add_error(
+                ("timing", "source"),
+                "must be 'scenario' when $.model is 'closed'",
+            )
+        for field in ("warmup_seconds", "measured_seconds"):
+            if timing.get(field) is not None:
+                add_error(
+                    ("timing", field),
+                    "must be null or omitted when $.model is 'closed'",
+                )
+        if not phases:
+            add_error(
+                ("phases",),
+                "must contain at least one phase when $.model is 'closed'",
+            )
+        for index, phase in enumerate(phases):
+            assert isinstance(phase, dict)
+            if phase.get("source") != "scenario":
+                add_error(
+                    ("phases", index, "source"),
+                    "must be 'scenario' when $.model is 'closed'",
+                )
+            for field in ("duration_seconds", "vus"):
+                if phase.get(field) is not None:
+                    add_error(
+                        ("phases", index, field),
+                        "must be null or omitted when $.model is 'closed'",
+                    )
+            if "multiplier" in phase:
+                add_error(
+                    ("phases", index, "multiplier"),
+                    "must not be defined when $.model is 'closed'",
+                )
+        return errors
+
+    if executor not in {"constant-arrival-rate", "ramping-arrival-rate"}:
+        add_error(
+            ("executor",),
+            "must be 'constant-arrival-rate' or 'ramping-arrival-rate' when "
+            "$.model is 'open'",
+        )
+    if "source" in timing:
+        add_error(
+            ("timing", "source"),
+            "must not be defined when $.model is 'open'",
+        )
+    for field in ("warmup_seconds", "measured_seconds"):
+        if not isinstance(timing.get(field), int):
+            add_error(
+                ("timing", field),
+                "must be a fixed non-negative integer when $.model is 'open'",
+            )
+    if not phases:
+        add_error(
+            ("phases",),
+            "must contain at least one phase when $.model is 'open'",
+        )
+    for index, phase in enumerate(phases):
+        assert isinstance(phase, dict)
+        if "source" in phase:
+            add_error(
+                ("phases", index, "source"),
+                "must not be defined when $.model is 'open'",
+            )
+        duration = phase.get("duration_seconds")
+        if not isinstance(duration, int) or duration <= 0:
+            add_error(
+                ("phases", index, "duration_seconds"),
+                "must be greater than 0 when $.model is 'open'",
+            )
+        multiplier = phase.get("multiplier")
+        if not isinstance(multiplier, (int, float)) or multiplier <= 0:
+            add_error(
+                ("phases", index, "multiplier"),
+                "must be greater than 0 when $.model is 'open'",
+            )
+        if "vus" in phase:
+            add_error(
+                ("phases", index, "vus"),
+                "must not be defined when $.model is 'open'",
+            )
+
+    measured_seconds = timing.get("measured_seconds")
+    durations = [phase.get("duration_seconds") for phase in phases]
+    if (
+        phases
+        and isinstance(measured_seconds, int)
+        and all(isinstance(duration, int) for duration in durations)
+    ):
+        duration_sum = sum(durations)
+        if duration_sum != measured_seconds:
+            add_error(
+                ("phases",),
+                "duration_seconds values must sum to $.timing.measured_seconds "
+                f"({measured_seconds}), got {duration_sum}",
+            )
+    return errors
+
+
+def _validate_finite_numbers(
+    value: object,
+    path: tuple[str | int, ...] = (),
+) -> list[str]:
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            return [f"{_json_location(path)}: must be a finite number"]
+        return []
+    if isinstance(value, dict):
+        errors: list[str] = []
+        for key, nested_value in value.items():
+            errors.extend(
+                _validate_finite_numbers(nested_value, (*path, str(key)))
+            )
+        return errors
+    if isinstance(value, list):
+        errors = []
+        for index, nested_value in enumerate(value):
+            errors.extend(_validate_finite_numbers(nested_value, (*path, index)))
+        return errors
+    return []
+
+
 def _display_path(path: Path, root_dir: Path) -> str:
     return path.resolve().relative_to(root_dir.resolve()).as_posix()
 
 
 def _json_location(path) -> str:
-    if not path:
-        return "$"
-    return "$." + ".".join(str(part) for part in path)
+    location = "$"
+    for part in path:
+        if isinstance(part, int):
+            location += f"[{part}]"
+        else:
+            location += f".{part}"
+    return location
 
 
 def _schema_error_sort_key(error) -> tuple[tuple[str, ...], str]:

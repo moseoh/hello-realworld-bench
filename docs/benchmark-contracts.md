@@ -4,9 +4,11 @@ Hello Real World Bench separates service behavior, implementation choices, and
 measurement conditions into versioned YAML contracts. This keeps a scenario
 independent from a language or framework and makes the inputs to a run explicit.
 
-Contract validation checks schema conformance, path and identifier consistency,
-unique identities, and references between documents. It does not prove that a
-benchmark run is reproducible, fair, or suitable for a performance conclusion.
+Contract validation rejects duplicate YAML mapping keys and checks schema
+conformance, required contract locations, load-profile semantics, path and
+identifier consistency, unique identities, and references between documents. It
+does not prove that a benchmark run is reproducible, fair, or suitable for a
+performance conclusion.
 
 ## Ownership Model
 
@@ -65,8 +67,13 @@ The underlying command is:
 PYTHONPATH=runner uv run --project runner python -m hrw_runner validate
 ```
 
+Every immediate `scenarios/<scenario>/` directory must contain `scenario.yaml`,
+and every `implementations/<language>/<framework>/` directory must contain
+`implementation.yaml`. YAML outside the documented contract paths is not parsed as
+a contract.
+
 Successful validation prints the number of discovered contract files. Invalid
-repositories return exit code `1` and print all discovered validation errors to
-standard error. Run resolution performs the same repository-wide validation before
-selecting a runnable configuration. `make check` runs contract validation before
-the runner and Spring Boot test suites.
+repositories return exit code `1` and print all parse, schema, semantic, path, and
+reference errors in deterministic order to standard error. Run resolution performs
+the same repository-wide validation before selecting a runnable configuration.
+`make check` runs contract validation before the runner and Spring Boot test suites.

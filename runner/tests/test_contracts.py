@@ -166,6 +166,12 @@ class ContractValidationTest(unittest.TestCase):
             canonical_contract_digest({"a": 1, "b": 2}),
         )
 
+    def test_canonical_digest_rejects_non_finite_numbers(self):
+        for value in (float("nan"), float("inf"), float("-inf")):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    canonical_contract_digest({"value": value})
+
     def test_read_contract_reports_schema_error_with_path_and_location(self):
         path = self.root_dir / "implementations/python/example/implementation.yaml"
         value = self.read_yaml("implementations/python/example/implementation.yaml")
@@ -222,6 +228,85 @@ class ContractValidationTest(unittest.TestCase):
         self.assertIn("invalid YAML", str(context.exception))
         self.assertIn("line 2, column 1", str(context.exception))
 
+    def test_read_contract_rejects_duplicate_nested_yaml_keys(self):
+        path = self.root_dir / "contracts/load-profiles/development.yaml"
+        path.write_text(
+            "schema_version: '1.0'\n"
+            "id: development\n"
+            "contract_version: '1.0'\n"
+            "description: Development load profile.\n"
+            "status: development\n"
+            "model: closed\n"
+            "executor: constant-vus\n"
+            "timing:\n"
+            "  source: scenario\n"
+            "  source: disabled\n"
+            "phases: []\n"
+        )
+
+        with self.assertRaises(ContractValidationError) as context:
+            read_contract(path, "load-profile", self.root_dir)
+
+        self.assertEqual(
+            str(context.exception),
+            "contracts/load-profiles/development.yaml: $: invalid YAML at line 10, "
+            "column 3: found duplicate key 'source'",
+        )
+
+    def test_read_contract_preserves_yaml_merge_semantics(self):
+        path = self.root_dir / "contracts/load-profiles/development.yaml"
+        path.write_text(
+            "schema_version: '1.0'\n"
+            "id: development\n"
+            "contract_version: '1.0'\n"
+            "description: Development load profile.\n"
+            "status: development\n"
+            "model: closed\n"
+            "executor: constant-vus\n"
+            "timing:\n"
+            "  source: scenario\n"
+            "phases:\n"
+            "  - &scenario_phase\n"
+            "    source: scenario\n"
+            "    duration_seconds: null\n"
+            "    vus: null\n"
+            "  - <<: *scenario_phase\n"
+        )
+
+        document = read_contract(path, "load-profile", self.root_dir)
+
+        self.assertEqual(document.value["phases"][0], document.value["phases"][1])
+
+    def test_read_contract_rejects_duplicate_yaml_merge_keys(self):
+        path = self.root_dir / "contracts/load-profiles/development.yaml"
+        path.write_text(
+            "schema_version: '1.0'\n"
+            "id: development\n"
+            "contract_version: '1.0'\n"
+            "description: Development load profile.\n"
+            "status: development\n"
+            "model: closed\n"
+            "executor: constant-vus\n"
+            "timing:\n"
+            "  source: scenario\n"
+            "phases:\n"
+            "  - &scenario_phase\n"
+            "    source: scenario\n"
+            "    duration_seconds: null\n"
+            "    vus: null\n"
+            "  - <<: *scenario_phase\n"
+            "    <<: *scenario_phase\n"
+        )
+
+        with self.assertRaises(ContractValidationError) as context:
+            read_contract(path, "load-profile", self.root_dir)
+
+        self.assertEqual(
+            str(context.exception),
+            "contracts/load-profiles/development.yaml: $: invalid YAML at line 16, "
+            "column 5: found duplicate key '<<'",
+        )
+
     def test_read_contract_does_not_wrap_invalid_schema_definition(self):
         schema_path = self.root_dir / "contracts/schemas/load-profile.schema.json"
         schema = json.loads(schema_path.read_text())
@@ -231,6 +316,252 @@ class ContractValidationTest(unittest.TestCase):
 
         with self.assertRaises(SchemaError):
             read_contract(path, "load-profile", self.root_dir)
+
+    def test_read_contract_accepts_all_catalog_load_profiles(self):
+        profile_ids = [
+            "burst-recovery",
+            "capacity-ramp",
+            "development-local",
+            "none",
+            "steady",
+        ]
+
+        documents = [
+            read_contract(
+                PROJECT_ROOT / "contracts/load-profiles" / f"{profile_id}.yaml",
+                "load-profile",
+                PROJECT_ROOT,
+            )
+            for profile_id in profile_ids
+        ]
+
+        self.assertEqual(
+            [document.value["id"] for document in documents],
+            profile_ids,
+        )
+
+    def test_read_contract_rejects_mixed_disabled_load_semantics(self):
+        path = self.root_dir / "contracts/load-profiles/development.yaml"
+        value = self.read_yaml("contracts/load-profiles/development.yaml")
+        value.update(
+            {
+                "model": "disabled",
+                "executor": "constant-vus",
+                "timing": {
+                    "source": "scenario",
+                    "warmup_seconds": 0,
+                    "measured_seconds": 0,
+                },
+            }
+        )
+        self.write_yaml("contracts/load-profiles/development.yaml", value)
+
+        with self.assertRaises(ContractValidationError) as context:
+            read_contract(path, "load-profile", self.root_dir)
+
+        self.assertEqual(
+            str(context.exception).splitlines(),
+            [
+                "contracts/load-profiles/development.yaml: $.executor: must be "
+                "'none' when $.model is 'disabled'",
+                "contracts/load-profiles/development.yaml: $.phases: must be empty "
+                "when $.model is 'disabled'",
+                "contracts/load-profiles/development.yaml: "
+                "$.timing.measured_seconds: must not be defined when $.model is "
+                "'disabled'",
+                "contracts/load-profiles/development.yaml: $.timing.source: must be "
+                "'disabled' when $.model is 'disabled'",
+                "contracts/load-profiles/development.yaml: $.timing.warmup_seconds: "
+                "must not be defined when $.model is 'disabled'",
+            ],
+        )
+
+    def test_read_contract_rejects_mixed_closed_load_semantics(self):
+        path = self.root_dir / "contracts/load-profiles/development.yaml"
+        value = self.read_yaml("contracts/load-profiles/development.yaml")
+        value.update(
+            {
+                "executor": "none",
+                "timing": {
+                    "source": "disabled",
+                    "warmup_seconds": 10,
+                    "measured_seconds": 20,
+                },
+                "phases": [
+                    {
+                        "source": "disabled",
+                        "duration_seconds": 20,
+                        "multiplier": 1.0,
+                        "vus": 10,
+                    }
+                ],
+            }
+        )
+        self.write_yaml("contracts/load-profiles/development.yaml", value)
+
+        with self.assertRaises(ContractValidationError) as context:
+            read_contract(path, "load-profile", self.root_dir)
+
+        self.assertEqual(
+            str(context.exception).splitlines(),
+            [
+                "contracts/load-profiles/development.yaml: $.executor: must be "
+                "'constant-vus' when $.model is 'closed'",
+                "contracts/load-profiles/development.yaml: "
+                "$.phases[0].duration_seconds: must be null or omitted when "
+                "$.model is 'closed'",
+                "contracts/load-profiles/development.yaml: "
+                "$.phases[0].multiplier: must not be defined when $.model is "
+                "'closed'",
+                "contracts/load-profiles/development.yaml: $.phases[0].source: "
+                "must be 'scenario' when $.model is 'closed'",
+                "contracts/load-profiles/development.yaml: $.phases[0].vus: must be "
+                "null or omitted when $.model is 'closed'",
+                "contracts/load-profiles/development.yaml: "
+                "$.timing.measured_seconds: must be null or omitted when $.model "
+                "is 'closed'",
+                "contracts/load-profiles/development.yaml: $.timing.source: must be "
+                "'scenario' when $.model is 'closed'",
+                "contracts/load-profiles/development.yaml: $.timing.warmup_seconds: "
+                "must be null or omitted when $.model is 'closed'",
+            ],
+        )
+
+    def test_read_contract_requires_a_closed_load_phase(self):
+        path = self.root_dir / "contracts/load-profiles/development.yaml"
+        value = self.read_yaml("contracts/load-profiles/development.yaml")
+        value["phases"] = []
+        self.write_yaml("contracts/load-profiles/development.yaml", value)
+
+        with self.assertRaises(ContractValidationError) as context:
+            read_contract(path, "load-profile", self.root_dir)
+
+        self.assertEqual(
+            str(context.exception),
+            "contracts/load-profiles/development.yaml: $.phases: must contain at "
+            "least one phase when $.model is 'closed'",
+        )
+
+    def test_read_contract_rejects_mixed_open_load_semantics(self):
+        path = self.root_dir / "contracts/load-profiles/development.yaml"
+        value = self.read_yaml("contracts/load-profiles/development.yaml")
+        value.update(
+            {
+                "model": "open",
+                "executor": "none",
+                "timing": {
+                    "source": "scenario",
+                    "warmup_seconds": None,
+                    "measured_seconds": 20,
+                },
+                "phases": [
+                    {
+                        "source": "scenario",
+                        "duration_seconds": 0,
+                        "multiplier": 0,
+                        "vus": 10,
+                    }
+                ],
+            }
+        )
+        self.write_yaml("contracts/load-profiles/development.yaml", value)
+
+        with self.assertRaises(ContractValidationError) as context:
+            read_contract(path, "load-profile", self.root_dir)
+
+        self.assertEqual(
+            str(context.exception).splitlines(),
+            [
+                "contracts/load-profiles/development.yaml: $.executor: must be "
+                "'constant-arrival-rate' or 'ramping-arrival-rate' when $.model is "
+                "'open'",
+                "contracts/load-profiles/development.yaml: $.phases: "
+                "duration_seconds values must sum to $.timing.measured_seconds "
+                "(20), got 0",
+                "contracts/load-profiles/development.yaml: "
+                "$.phases[0].duration_seconds: must be greater than 0 when $.model "
+                "is 'open'",
+                "contracts/load-profiles/development.yaml: "
+                "$.phases[0].multiplier: must be greater than 0 when $.model is "
+                "'open'",
+                "contracts/load-profiles/development.yaml: $.phases[0].source: "
+                "must not be defined when $.model is 'open'",
+                "contracts/load-profiles/development.yaml: $.phases[0].vus: must "
+                "not be defined when $.model is 'open'",
+                "contracts/load-profiles/development.yaml: $.timing.source: must "
+                "not be defined when $.model is 'open'",
+                "contracts/load-profiles/development.yaml: $.timing.warmup_seconds: "
+                "must be a fixed non-negative integer when $.model is 'open'",
+            ],
+        )
+
+    def test_read_contract_requires_open_phase_durations_to_match_timing(self):
+        path = self.root_dir / "contracts/load-profiles/development.yaml"
+        value = self.read_yaml("contracts/load-profiles/development.yaml")
+        value.update(
+            {
+                "model": "open",
+                "executor": "constant-arrival-rate",
+                "timing": {"warmup_seconds": 10, "measured_seconds": 20},
+                "phases": [{"duration_seconds": 10, "multiplier": 1.0}],
+            }
+        )
+        self.write_yaml("contracts/load-profiles/development.yaml", value)
+
+        with self.assertRaises(ContractValidationError) as context:
+            read_contract(path, "load-profile", self.root_dir)
+
+        self.assertEqual(
+            str(context.exception),
+            "contracts/load-profiles/development.yaml: $.phases: duration_seconds "
+            "values must sum to $.timing.measured_seconds (20), got 10",
+        )
+
+    def test_read_contract_rejects_non_finite_open_phase_multipliers(self):
+        path = self.root_dir / "contracts/load-profiles/development.yaml"
+        original = self.read_yaml("contracts/load-profiles/development.yaml")
+
+        for multiplier in (float("nan"), float("inf")):
+            with self.subTest(multiplier=multiplier):
+                value = copy.deepcopy(original)
+                value.update(
+                    {
+                        "model": "open",
+                        "executor": "constant-arrival-rate",
+                        "timing": {
+                            "warmup_seconds": 10,
+                            "measured_seconds": 20,
+                        },
+                        "phases": [
+                            {"duration_seconds": 20, "multiplier": multiplier}
+                        ],
+                    }
+                )
+                self.write_yaml("contracts/load-profiles/development.yaml", value)
+
+                with self.assertRaises(ContractValidationError) as context:
+                    read_contract(path, "load-profile", self.root_dir)
+
+                self.assertEqual(
+                    str(context.exception),
+                    "contracts/load-profiles/development.yaml: "
+                    "$.phases[0].multiplier: must be a finite number",
+                )
+
+    def test_read_contract_rejects_non_finite_nested_scenario_numbers(self):
+        path = self.root_dir / "scenarios/example-scenario/scenario.yaml"
+        value = self.read_yaml("scenarios/example-scenario/scenario.yaml")
+        value["load"]["docker_stats_interval_seconds"] = float("inf")
+        self.write_yaml("scenarios/example-scenario/scenario.yaml", value)
+
+        with self.assertRaises(ContractValidationError) as context:
+            read_contract(path, "scenario", self.root_dir)
+
+        self.assertEqual(
+            str(context.exception),
+            "scenarios/example-scenario/scenario.yaml: "
+            "$.load.docker_stats_interval_seconds: must be a finite number",
+        )
 
     def test_validate_repository_discovers_every_contract_kind(self):
         documents = validate_repository_contracts(self.root_dir)
@@ -247,6 +578,46 @@ class ContractValidationTest(unittest.TestCase):
                 ("scenario", "scenarios/example-scenario/scenario.yaml"),
             ],
         )
+
+    def test_validate_repository_requires_scenario_contract_in_each_directory(self):
+        scenario_path = self.root_dir / "scenarios/example-scenario/scenario.yaml"
+        scenario_path.rename(scenario_path.with_name("renamed.yaml"))
+
+        with self.assertRaises(ContractValidationError) as context:
+            validate_repository_contracts(self.root_dir)
+
+        self.assertEqual(
+            str(context.exception),
+            "scenarios/example-scenario/scenario.yaml: $: missing required scenario "
+            "contract",
+        )
+
+    def test_validate_repository_requires_implementation_contract_in_each_directory(
+        self,
+    ):
+        implementation_path = (
+            self.root_dir / "implementations/python/example/implementation.yaml"
+        )
+        implementation_path.rename(
+            self.root_dir / "implementations/python/implementation.yaml"
+        )
+
+        with self.assertRaises(ContractValidationError) as context:
+            validate_repository_contracts(self.root_dir)
+
+        self.assertIn(
+            "implementations/python/example/implementation.yaml: $: missing required "
+            "implementation contract",
+            context.exception.errors,
+        )
+
+    def test_validate_repository_ignores_unrelated_yaml(self):
+        notes_path = self.root_dir / "scenarios/example-scenario/notes.yaml"
+        notes_path.write_text("id: [\n")
+
+        documents = validate_repository_contracts(self.root_dir)
+
+        self.assertEqual(len(documents), 7)
 
     def test_validate_repository_rejects_duplicate_contract_identity(self):
         value = self.read_yaml("implementations/python/example/implementation.yaml")
@@ -440,6 +811,64 @@ class ContractValidationTest(unittest.TestCase):
         self.assertIn("missing build-profile 'missing'", errors[1])
         self.assertIn("scenarios/invalid-scenario/scenario.yaml", errors[2])
         self.assertIn("'default_profiles' is a required property", errors[2])
+
+    def test_validate_repository_aggregates_duplicate_key_and_schema_errors(self):
+        duplicate_path = self.root_dir / "contracts/load-profiles/duplicate.yaml"
+        duplicate_path.write_text("id: first\nid: second\n")
+        scenario = self.read_yaml("scenarios/example-scenario/scenario.yaml")
+        del scenario["default_profiles"]
+        self.write_yaml("scenarios/example-scenario/scenario.yaml", scenario)
+
+        with self.assertRaises(ContractValidationError) as context:
+            validate_repository_contracts(self.root_dir)
+
+        self.assertEqual(
+            str(context.exception).splitlines(),
+            [
+                "contracts/load-profiles/duplicate.yaml: $: invalid YAML at line 2, "
+                "column 1: found duplicate key 'id'",
+                "scenarios/example-scenario/scenario.yaml: $: 'default_profiles' is "
+                "a required property",
+            ],
+        )
+
+    def test_validate_repository_aggregates_missing_parse_schema_and_reference_errors(
+        self,
+    ):
+        implementation = self.read_yaml(
+            "implementations/python/example/implementation.yaml"
+        )
+        implementation["default_build_profile"] = "missing"
+        self.write_yaml(
+            "implementations/python/example/implementation.yaml",
+            implementation,
+        )
+        scenario = self.read_yaml("scenarios/example-scenario/scenario.yaml")
+        scenario_path = self.root_dir / "scenarios/example-scenario/scenario.yaml"
+        scenario_path.rename(scenario_path.with_name("renamed.yaml"))
+        invalid_scenario = copy.deepcopy(scenario)
+        invalid_scenario["id"] = "invalid-scenario"
+        del invalid_scenario["default_profiles"]
+        self.write_yaml("scenarios/invalid-scenario/scenario.yaml", invalid_scenario)
+        malformed_path = self.root_dir / "contracts/load-profiles/malformed.yaml"
+        malformed_path.write_text("id: [\n")
+
+        with self.assertRaises(ContractValidationError) as context:
+            validate_repository_contracts(self.root_dir)
+
+        self.assertEqual(
+            str(context.exception).splitlines(),
+            [
+                "contracts/load-profiles/malformed.yaml: $: invalid YAML at line 2, "
+                "column 1: expected the node content, but found '<stream end>'",
+                "implementations/python/example/implementation.yaml: "
+                "$.default_build_profile: missing build-profile 'missing'",
+                "scenarios/example-scenario/scenario.yaml: $: missing required "
+                "scenario contract",
+                "scenarios/invalid-scenario/scenario.yaml: $: 'default_profiles' is "
+                "a required property",
+            ],
+        )
 
     def test_validate_repository_aggregates_errors_in_path_order(self):
         implementation = self.read_yaml("implementations/python/example/implementation.yaml")
