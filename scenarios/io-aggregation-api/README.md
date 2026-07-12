@@ -8,19 +8,18 @@ How does the target behave when a request performs multiple upstream HTTP calls 
 
 ## What This Measures
 
-- HTTP client overhead inside the target runtime
-- Parallel upstream request behavior
-- JSON decode and response composition
-- Resource usage while waiting on external HTTP dependencies
+- HTTP client overhead inside the target service
+- parallel upstream request behavior
+- JSON decoding and response composition
+- resource usage while waiting on external HTTP dependencies
 
 ## What This Does Not Measure
 
-- Database transactions
-- Redis or Kafka behavior
-- Real internet latency
-- Circuit breaker or retry behavior
-- Timeout variants
-- Virtual thread behavior
+- database transactions
+- cache or message broker behavior
+- real internet latency
+- circuit breaker or retry behavior
+- upstream timeout behavior
 
 ## Dependencies
 
@@ -30,14 +29,7 @@ HTTP client and mock upstream baseline settings are documented in [../../docs/ht
 
 ## Variants
 
-Initial variant:
-
-- Spring Boot MVC, JVM Java 25, regular platform threads
-
-Future variants:
-
-- timeout behavior
-- Spring Boot virtual threads
+- `baseline`: All upstream responses complete within the response timeout.
 
 ## Metrics
 

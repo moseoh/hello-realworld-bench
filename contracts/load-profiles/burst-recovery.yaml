@@ -1,0 +1,21 @@
+schema_version: "1.0"
+id: burst-recovery
+contract_version: "0.1"
+status: draft
+description: "Deterministic arrival-rate bursts followed by recovery windows."
+model: open
+executor: ramping-arrival-rate
+timing:
+  warmup_seconds: 120
+  measured_seconds: 480
+phases:
+  - duration_seconds: 120
+    multiplier: 1.0
+  - duration_seconds: 30
+    multiplier: 3.0
+  - duration_seconds: 120
+    multiplier: 1.0
+  - duration_seconds: 30
+    multiplier: 5.0
+  - duration_seconds: 180
+    multiplier: 1.0

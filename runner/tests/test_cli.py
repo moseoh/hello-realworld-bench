@@ -1,14 +1,65 @@
 import io
+import shutil
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
 from hrw_runner.__main__ import main
+from hrw_runner.contracts import validate_repository_contracts
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 class CliTest(unittest.TestCase):
+    def test_validate_prints_validated_contract_file_count(self):
+        output = io.StringIO()
+        with patch("pathlib.Path.cwd", return_value=PROJECT_ROOT), redirect_stdout(output):
+            exit_code = main(["validate"])
+
+        expected_count = len(validate_repository_contracts(PROJECT_ROOT))
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(output.getvalue(), f"Validated {expected_count} contract files.\n")
+
+    def test_validate_prints_aggregated_errors_without_traceback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root_dir = Path(tmp)
+            shutil.copytree(PROJECT_ROOT / "contracts", root_dir / "contracts")
+            (root_dir / "contracts/load-profiles/malformed.yaml").write_text("id: [\n")
+            (root_dir / "contracts/build-profiles/invalid-schema.yaml").write_text(
+                "id: invalid-schema\n"
+            )
+            scenario_path = root_dir / "scenarios/ping-api/scenario.yaml"
+            scenario_path.parent.mkdir(parents=True)
+            scenario_path.write_text(
+                (PROJECT_ROOT / "scenarios/ping-api/scenario.yaml")
+                .read_text()
+                .replace("load_profile: development-local", "load_profile: missing")
+            )
+
+            errors = io.StringIO()
+            with patch("pathlib.Path.cwd", return_value=root_dir), redirect_stderr(errors):
+                exit_code = main(["validate"])
+
+        self.assertEqual(exit_code, 1)
+        self.assertIn("contracts/load-profiles/malformed.yaml", errors.getvalue())
+        self.assertIn("invalid YAML", errors.getvalue())
+        self.assertIn("contracts/build-profiles/invalid-schema.yaml", errors.getvalue())
+        self.assertIn("'schema_version' is a required property", errors.getvalue())
+        self.assertIn("scenarios/ping-api/scenario.yaml", errors.getvalue())
+        self.assertIn("missing load-profile 'missing'", errors.getvalue())
+        self.assertNotIn("Traceback", errors.getvalue())
+
+    def test_validate_does_not_hide_programming_errors(self):
+        with patch(
+            "hrw_runner.__main__.validate_repository_contracts",
+            side_effect=RuntimeError("programming error"),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "programming error"):
+                main(["validate"])
+
     def test_summarize_prints_table(self):
         with tempfile.TemporaryDirectory() as tmp:
             root_dir = Path(tmp)
@@ -61,6 +112,122 @@ class CliTest(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertIn('"rps": 1000.25', output.getvalue())
         self.assertNotIn('"rps": 500.25', output.getvalue())
+
+    def test_run_preserves_existing_positional_arguments(self):
+        config = object()
+        output = io.StringIO()
+        with (
+            patch("pathlib.Path.cwd", return_value=PROJECT_ROOT),
+            patch("hrw_runner.__main__.resolve_run_config", return_value=config) as resolve,
+            patch(
+                "hrw_runner.__main__.run_benchmark",
+                return_value=PROJECT_ROOT / "results/run",
+            ) as run,
+            redirect_stdout(output),
+        ):
+            exit_code = main(["java/spring-boot", "ping-api", "jvm-java25"])
+
+        self.assertEqual(exit_code, 0)
+        resolve.assert_called_once_with(
+            "java/spring-boot",
+            "ping-api",
+            "jvm-java25",
+            PROJECT_ROOT,
+            load_profile=None,
+            environment_profile=None,
+            measurement_protocol=None,
+            build_profile=None,
+        )
+        run.assert_called_once_with(config, PROJECT_ROOT)
+        self.assertIn("Result directory:", output.getvalue())
+
+    def test_run_passes_all_profile_flags_after_the_optional_variant(self):
+        config = object()
+        output = io.StringIO()
+        with (
+            patch("pathlib.Path.cwd", return_value=PROJECT_ROOT),
+            patch("hrw_runner.__main__.resolve_run_config", return_value=config) as resolve,
+            patch(
+                "hrw_runner.__main__.run_benchmark",
+                return_value=PROJECT_ROOT / "results/run",
+            ),
+            redirect_stdout(output),
+        ):
+            exit_code = main(
+                [
+                    "java/spring-boot",
+                    "ping-api",
+                    "jvm-java25",
+                    "--load-profile",
+                    "none",
+                    "--environment-profile",
+                    "local-docker-compose",
+                    "--measurement-protocol",
+                    "development-service",
+                    "--build-profile",
+                    "local-gradle-docker",
+                ]
+            )
+
+        self.assertEqual(exit_code, 0)
+        resolve.assert_called_once_with(
+            "java/spring-boot",
+            "ping-api",
+            "jvm-java25",
+            PROJECT_ROOT,
+            load_profile="none",
+            environment_profile="local-docker-compose",
+            measurement_protocol="development-service",
+            build_profile="local-gradle-docker",
+        )
+
+    def test_run_accepts_profile_flags_without_a_variant(self):
+        config = object()
+        output = io.StringIO()
+        with (
+            patch("pathlib.Path.cwd", return_value=PROJECT_ROOT),
+            patch("hrw_runner.__main__.resolve_run_config", return_value=config) as resolve,
+            patch(
+                "hrw_runner.__main__.run_benchmark",
+                return_value=PROJECT_ROOT / "results/run",
+            ),
+            redirect_stdout(output),
+        ):
+            exit_code = main(
+                ["java/spring-boot", "ping-api", "--load-profile", "none"]
+            )
+
+        self.assertEqual(exit_code, 0)
+        self.assertIsNone(resolve.call_args.args[2])
+        self.assertEqual(resolve.call_args.kwargs["load_profile"], "none")
+
+    def test_run_rejects_unknown_missing_and_duplicate_flags_with_usage(self):
+        invalid_arguments = (
+            ["java/spring-boot", "ping-api", "--unknown", "value"],
+            ["java/spring-boot", "ping-api", "--load-profile"],
+            [
+                "java/spring-boot",
+                "ping-api",
+                "--load-profile",
+                "none",
+                "--load-profile",
+                "none",
+            ],
+        )
+
+        for arguments in invalid_arguments:
+            with self.subTest(arguments=arguments):
+                errors = io.StringIO()
+                with (
+                    patch("pathlib.Path.cwd", return_value=PROJECT_ROOT),
+                    patch("hrw_runner.__main__.resolve_run_config") as resolve,
+                    redirect_stderr(errors),
+                ):
+                    exit_code = main(arguments)
+
+                self.assertEqual(exit_code, 2)
+                self.assertIn("Usage: python -m hrw_runner", errors.getvalue())
+                resolve.assert_not_called()
 
     def _write_result(self, root_dir: Path) -> None:
         result_path = root_dir / "results/java/spring-boot/jvm-java25/ping-api/run/result.json"

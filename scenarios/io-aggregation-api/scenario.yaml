@@ -1,8 +1,29 @@
-name: io-aggregation-api
+schema_version: "1.0"
+id: io-aggregation-api
+contract_version: "1.0"
 description: "HTTP API that aggregates several upstream HTTP responses into one response."
+kind: service
 question: "How does the target behave when a request fans out to multiple upstream HTTP calls and combines the results?"
-implementation: java/spring-boot
-variant: jvm-java25
+measures:
+  - HTTP client overhead inside the target service
+  - parallel upstream request behavior
+  - JSON decoding and response composition
+  - resource usage while waiting on external HTTP dependencies
+does_not_measure:
+  - database transactions
+  - cache or message broker behavior
+  - real internet latency
+  - circuit breaker or retry behavior
+  - upstream timeout behavior
+dependencies:
+  - mock-upstream
+variants:
+  - id: baseline
+    description: "All upstream responses complete within the response timeout."
+default_profiles:
+  environment_profile: local-docker-compose
+  measurement_protocol: development-service
+  load_profile: development-local
 
 target:
   base_url: "http://localhost:8080"
@@ -16,15 +37,12 @@ services:
   mock_upstream: true
 
 load:
+  enabled: true
   tool: k6
   script: "scenarios/io-aggregation-api/k6.js"
   warmup_duration: "15s"
   test_duration: "45s"
   vus: 25
-
-runtime:
-  virtual_threads: false
-  otel: false
 
 metrics:
   collect:

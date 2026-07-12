@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hellorealworld.dev/contracts/schemas/build-profile.schema.json",
+  "title": "Benchmark build profile contract",
+  "$defs": {
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?![\\s\\S])"
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "contract_version",
+    "description",
+    "status",
+    "build_tool",
+    "dependency_cache",
+    "image_cache",
+    "image_input"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "id": { "$ref": "#/$defs/slug" },
+    "contract_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+(?:\\.[0-9]+)?$"
+    },
+    "description": { "type": "string", "minLength": 1 },
+    "status": {
+      "type": "string",
+      "enum": ["development", "draft", "frozen"]
+    },
+    "build_tool": { "type": "string", "minLength": 1 },
+    "dependency_cache": { "type": "string", "minLength": 1 },
+    "image_cache": { "type": "string", "minLength": 1 },
+    "image_input": { "type": "string", "minLength": 1 }
+  }
+}

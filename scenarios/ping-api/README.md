@@ -30,17 +30,9 @@ Can the benchmark runner build, start, load test, collect metrics, and save resu
 
 - target HTTP service only
 
-## Default Implementation
-
-- `java/spring-boot`
-
-## Default Variant
-
-- `jvm-java25`
-
 ## Variants
 
-- none in the MVP
+- `baseline`: Minimal runner smoke contract.
 
 ## Metrics
 

@@ -45,6 +45,8 @@ The `ping-api` scenario exists to validate benchmark runner automation. It is no
 
 The `cold-start-api` scenario measures repeated time to first successful `/ping` response after the application starts. It does not model serverless platform cold starts.
 
+The current profile catalog supports local development runs. Draft load profiles are definitions for future work; they are not executable official profiles, and current local outputs are not official benchmark results. See [Benchmark Contracts](docs/benchmark-contracts.md) for contract ownership and catalog status.
+
 ## Requirements
 
 - Docker
@@ -64,6 +66,28 @@ With explicit values:
 
 ```bash
 make run IMPLEMENTATION=java/spring-boot SCENARIO=ping-api VARIANT=jvm-java25
+```
+
+With explicit profile selections:
+
+```bash
+make run \
+  LOAD_PROFILE=development-local \
+  ENVIRONMENT_PROFILE=local-docker-compose \
+  MEASUREMENT_PROTOCOL=development-service \
+  BUILD_PROFILE=local-gradle-docker
+```
+
+The runner accepts the same selections as flags after the two required positional
+arguments and optional variant:
+
+```bash
+PYTHONPATH=runner uv run --project runner python -m hrw_runner \
+  java/spring-boot ping-api jvm-java25 \
+  --load-profile development-local \
+  --environment-profile local-docker-compose \
+  --measurement-protocol development-service \
+  --build-profile local-gradle-docker
 ```
 
 Cold start scenario:
@@ -100,17 +124,31 @@ The shorter `spring-boot` form is kept as a compatibility alias for the default 
 
 The Makefile calls the uv-managed Python runner. The runner cleans previous containers, builds the app, builds the target image, starts Docker Compose, waits for the scenario endpoint to return 200, runs warmup and benchmark k6 phases when enabled, collects Docker stats, writes results, and shuts down the container.
 
-The runner reads scenario and variant metadata from:
+The implementation contract owns the default variant and build profile. Each
+service scenario owns the default load profile, environment profile, and
+measurement protocol. The runner reads these contracts from:
 
 ```text
+implementations/java/spring-boot/implementation.yaml
+implementations/java/spring-boot/variants/jvm-java25.yaml
+implementations/java/spring-boot/variants/jvm-java25-virtual-threads.yaml
 scenarios/ping-api/scenario.yaml
 scenarios/cold-start-api/scenario.yaml
 scenarios/transactional-command-api/scenario.yaml
 scenarios/io-aggregation-api/scenario.yaml
 scenarios/io-aggregation-timeout-api/scenario.yaml
-implementations/java/spring-boot/variants/jvm-java25.yaml
-implementations/java/spring-boot/variants/jvm-java25-virtual-threads.yaml
+contracts/load-profiles/
+contracts/environment-profiles/
+contracts/measurement-protocols/
+contracts/build-profiles/
 ```
+
+CLI flags and the corresponding Make variables can override all four profile
+selections. Every run validates the complete contract repository first and rejects
+selected draft profiles before execution. The current local runner still obtains
+timing and VU values from each scenario's `load` section through the
+`development-local` profile. The ownership model and validation rules are
+documented in [docs/benchmark-contracts.md](docs/benchmark-contracts.md).
 
 Scenario details for humans live in each scenario directory:
 
@@ -181,8 +219,16 @@ Do not use early MVP output as a general-purpose performance conclusion. The fir
 
 ## Runner Development
 
+Validate all benchmark contracts:
+
+```bash
+make validate-contracts
+```
+
+Run the complete project checks:
+
 ```bash
 make check
 ```
 
-This runs the Python runner tests and the Spring Boot tests in a Java 25 Docker image.
+This validates the benchmark contracts, then runs the Python runner tests and the Spring Boot tests in a Java 25 Docker image.

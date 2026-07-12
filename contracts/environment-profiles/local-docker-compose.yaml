@@ -1,0 +1,8 @@
+schema_version: "1.0"
+id: local-docker-compose
+contract_version: "1.0"
+status: development
+description: "Local Docker Compose environment for development benchmark runs."
+orchestrator: docker-compose
+official: false
+load_generator: same-host

@@ -119,11 +119,21 @@ def _validate_paths(config: RunConfig) -> None:
     if not config.variant_file.is_file():
         raise SystemExit(f"Variant file not found: {config.variant_file}")
     if _load_enabled(config):
-        script = config.root_dir / str(config.load.get("script", ""))
-        if not script.is_file():
-            raise SystemExit(f"Scenario k6 script not found: {script}")
+        _scenario_script(config)
     if shutil.which("docker") is None:
         raise SystemExit("docker is required.")
+
+
+def _scenario_script(config: RunConfig) -> Path:
+    script = (config.root_dir / str(config.load.get("script", ""))).resolve()
+    scenario_dir = config.scenario_dir.resolve()
+    try:
+        script.relative_to(scenario_dir)
+    except ValueError:
+        raise SystemExit(f"Invalid scenario k6 script: {script}") from None
+    if script.suffix != ".js" or not script.is_file():
+        raise SystemExit(f"Invalid scenario k6 script: {script}")
+    return script
 
 
 def _compose_files(config: RunConfig, root_dir: Path) -> list[Path]:
@@ -159,8 +169,8 @@ def _metadata(config: RunConfig, run_id: str) -> dict[str, object]:
 
 def _runtime(config: RunConfig) -> dict[str, object]:
     runtime = dict(config.runtime)
-    runtime.setdefault("language", config.language)
-    runtime.setdefault("framework", config.framework)
+    runtime["language"] = config.language
+    runtime["framework"] = config.framework
     return runtime
 
 
@@ -298,7 +308,7 @@ def _dependency_services(config: RunConfig) -> list[str]:
 
 
 def _run_k6(root_dir: Path, config: RunConfig, duration: str, summary_path: Path, log) -> None:
-    script = config.root_dir / str(config.load.get("script"))
+    script = _scenario_script(config)
     base_url = str(config.target.get("base_url", "http://localhost:8080"))
     vus = str(config.load.get("vus", 50))
     if shutil.which("k6"):
