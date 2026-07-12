@@ -1,4 +1,5 @@
 import io
+import json
 import tempfile
 import unittest
 from dataclasses import replace
@@ -6,13 +7,21 @@ from pathlib import Path
 from unittest.mock import patch
 
 from hrw_runner.config import resolve_run_config
+from hrw_runner.manifest import validate_resolved_manifest
 from hrw_runner.runner import (
     RESULT_SCHEMA_VERSION,
+    RunPaths,
     _compose_files,
     _dependency_services,
+    _metadata,
     _result_document,
     _run_k6,
+    run_benchmark,
 )
+
+
+MANIFEST_DIGEST = "a" * 64
+COHORT_FINGERPRINT = "b" * 64
 
 
 class ResultDocumentTest(unittest.TestCase):
@@ -23,6 +32,8 @@ class ResultDocumentTest(unittest.TestCase):
         result = _result_document(
             config,
             "run-id",
+            MANIFEST_DIGEST,
+            COHORT_FINGERPRINT,
             {"os": "Darwin", "load_generator": "same-host"},
             {
                 "clean_build_ms": 1000,
@@ -62,6 +73,8 @@ class ResultDocumentTest(unittest.TestCase):
         )
 
         self.assertEqual(result["schema_version"], RESULT_SCHEMA_VERSION)
+        self.assertEqual(result["manifest_digest"], MANIFEST_DIGEST)
+        self.assertEqual(result["cohort_fingerprint"], COHORT_FINGERPRINT)
         self.assertEqual(result["scenario"], "ping-api")
         self.assertNotIn("language", config.runtime)
         self.assertNotIn("framework", config.runtime)
@@ -103,6 +116,8 @@ class ResultDocumentTest(unittest.TestCase):
         result = _result_document(
             config,
             "run-id",
+            MANIFEST_DIGEST,
+            COHORT_FINGERPRINT,
             {"os": "Darwin", "load_generator": "same-host"},
             {
                 "clean_build_ms": 1000,
@@ -175,16 +190,31 @@ class StartupDependencyTest(unittest.TestCase):
 
 
 class ComposeFilesTest(unittest.TestCase):
-    def test_includes_variant_compose_before_scenario_compose(self):
+    def test_uses_manifest_compose_assets_in_role_order(self):
         root_dir = Path(__file__).resolve().parents[2]
-        config = resolve_run_config(
-            "java/spring-boot",
-            "io-aggregation-api",
-            "jvm-java25-virtual-threads",
-            root_dir,
-        )
+        manifest = {
+            "assets": [
+                {
+                    "role": "scenario-file",
+                    "path": "scenarios/io-aggregation-api/k6.js",
+                },
+                {
+                    "role": "scenario-compose",
+                    "path": "infra/docker-compose.io-aggregation-api.yml",
+                },
+                {"role": "environment-compose", "path": "infra/docker-compose.base.yml"},
+                {
+                    "role": "variant-compose",
+                    "path": "infra/docker-compose.spring-boot.jvm-java25-virtual-threads.yml",
+                },
+                {
+                    "role": "implementation-compose",
+                    "path": "infra/docker-compose.spring-boot.yml",
+                },
+            ]
+        }
 
-        names = [path.name for path in _compose_files(config, root_dir)]
+        names = [path.name for path in _compose_files(manifest, root_dir)]
 
         self.assertEqual(
             names,
@@ -195,6 +225,93 @@ class ComposeFilesTest(unittest.TestCase):
                 "docker-compose.io-aggregation-api.yml",
             ],
         )
+
+    def test_rejects_missing_non_compose_and_unsafe_manifest_paths(self):
+        root_dir = Path(__file__).resolve().parents[2]
+        cases = (
+            {"role": "environment-compose", "path": "infra/missing.yml"},
+            {"role": "environment-compose", "path": "README.md"},
+            {"role": "environment-compose", "path": "../outside.yml"},
+        )
+
+        for asset in cases:
+            with self.subTest(asset=asset):
+                with self.assertRaisesRegex(ValueError, "compose asset"):
+                    _compose_files({"assets": [asset]}, root_dir)
+
+
+class ManifestRunFlowTest(unittest.TestCase):
+    def setUp(self):
+        self.root_dir = Path(__file__).resolve().parents[2]
+        self.config = resolve_run_config(
+            "java/spring-boot", "cold-start-api", "jvm-java25", self.root_dir
+        )
+
+    @patch("hrw_runner.runner._write_target_log")
+    @patch("hrw_runner.runner._docker_stats", return_value={})
+    @patch("hrw_runner.runner._measure_startup", return_value={})
+    @patch("hrw_runner.runner._measure_build", return_value={})
+    @patch("hrw_runner.runner._compose")
+    @patch("hrw_runner.runner.shutil.which", return_value="/usr/local/bin/docker")
+    def test_writes_valid_manifest_before_first_measurement_and_cross_references_outputs(
+        self, _which, compose, measure_build, _measure_startup, _docker_stats, _target_log
+    ):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            result_dir = Path(temp_dir) / "result"
+
+            def assert_manifest_written(_config, _log):
+                manifest = json.loads((result_dir / "resolved-manifest.json").read_text())
+                validate_resolved_manifest(manifest, self.root_dir)
+                return {}
+
+            measure_build.side_effect = assert_manifest_written
+            with patch(
+                "hrw_runner.runner._run_paths",
+                return_value=RunPaths(result_dir=result_dir, run_id="run-id"),
+            ):
+                run_benchmark(self.config, self.root_dir)
+
+            manifest = json.loads((result_dir / "resolved-manifest.json").read_text())
+            metadata = json.loads((result_dir / "metadata.json").read_text())
+            result = json.loads((result_dir / "result.json").read_text())
+
+        self.assertTrue(measure_build.called)
+        self.assertEqual(metadata["manifest_digest"], manifest["manifest_digest"])
+        self.assertEqual(metadata["cohort_fingerprint"], manifest["cohort"]["fingerprint"])
+        self.assertEqual(result["manifest_digest"], manifest["manifest_digest"])
+        self.assertEqual(result["cohort_fingerprint"], manifest["cohort"]["fingerprint"])
+        self.assertEqual(result["schema_version"], "0.2")
+
+    @patch("hrw_runner.runner._measure_build")
+    @patch("hrw_runner.runner._compose")
+    @patch("hrw_runner.runner.validate_resolved_manifest", side_effect=ValueError("invalid"))
+    @patch("hrw_runner.runner.shutil.which", return_value="/usr/local/bin/docker")
+    def test_manifest_validation_failure_prevents_measurement(
+        self, _which, _validate_manifest, compose, measure_build
+    ):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            result_dir = Path(temp_dir) / "result"
+            with patch(
+                "hrw_runner.runner._run_paths",
+                return_value=RunPaths(result_dir=result_dir, run_id="run-id"),
+            ):
+                with self.assertRaisesRegex(ValueError, "invalid"):
+                    run_benchmark(self.config, self.root_dir)
+
+        compose.assert_not_called()
+        measure_build.assert_not_called()
+
+
+class MetadataTest(unittest.TestCase):
+    @patch("hrw_runner.runner.environment_metadata", return_value={})
+    def test_references_manifest_fingerprints(self, _environment_metadata):
+        root_dir = Path(__file__).resolve().parents[2]
+        config = resolve_run_config("java/spring-boot", "ping-api", "jvm-java25", root_dir)
+
+        metadata = _metadata(config, "run-id", MANIFEST_DIGEST, COHORT_FINGERPRINT)
+
+        self.assertEqual(metadata["manifest_digest"], MANIFEST_DIGEST)
+        self.assertEqual(metadata["cohort_fingerprint"], COHORT_FINGERPRINT)
 
 
 class ScenarioScriptPathTest(unittest.TestCase):

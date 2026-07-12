@@ -122,7 +122,7 @@ make run SCENARIO=io-aggregation-timeout-api VARIANT=jvm-java25-virtual-threads
 
 The shorter `spring-boot` form is kept as a compatibility alias for the default Spring Boot JVM variant.
 
-The Makefile calls the uv-managed Python runner. The runner cleans previous containers, builds the app, builds the target image, starts Docker Compose, waits for the scenario endpoint to return 200, runs warmup and benchmark k6 phases when enabled, collects Docker stats, writes results, and shuts down the container.
+The Makefile calls the uv-managed Python runner. Before starting measurement, the runner resolves and strictly validates an exact-run manifest against the current checkout. It then uses the manifest's ordered Compose assets, cleans previous containers, builds the app and target image, measures startup, runs warmup and benchmark k6 phases when enabled, collects Docker stats, writes results, and shuts down the container.
 
 The implementation contract owns the default variant and build profile. Each
 service scenario owns the default load profile, environment profile, and
@@ -149,6 +149,8 @@ selected draft profiles before execution. The current local runner still obtains
 timing and VU values from each scenario's `load` section through the
 `development-local` profile. The ownership model and validation rules are
 documented in [docs/benchmark-contracts.md](docs/benchmark-contracts.md).
+The resolved selections, effective execution configuration, input assets, and Git
+provenance are documented in [docs/resolved-run-manifest.md](docs/resolved-run-manifest.md).
 
 Scenario details for humans live in each scenario directory:
 
@@ -166,6 +168,7 @@ Each run creates a timestamped directory:
 
 ```text
 results/java/spring-boot/jvm-java25/<scenario>/2026-07-04T21-30-00_java_spring-boot_jvm-java25_<scenario>/
+├── resolved-manifest.json
 ├── metadata.json
 ├── build.json
 ├── startup.json
@@ -183,7 +186,7 @@ Results mirror the implementation layout:
 results/<language>/<framework>/<variant>/<scenario>/<run_id>/
 ```
 
-The normalized `result.json` shape is documented in [docs/results-schema.md](docs/results-schema.md).
+The normalized `result.json` shape is documented in [docs/results-schema.md](docs/results-schema.md). `resolved-manifest.json`, `metadata.json`, and `result.json` share the same exact-run digest and cohort fingerprint.
 
 Summarize local benchmark results:
 

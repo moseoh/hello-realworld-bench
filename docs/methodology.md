@@ -42,6 +42,12 @@ Variant metadata should be recorded separately from implementation metadata. For
 
 The normalized result shape is documented in [results-schema.md](results-schema.md). Raw scenario artifacts may contain more detail than `result.json`.
 
+Every run records an exact-run manifest before measurement. Its complete digest
+identifies resolved contracts, effective settings, assets, and Git worktree
+provenance. Its narrower cohort fingerprint identifies shared scenario and
+measurement conditions while excluding implementation-specific inputs. See
+[resolved-run-manifest.md](resolved-run-manifest.md).
+
 ## Load Generator Placement
 
 For the MVP, the load generator runs on the same host as the target container. This is acceptable for validating runner automation, but it must be documented in every result.
@@ -51,3 +57,6 @@ A later phase should add remote load generator mode.
 ## Interpretation
 
 Benchmark results should be phrased as trade-offs under specific scenario conditions. Avoid universal claims such as one framework being faster than another in general.
+
+Current local outputs are development evidence. Official runs in a later phase
+require clean, trusted commits and official profiles.
