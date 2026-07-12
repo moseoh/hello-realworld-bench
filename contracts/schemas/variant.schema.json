@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hellorealworld.dev/contracts/schemas/variant.schema.json",
+  "title": "Benchmark variant contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "contract_version",
+    "description",
+    "implementation",
+    "runtime",
+    "docker"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "id": { "type": "string", "minLength": 1 },
+    "contract_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+(?:\\.[0-9]+)?$"
+    },
+    "description": { "type": "string", "minLength": 1 },
+    "implementation": { "type": "string", "minLength": 1 },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 3,
+      "required": ["language", "framework", "build_mode"],
+      "properties": {
+        "language": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "java_version": { "type": "string", "minLength": 1 },
+        "framework": { "type": "string", "minLength": 1 },
+        "framework_version": { "type": "string", "minLength": 1 },
+        "spring_boot_version": { "type": "string", "minLength": 1 },
+        "build_mode": { "type": "string", "minLength": 1 },
+        "native_image": { "type": "boolean" },
+        "virtual_threads": { "type": "boolean" },
+        "otel": { "type": "boolean" }
+      }
+    },
+    "docker": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "required": ["image_tag"],
+      "properties": {
+        "image": { "type": "string", "minLength": 1 },
+        "image_tag": { "type": "string", "minLength": 1 },
+        "build_context": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

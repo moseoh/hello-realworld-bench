@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hellorealworld.dev/contracts/schemas/environment-profile.schema.json",
+  "title": "Benchmark environment profile contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "contract_version",
+    "description",
+    "status",
+    "orchestrator",
+    "official",
+    "load_generator"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "id": { "type": "string", "minLength": 1 },
+    "contract_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+(?:\\.[0-9]+)?$"
+    },
+    "description": { "type": "string", "minLength": 1 },
+    "status": {
+      "type": "string",
+      "enum": ["development", "draft", "frozen"]
+    },
+    "orchestrator": { "type": "string", "minLength": 1 },
+    "official": { "type": "boolean" },
+    "load_generator": { "type": "string", "minLength": 1 }
+  }
+}

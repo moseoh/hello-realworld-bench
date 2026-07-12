@@ -1,0 +1,9 @@
+schema_version: "1.0"
+id: local-gradle-docker
+contract_version: "1.0"
+status: development
+description: "Local Gradle build and Docker image packaging with persistent caches."
+build_tool: gradle
+dependency_cache: persistent
+image_cache: enabled
+image_input: built-artifact

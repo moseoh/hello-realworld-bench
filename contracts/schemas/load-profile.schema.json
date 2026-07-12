@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hellorealworld.dev/contracts/schemas/load-profile.schema.json",
+  "title": "Benchmark load profile contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "contract_version",
+    "description",
+    "status",
+    "model",
+    "executor",
+    "timing",
+    "phases"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "id": { "type": "string", "minLength": 1 },
+    "contract_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+(?:\\.[0-9]+)?$"
+    },
+    "description": { "type": "string", "minLength": 1 },
+    "status": {
+      "type": "string",
+      "enum": ["development", "draft", "frozen"]
+    },
+    "model": {
+      "type": "string",
+      "enum": [
+        "open",
+        "closed",
+        "disabled"
+      ]
+    },
+    "executor": {
+      "type": "string",
+      "enum": [
+        "constant-vus",
+        "constant-arrival-rate",
+        "ramping-arrival-rate",
+        "none"
+      ]
+    },
+    "timing": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "source": { "type": "string", "minLength": 1 },
+        "warmup_seconds": { "type": ["integer", "null"], "minimum": 0 },
+        "measured_seconds": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "phases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "minProperties": 1,
+        "properties": {
+          "source": { "type": "string", "minLength": 1 },
+          "duration_seconds": { "type": ["integer", "null"], "minimum": 0 },
+          "multiplier": { "type": ["number", "null"], "minimum": 0 },
+          "vus": { "type": ["integer", "null"], "minimum": 0 }
+        }
+      }
+    }
+  }
+}

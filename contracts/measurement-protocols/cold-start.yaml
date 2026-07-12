@@ -1,0 +1,10 @@
+schema_version: "1.0"
+id: cold-start
+contract_version: "1.0"
+status: development
+description: "Development lifecycle protocol for repeated cold-start observations."
+evidence_family: lifecycle
+trials: 5
+timing_source: none
+warmup_seconds: 0
+measured_seconds: 0

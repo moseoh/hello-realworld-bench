@@ -1,0 +1,13 @@
+schema_version: "1.0"
+id: development-local
+contract_version: "1.0"
+status: development
+description: "Local development load using scenario-provided closed-model timing and VUs."
+model: closed
+executor: constant-vus
+timing:
+  source: scenario
+phases:
+  - source: scenario
+    duration_seconds: null
+    vus: null

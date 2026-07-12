@@ -1,0 +1,10 @@
+schema_version: "1.0"
+id: development-service
+contract_version: "1.0"
+status: development
+description: "Development service protocol with scenario-provided timing."
+evidence_family: service
+trials: 1
+timing_source: scenario
+warmup_seconds: null
+measured_seconds: null
