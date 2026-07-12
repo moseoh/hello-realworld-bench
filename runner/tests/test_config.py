@@ -47,6 +47,34 @@ class ResolveRunConfigTest(unittest.TestCase):
         self.assertNotIn("variant", config.scenario_config)
         self.assertNotIn("runtime", config.scenario_config)
 
+    def test_preserves_selected_contract_documents_by_manifest_role(self):
+        config = resolve_run_config("java/spring-boot", "ping-api", None)
+
+        self.assertEqual(
+            set(config.selected_contracts),
+            {
+                "implementation",
+                "variant",
+                "scenario",
+                "environment_profile",
+                "measurement_protocol",
+                "load_profile",
+                "build_profile",
+            },
+        )
+        self.assertEqual(
+            config.selected_contracts["implementation"].path,
+            config.app_dir / "implementation.yaml",
+        )
+        self.assertIs(
+            config.selected_contracts["scenario"].value,
+            config.scenario_config,
+        )
+        self.assertIs(
+            config.selected_contracts["build_profile"].value,
+            config.build_profile_config,
+        )
+
     def test_profile_overrides_replace_all_owned_defaults(self):
         root_dir = self._copy_runnable_contracts()
         self._copy_profile(

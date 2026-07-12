@@ -1,0 +1,296 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hellorealworld.dev/contracts/schemas/resolved-run-manifest.schema.json",
+  "title": "Resolved benchmark run manifest",
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "contractRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id", "schema_version", "contract_version", "digest", "path"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "implementation",
+            "variant",
+            "scenario",
+            "environment-profile",
+            "measurement-protocol",
+            "load-profile",
+            "build-profile"
+          ]
+        },
+        "id": { "type": "string", "minLength": 1 },
+        "schema_version": { "type": "string", "minLength": 1 },
+        "contract_version": { "type": "string", "minLength": 1 },
+        "digest": { "$ref": "#/$defs/digest" },
+        "path": { "$ref": "#/$defs/repositoryPath" }
+      }
+    },
+    "implementationRef": {
+      "allOf": [
+        { "$ref": "#/$defs/contractRef" },
+        { "properties": { "kind": { "const": "implementation" } } }
+      ]
+    },
+    "variantRef": {
+      "allOf": [
+        { "$ref": "#/$defs/contractRef" },
+        { "properties": { "kind": { "const": "variant" } } }
+      ]
+    },
+    "scenarioRef": {
+      "allOf": [
+        { "$ref": "#/$defs/contractRef" },
+        { "properties": { "kind": { "const": "scenario" } } }
+      ]
+    },
+    "environmentProfileRef": {
+      "allOf": [
+        { "$ref": "#/$defs/contractRef" },
+        { "properties": { "kind": { "const": "environment-profile" } } }
+      ]
+    },
+    "measurementProtocolRef": {
+      "allOf": [
+        { "$ref": "#/$defs/contractRef" },
+        { "properties": { "kind": { "const": "measurement-protocol" } } }
+      ]
+    },
+    "loadProfileRef": {
+      "allOf": [
+        { "$ref": "#/$defs/contractRef" },
+        { "properties": { "kind": { "const": "load-profile" } } }
+      ]
+    },
+    "buildProfileRef": {
+      "allOf": [
+        { "$ref": "#/$defs/contractRef" },
+        { "properties": { "kind": { "const": "build-profile" } } }
+      ]
+    },
+    "repositoryPath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*[\\u0000-\\u001f\\u007f])(?!\\.{1,2}(?:/|(?![\\s\\S])))(?!.*[/]\\.{1,2}(?:/|(?![\\s\\S])))[^/]+(?:/[^/]+)*(?![\\s\\S])"
+    },
+    "assetRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "path", "sha256"],
+      "properties": {
+        "role": {
+          "enum": [
+            "environment-compose",
+            "implementation-compose",
+            "variant-compose",
+            "scenario-compose",
+            "scenario-file"
+          ]
+        },
+        "path": { "$ref": "#/$defs/repositoryPath" },
+        "sha256": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "comparableAssetRef": {
+      "allOf": [
+        { "$ref": "#/$defs/assetRef" },
+        {
+          "properties": {
+            "role": {
+              "enum": ["environment-compose", "scenario-compose", "scenario-file"]
+            }
+          }
+        }
+      ]
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["language", "framework", "build_mode"],
+      "properties": {
+        "language": { "type": "string", "minLength": 1 },
+        "framework": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "java_version": { "type": "string", "minLength": 1 },
+        "framework_version": { "type": "string", "minLength": 1 },
+        "spring_boot_version": { "type": "string", "minLength": 1 },
+        "build_mode": { "type": "string", "minLength": 1 },
+        "native_image": { "type": "boolean" },
+        "virtual_threads": { "type": "boolean" },
+        "otel": { "type": "boolean" }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["base_url", "endpoint"],
+      "properties": {
+        "base_url": { "type": "string", "minLength": 1 },
+        "startup_path": { "type": "string", "minLength": 1 },
+        "endpoint": { "type": "string", "minLength": 1 }
+      }
+    },
+    "services": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["postgres", "redis", "kafka", "mock_upstream"],
+      "properties": {
+        "postgres": { "type": "boolean" },
+        "redis": { "type": "boolean" },
+        "kafka": { "type": "boolean" },
+        "mock_upstream": { "type": "boolean" }
+      }
+    },
+    "load": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "tool": { "type": "string", "minLength": 1 },
+        "script": { "type": "string", "minLength": 1 },
+        "warmup_duration": { "type": "string", "minLength": 1 },
+        "test_duration": { "type": "string", "minLength": 1 },
+        "vus": { "type": "integer", "minimum": 0 },
+        "docker_stats_interval_seconds": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "startup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["iterations"],
+      "properties": {
+        "iterations": { "type": "integer", "minimum": 1 },
+        "poll_interval_seconds": { "type": "number", "minimum": 0 },
+        "timeout_seconds": { "type": "number", "minimum": 0 }
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "manifest_digest",
+    "source",
+    "selection",
+    "contracts",
+    "assets",
+    "execution",
+    "cohort"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^\\u0000-\\u001f\\u007f]+(?![\\s\\S])"
+    },
+    "manifest_digest": { "$ref": "#/$defs/digest" },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["git_commit", "git_dirty", "worktree_digest"],
+      "properties": {
+        "git_commit": {
+          "type": "string",
+          "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})(?![\\s\\S])"
+        },
+        "git_dirty": { "type": "boolean" },
+        "worktree_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "implementation",
+        "variant",
+        "scenario",
+        "environment_profile",
+        "measurement_protocol",
+        "load_profile",
+        "build_profile"
+      ],
+      "properties": {
+        "implementation": { "type": "string", "minLength": 1 },
+        "variant": { "type": "string", "minLength": 1 },
+        "scenario": { "type": "string", "minLength": 1 },
+        "environment_profile": { "type": "string", "minLength": 1 },
+        "measurement_protocol": { "type": "string", "minLength": 1 },
+        "load_profile": { "type": "string", "minLength": 1 },
+        "build_profile": { "type": "string", "minLength": 1 }
+      }
+    },
+    "contracts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "implementation",
+        "variant",
+        "scenario",
+        "environment_profile",
+        "measurement_protocol",
+        "load_profile",
+        "build_profile"
+      ],
+      "properties": {
+        "implementation": { "$ref": "#/$defs/implementationRef" },
+        "variant": { "$ref": "#/$defs/variantRef" },
+        "scenario": { "$ref": "#/$defs/scenarioRef" },
+        "environment_profile": { "$ref": "#/$defs/environmentProfileRef" },
+        "measurement_protocol": { "$ref": "#/$defs/measurementProtocolRef" },
+        "load_profile": { "$ref": "#/$defs/loadProfileRef" },
+        "build_profile": { "$ref": "#/$defs/buildProfileRef" }
+      }
+    },
+    "assets": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/assetRef" }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runtime", "target", "services", "load", "startup", "compose_profile", "image_tag"],
+      "properties": {
+        "runtime": { "$ref": "#/$defs/runtime" },
+        "target": { "$ref": "#/$defs/target" },
+        "services": { "$ref": "#/$defs/services" },
+        "load": { "$ref": "#/$defs/load" },
+        "startup": { "$ref": "#/$defs/startup" },
+        "compose_profile": { "type": "string", "minLength": 1 },
+        "image_tag": { "type": "string", "minLength": 1 }
+      }
+    },
+    "cohort": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fingerprint", "evidence_family", "contracts", "assets"],
+      "properties": {
+        "fingerprint": { "$ref": "#/$defs/digest" },
+        "evidence_family": { "type": "string", "minLength": 1 },
+        "contracts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["scenario", "load_profile", "environment_profile", "measurement_protocol"],
+          "properties": {
+            "scenario": { "$ref": "#/$defs/scenarioRef" },
+            "load_profile": { "$ref": "#/$defs/loadProfileRef" },
+            "environment_profile": { "$ref": "#/$defs/environmentProfileRef" },
+            "measurement_protocol": { "$ref": "#/$defs/measurementProtocolRef" }
+          }
+        },
+        "assets": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/comparableAssetRef" }
+        }
+      }
+    }
+  }
+}

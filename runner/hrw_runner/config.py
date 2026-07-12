@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Mapping
 
 from .contracts import ContractDocument, validate_repository_contracts
 
@@ -32,6 +33,7 @@ class RunConfig:
     measurement_protocol_config: dict[str, object]
     load_profile_config: dict[str, object]
     build_profile_config: dict[str, object]
+    selected_contracts: Mapping[str, ContractDocument]
 
 
 def resolve_run_config(
@@ -106,26 +108,30 @@ def resolve_run_config(
         if build_profile is not None
         else str(implementation_config["default_build_profile"])
     )
-    environment_profile_config = _select_profile_contract(
+    environment_profile_document = _select_profile_contract(
         documents,
         "environment-profile",
         environment_profile_id,
     )
-    measurement_protocol_config = _select_profile_contract(
+    measurement_protocol_document = _select_profile_contract(
         documents,
         "measurement-protocol",
         measurement_protocol_id,
     )
-    load_profile_config = _select_profile_contract(
+    load_profile_document = _select_profile_contract(
         documents,
         "load-profile",
         load_profile_id,
     )
-    build_profile_config = _select_profile_contract(
+    build_profile_document = _select_profile_contract(
         documents,
         "build-profile",
         build_profile_id,
     )
+    environment_profile_config = environment_profile_document.value
+    measurement_protocol_config = measurement_protocol_document.value
+    load_profile_config = load_profile_document.value
+    build_profile_config = build_profile_document.value
     _reject_draft_profile("environment profile", environment_profile_config)
     _reject_draft_profile("measurement protocol", measurement_protocol_config)
     _reject_draft_profile("load profile", load_profile_config)
@@ -174,6 +180,15 @@ def resolve_run_config(
         measurement_protocol_config=measurement_protocol_config,
         load_profile_config=load_profile_config,
         build_profile_config=build_profile_config,
+        selected_contracts={
+            "implementation": implementation_document,
+            "variant": variant_document,
+            "scenario": scenario_document,
+            "environment_profile": environment_profile_document,
+            "measurement_protocol": measurement_protocol_document,
+            "load_profile": load_profile_document,
+            "build_profile": build_profile_document,
+        },
     )
 
 
@@ -207,10 +222,10 @@ def _select_profile_contract(
     documents: list[ContractDocument],
     kind: str,
     profile_id: str,
-) -> dict[str, object]:
+) -> ContractDocument:
     document = _find_document(documents, kind, profile_id)
     if document is not None:
-        return document.value
+        return document
     raise ValueError(f"Unsupported {kind.replace('-', ' ')}: {profile_id}")
 
 
