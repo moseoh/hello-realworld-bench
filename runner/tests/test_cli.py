@@ -1,14 +1,65 @@
 import io
+import shutil
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
 from hrw_runner.__main__ import main
+from hrw_runner.contracts import validate_repository_contracts
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 class CliTest(unittest.TestCase):
+    def test_validate_prints_validated_contract_file_count(self):
+        output = io.StringIO()
+        with patch("pathlib.Path.cwd", return_value=PROJECT_ROOT), redirect_stdout(output):
+            exit_code = main(["validate"])
+
+        expected_count = len(validate_repository_contracts(PROJECT_ROOT))
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(output.getvalue(), f"Validated {expected_count} contract files.\n")
+
+    def test_validate_prints_aggregated_errors_without_traceback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root_dir = Path(tmp)
+            shutil.copytree(PROJECT_ROOT / "contracts", root_dir / "contracts")
+            (root_dir / "contracts/load-profiles/malformed.yaml").write_text("id: [\n")
+            (root_dir / "contracts/build-profiles/invalid-schema.yaml").write_text(
+                "id: invalid-schema\n"
+            )
+            scenario_path = root_dir / "scenarios/ping-api/scenario.yaml"
+            scenario_path.parent.mkdir(parents=True)
+            scenario_path.write_text(
+                (PROJECT_ROOT / "scenarios/ping-api/scenario.yaml")
+                .read_text()
+                .replace("build_profile: local-gradle-docker", "build_profile: missing")
+            )
+
+            errors = io.StringIO()
+            with patch("pathlib.Path.cwd", return_value=root_dir), redirect_stderr(errors):
+                exit_code = main(["validate"])
+
+        self.assertEqual(exit_code, 1)
+        self.assertIn("contracts/load-profiles/malformed.yaml", errors.getvalue())
+        self.assertIn("invalid YAML", errors.getvalue())
+        self.assertIn("contracts/build-profiles/invalid-schema.yaml", errors.getvalue())
+        self.assertIn("'schema_version' is a required property", errors.getvalue())
+        self.assertIn("scenarios/ping-api/scenario.yaml", errors.getvalue())
+        self.assertIn("missing build-profile 'missing'", errors.getvalue())
+        self.assertNotIn("Traceback", errors.getvalue())
+
+    def test_validate_does_not_hide_programming_errors(self):
+        with patch(
+            "hrw_runner.__main__.validate_repository_contracts",
+            side_effect=RuntimeError("programming error"),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "programming error"):
+                main(["validate"])
+
     def test_summarize_prints_table(self):
         with tempfile.TemporaryDirectory() as tmp:
             root_dir = Path(tmp)

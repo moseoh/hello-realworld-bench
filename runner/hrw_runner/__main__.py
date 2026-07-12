@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 from .config import resolve_run_config
+from .contracts import ContractValidationError, validate_repository_contracts
 from .runner import run_benchmark
 from .summarize import collect_result_rows, filter_latest_rows, format_table, rows_to_json
 
@@ -11,6 +12,18 @@ from .summarize import collect_result_rows, filter_latest_rows, format_table, ro
 def main(argv: list[str] | None = None) -> int:
     args = argv if argv is not None else sys.argv[1:]
     root_dir = Path.cwd()
+
+    if args and args[0] == "validate":
+        if len(args) != 1:
+            print("Usage: python -m hrw_runner validate", file=sys.stderr)
+            return 2
+        try:
+            documents = validate_repository_contracts(root_dir)
+        except ContractValidationError as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
+        print(f"Validated {len(documents)} contract files.")
+        return 0
 
     if args and args[0] == "summarize":
         summarize_args = args[1:]
@@ -30,7 +43,8 @@ def main(argv: list[str] | None = None) -> int:
     if len(args) not in (2, 3):
         print(
             "Usage: python -m hrw_runner <implementation> <scenario> [variant]\n"
-            "       python -m hrw_runner summarize [--latest-only] [--json]",
+            "       python -m hrw_runner summarize [--latest-only] [--json]\n"
+            "       python -m hrw_runner validate",
             file=sys.stderr,
         )
         return 2

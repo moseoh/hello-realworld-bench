@@ -1,9 +1,11 @@
+import json
 import shutil
 import tempfile
 import unittest
 from pathlib import Path
 
 import yaml
+from jsonschema.exceptions import SchemaError
 
 from hrw_runner.contracts import (
     ContractValidationError,
@@ -185,6 +187,27 @@ class ContractValidationTest(unittest.TestCase):
         self.assertIn("contracts/build-profiles/build.yaml", str(context.exception))
         self.assertIn("$: expected an object", str(context.exception))
 
+    def test_read_contract_reports_yaml_error_with_path_and_location(self):
+        path = self.root_dir / "contracts/load-profiles/development.yaml"
+        path.write_text("id: [\n")
+
+        with self.assertRaises(ContractValidationError) as context:
+            read_contract(path, "load-profile", self.root_dir)
+
+        self.assertIn("contracts/load-profiles/development.yaml", str(context.exception))
+        self.assertIn("invalid YAML", str(context.exception))
+        self.assertIn("line 2, column 1", str(context.exception))
+
+    def test_read_contract_does_not_wrap_invalid_schema_definition(self):
+        schema_path = self.root_dir / "contracts/schemas/load-profile.schema.json"
+        schema = json.loads(schema_path.read_text())
+        schema["type"] = "not-a-json-schema-type"
+        schema_path.write_text(json.dumps(schema))
+        path = self.root_dir / "contracts/load-profiles/development.yaml"
+
+        with self.assertRaises(SchemaError):
+            read_contract(path, "load-profile", self.root_dir)
+
     def test_validate_repository_discovers_every_contract_kind(self):
         documents = validate_repository_contracts(self.root_dir)
 
@@ -346,6 +369,30 @@ class ContractValidationTest(unittest.TestCase):
         self.assertIn("missing load-profile 'missing'", errors[0])
         self.assertIn("scenarios/invalid-scenario/scenario.yaml: $:", errors[1])
         self.assertIn("'contracts' is a required property", errors[1])
+
+    def test_validate_repository_aggregates_parse_schema_and_reference_errors(self):
+        scenario = self.read_yaml("scenarios/example-scenario/scenario.yaml")
+        scenario["contracts"]["build_profile"] = "missing"
+        self.write_yaml("scenarios/example-scenario/scenario.yaml", scenario)
+        invalid_scenario = dict(scenario)
+        invalid_scenario["id"] = "invalid-scenario"
+        del invalid_scenario["contracts"]
+        self.write_yaml("scenarios/invalid-scenario/scenario.yaml", invalid_scenario)
+        malformed_path = self.root_dir / "contracts/load-profiles/malformed.yaml"
+        malformed_path.write_text("id: [\n")
+
+        with self.assertRaises(ContractValidationError) as context:
+            validate_repository_contracts(self.root_dir)
+
+        errors = str(context.exception).splitlines()
+        self.assertEqual(errors, sorted(errors))
+        self.assertEqual(len(errors), 3)
+        self.assertIn("contracts/load-profiles/malformed.yaml", errors[0])
+        self.assertIn("invalid YAML", errors[0])
+        self.assertIn("scenarios/example-scenario/scenario.yaml", errors[1])
+        self.assertIn("missing build-profile 'missing'", errors[1])
+        self.assertIn("scenarios/invalid-scenario/scenario.yaml", errors[2])
+        self.assertIn("'contracts' is a required property", errors[2])
 
     def test_validate_repository_aggregates_errors_in_path_order(self):
         implementation = self.read_yaml("implementations/python/example/implementation.yaml")

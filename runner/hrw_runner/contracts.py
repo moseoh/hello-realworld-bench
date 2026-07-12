@@ -57,8 +57,20 @@ def canonical_contract_digest(value: dict[str, object]) -> str:
 
 
 def read_contract(path: Path, kind: str, root_dir: Path) -> ContractDocument:
-    value = yaml.safe_load(path.read_text())
     display_path = _display_path(path, root_dir)
+    try:
+        value = yaml.safe_load(path.read_text())
+    except yaml.YAMLError as error:
+        problem = getattr(error, "problem", None) or str(error).splitlines()[0]
+        mark = getattr(error, "problem_mark", None)
+        location = (
+            f" at line {mark.line + 1}, column {mark.column + 1}"
+            if mark is not None
+            else ""
+        )
+        raise ContractValidationError(
+            [f"{display_path}: $: invalid YAML{location}: {problem}"]
+        ) from error
     if not isinstance(value, dict):
         raise ContractValidationError([f"{display_path}: $: expected an object"])
 

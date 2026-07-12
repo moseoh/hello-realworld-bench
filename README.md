@@ -45,6 +45,8 @@ The `ping-api` scenario exists to validate benchmark runner automation. It is no
 
 The `cold-start-api` scenario measures repeated time to first successful `/ping` response after the application starts. It does not model serverless platform cold starts.
 
+The current profile catalog supports local development runs. Draft load profiles are definitions for future work; they are not executable official profiles, and current local outputs are not official benchmark results. See [Benchmark Contracts](docs/benchmark-contracts.md) for contract ownership and catalog status.
+
 ## Requirements
 
 - Docker
@@ -100,17 +102,20 @@ The shorter `spring-boot` form is kept as a compatibility alias for the default 
 
 The Makefile calls the uv-managed Python runner. The runner cleans previous containers, builds the app, builds the target image, starts Docker Compose, waits for the scenario endpoint to return 200, runs warmup and benchmark k6 phases when enabled, collects Docker stats, writes results, and shuts down the container.
 
-The runner reads scenario and variant metadata from:
+The runner reads implementation, variant, and service scenario contracts from:
 
 ```text
+implementations/java/spring-boot/implementation.yaml
+implementations/java/spring-boot/variants/jvm-java25.yaml
+implementations/java/spring-boot/variants/jvm-java25-virtual-threads.yaml
 scenarios/ping-api/scenario.yaml
 scenarios/cold-start-api/scenario.yaml
 scenarios/transactional-command-api/scenario.yaml
 scenarios/io-aggregation-api/scenario.yaml
 scenarios/io-aggregation-timeout-api/scenario.yaml
-implementations/java/spring-boot/variants/jvm-java25.yaml
-implementations/java/spring-boot/variants/jvm-java25-virtual-threads.yaml
 ```
+
+Each scenario references load, environment, measurement, and build profiles under `contracts/`. The current local runner uses the scenario's `load` timing and VU values through the `development-local` profile. The ownership model and validation rules are documented in [docs/benchmark-contracts.md](docs/benchmark-contracts.md).
 
 Scenario details for humans live in each scenario directory:
 
@@ -181,8 +186,16 @@ Do not use early MVP output as a general-purpose performance conclusion. The fir
 
 ## Runner Development
 
+Validate all benchmark contracts:
+
+```bash
+make validate-contracts
+```
+
+Run the complete project checks:
+
 ```bash
 make check
 ```
 
-This runs the Python runner tests and the Spring Boot tests in a Java 25 Docker image.
+This validates the benchmark contracts, then runs the Python runner tests and the Spring Boot tests in a Java 25 Docker image.
