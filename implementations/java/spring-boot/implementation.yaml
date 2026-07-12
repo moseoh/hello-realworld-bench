@@ -6,3 +6,4 @@ language: java
 framework: spring-boot
 programming_model: spring-web-mvc
 default_variant: jvm-java25
+default_build_profile: local-gradle-docker

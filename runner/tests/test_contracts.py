@@ -1,3 +1,4 @@
+import copy
 import json
 import shutil
 import tempfile
@@ -43,6 +44,7 @@ class ContractValidationTest(unittest.TestCase):
                 "framework": "example",
                 "programming_model": "sync",
                 "default_variant": "default",
+                "default_build_profile": "build",
             },
         )
         self.write_yaml(
@@ -74,11 +76,10 @@ class ContractValidationTest(unittest.TestCase):
                 "does_not_measure": ["throughput"],
                 "dependencies": [],
                 "variants": [{"id": "baseline", "description": "Baseline."}],
-                "contracts": {
+                "default_profiles": {
                     "environment_profile": "local",
                     "measurement_protocol": "service",
                     "load_profile": "development",
-                    "build_profile": "build",
                 },
                 "target": {
                     "base_url": "http://localhost:8080",
@@ -176,6 +177,29 @@ class ContractValidationTest(unittest.TestCase):
 
         self.assertIn("implementations/python/example/implementation.yaml", str(context.exception))
         self.assertIn("default_variant", str(context.exception))
+
+    def test_read_implementation_requires_default_build_profile(self):
+        path = self.root_dir / "implementations/python/example/implementation.yaml"
+        value = self.read_yaml("implementations/python/example/implementation.yaml")
+        del value["default_build_profile"]
+        self.write_yaml("implementations/python/example/implementation.yaml", value)
+
+        with self.assertRaises(ContractValidationError) as context:
+            read_contract(path, "implementation", self.root_dir)
+
+        self.assertIn("default_build_profile", str(context.exception))
+
+    def test_read_scenario_rejects_a_build_profile_default(self):
+        path = self.root_dir / "scenarios/example-scenario/scenario.yaml"
+        value = self.read_yaml("scenarios/example-scenario/scenario.yaml")
+        value["default_profiles"]["build_profile"] = "build"
+        self.write_yaml("scenarios/example-scenario/scenario.yaml", value)
+
+        with self.assertRaises(ContractValidationError) as context:
+            read_contract(path, "scenario", self.root_dir)
+
+        self.assertIn("build_profile", str(context.exception))
+        self.assertIn("was unexpected", str(context.exception))
 
     def test_read_contract_rejects_non_object_documents(self):
         path = self.root_dir / "contracts/build-profiles/build.yaml"
@@ -305,17 +329,27 @@ class ContractValidationTest(unittest.TestCase):
         self.assertIn("scenarios/not-example-scenario/scenario.yaml", str(context.exception))
         self.assertIn("directory", str(context.exception))
 
-    def test_validate_repository_rejects_missing_referenced_profile(self):
-        value = self.read_yaml("scenarios/example-scenario/scenario.yaml")
-        value["contracts"]["load_profile"] = "missing"
-        self.write_yaml("scenarios/example-scenario/scenario.yaml", value)
+    def test_validate_repository_rejects_missing_scenario_default_profiles(self):
+        original = self.read_yaml("scenarios/example-scenario/scenario.yaml")
 
-        with self.assertRaises(ContractValidationError) as context:
-            validate_repository_contracts(self.root_dir)
+        for key, kind in (
+            ("environment_profile", "environment-profile"),
+            ("measurement_protocol", "measurement-protocol"),
+            ("load_profile", "load-profile"),
+        ):
+            with self.subTest(key=key):
+                value = copy.deepcopy(original)
+                value["default_profiles"][key] = "missing"
+                self.write_yaml("scenarios/example-scenario/scenario.yaml", value)
 
-        self.assertIn("scenarios/example-scenario/scenario.yaml", str(context.exception))
-        self.assertIn("contracts.load_profile", str(context.exception))
-        self.assertIn("missing load-profile", str(context.exception))
+                with self.assertRaises(ContractValidationError) as context:
+                    validate_repository_contracts(self.root_dir)
+
+                self.assertIn("scenarios/example-scenario/scenario.yaml", str(context.exception))
+                self.assertIn(f"default_profiles.{key}", str(context.exception))
+                self.assertIn(f"missing {kind}", str(context.exception))
+
+        self.write_yaml("scenarios/example-scenario/scenario.yaml", original)
 
     def test_validate_repository_rejects_missing_default_variant(self):
         value = self.read_yaml("implementations/python/example/implementation.yaml")
@@ -328,6 +362,18 @@ class ContractValidationTest(unittest.TestCase):
         self.assertIn("implementations/python/example/implementation.yaml", str(context.exception))
         self.assertIn("default_variant", str(context.exception))
         self.assertIn("missing variant", str(context.exception))
+
+    def test_validate_repository_rejects_missing_default_build_profile(self):
+        value = self.read_yaml("implementations/python/example/implementation.yaml")
+        value["default_build_profile"] = "missing"
+        self.write_yaml("implementations/python/example/implementation.yaml", value)
+
+        with self.assertRaises(ContractValidationError) as context:
+            validate_repository_contracts(self.root_dir)
+
+        self.assertIn("implementations/python/example/implementation.yaml", str(context.exception))
+        self.assertIn("default_build_profile", str(context.exception))
+        self.assertIn("missing build-profile", str(context.exception))
 
     def test_validate_repository_rejects_variant_for_different_implementation(self):
         value = self.read_yaml("implementations/python/example/variants/default.yaml")
@@ -352,11 +398,11 @@ class ContractValidationTest(unittest.TestCase):
 
     def test_validate_repository_aggregates_schema_and_independent_reference_errors(self):
         scenario = self.read_yaml("scenarios/example-scenario/scenario.yaml")
-        scenario["contracts"]["load_profile"] = "missing"
+        scenario["default_profiles"]["load_profile"] = "missing"
         self.write_yaml("scenarios/example-scenario/scenario.yaml", scenario)
         invalid_scenario = self.read_yaml("scenarios/example-scenario/scenario.yaml")
         invalid_scenario["id"] = "invalid-scenario"
-        del invalid_scenario["contracts"]
+        del invalid_scenario["default_profiles"]
         self.write_yaml("scenarios/invalid-scenario/scenario.yaml", invalid_scenario)
 
         with self.assertRaises(ContractValidationError) as context:
@@ -365,18 +411,19 @@ class ContractValidationTest(unittest.TestCase):
         errors = str(context.exception).splitlines()
         self.assertEqual(errors, sorted(errors))
         self.assertEqual(len(errors), 2)
-        self.assertIn("scenarios/example-scenario/scenario.yaml: $.contracts.load_profile", errors[0])
+        self.assertIn("scenarios/example-scenario/scenario.yaml: $.default_profiles.load_profile", errors[0])
         self.assertIn("missing load-profile 'missing'", errors[0])
         self.assertIn("scenarios/invalid-scenario/scenario.yaml: $:", errors[1])
-        self.assertIn("'contracts' is a required property", errors[1])
+        self.assertIn("'default_profiles' is a required property", errors[1])
 
     def test_validate_repository_aggregates_parse_schema_and_reference_errors(self):
+        implementation = self.read_yaml("implementations/python/example/implementation.yaml")
+        implementation["default_build_profile"] = "missing"
+        self.write_yaml("implementations/python/example/implementation.yaml", implementation)
         scenario = self.read_yaml("scenarios/example-scenario/scenario.yaml")
-        scenario["contracts"]["build_profile"] = "missing"
-        self.write_yaml("scenarios/example-scenario/scenario.yaml", scenario)
         invalid_scenario = dict(scenario)
         invalid_scenario["id"] = "invalid-scenario"
-        del invalid_scenario["contracts"]
+        del invalid_scenario["default_profiles"]
         self.write_yaml("scenarios/invalid-scenario/scenario.yaml", invalid_scenario)
         malformed_path = self.root_dir / "contracts/load-profiles/malformed.yaml"
         malformed_path.write_text("id: [\n")
@@ -389,10 +436,10 @@ class ContractValidationTest(unittest.TestCase):
         self.assertEqual(len(errors), 3)
         self.assertIn("contracts/load-profiles/malformed.yaml", errors[0])
         self.assertIn("invalid YAML", errors[0])
-        self.assertIn("scenarios/example-scenario/scenario.yaml", errors[1])
+        self.assertIn("implementations/python/example/implementation.yaml", errors[1])
         self.assertIn("missing build-profile 'missing'", errors[1])
         self.assertIn("scenarios/invalid-scenario/scenario.yaml", errors[2])
-        self.assertIn("'contracts' is a required property", errors[2])
+        self.assertIn("'default_profiles' is a required property", errors[2])
 
     def test_validate_repository_aggregates_errors_in_path_order(self):
         implementation = self.read_yaml("implementations/python/example/implementation.yaml")
@@ -402,7 +449,7 @@ class ContractValidationTest(unittest.TestCase):
         variant["implementation"] = "python/other"
         self.write_yaml("implementations/python/example/variants/default.yaml", variant)
         scenario = self.read_yaml("scenarios/example-scenario/scenario.yaml")
-        scenario["contracts"]["build_profile"] = "missing"
+        scenario["default_profiles"]["load_profile"] = "missing"
         self.write_yaml("scenarios/example-scenario/scenario.yaml", scenario)
 
         with self.assertRaises(ContractValidationError) as context:

@@ -15,7 +15,7 @@
     "does_not_measure",
     "dependencies",
     "variants",
-    "contracts",
+    "default_profiles",
     "target",
     "services",
     "load",
@@ -63,20 +63,18 @@
         }
       }
     },
-    "contracts": {
+    "default_profiles": {
       "type": "object",
       "additionalProperties": false,
       "required": [
         "environment_profile",
         "measurement_protocol",
-        "load_profile",
-        "build_profile"
+        "load_profile"
       ],
       "properties": {
         "environment_profile": { "type": "string", "minLength": 1 },
         "measurement_protocol": { "type": "string", "minLength": 1 },
-        "load_profile": { "type": "string", "minLength": 1 },
-        "build_profile": { "type": "string", "minLength": 1 }
+        "load_profile": { "type": "string", "minLength": 1 }
       }
     },
     "target": {

@@ -29,12 +29,13 @@ _DISCOVERY_PATTERNS = (
     ("build-profile", "contracts/build-profiles/*.yaml"),
 )
 
-_PROFILE_REFERENCE_KINDS = {
+_SCENARIO_PROFILE_REFERENCE_KINDS = {
     "environment_profile": "environment-profile",
     "measurement_protocol": "measurement-protocol",
     "load_profile": "load-profile",
-    "build_profile": "build-profile",
 }
+
+_PROFILE_KINDS = {*_SCENARIO_PROFILE_REFERENCE_KINDS.values(), "build-profile"}
 
 
 @dataclass(frozen=True)
@@ -144,7 +145,7 @@ def _validate_document_paths(
     for document in documents:
         document_id = str(document.value["id"])
         display_path = _display_path(document.path, root_dir)
-        if document.kind in {*_PROFILE_REFERENCE_KINDS.values(), "variant"}:
+        if document.kind in {*_PROFILE_KINDS, "variant"}:
             if document.path.stem != document_id:
                 errors.append(
                     f"{display_path}: $.id: filename '{document.path.stem}.yaml' must "
@@ -183,7 +184,7 @@ def _validate_references(
     errors: list[str] = []
     profiles = {
         kind: {str(document.value["id"]): document for document in documents if document.kind == kind}
-        for kind in _PROFILE_REFERENCE_KINDS.values()
+        for kind in _PROFILE_KINDS
     }
     implementations_by_path = {
         document.path.parent: document
@@ -223,15 +224,23 @@ def _validate_references(
                     f"{_display_path(document.path, root_dir)}: $.default_variant: "
                     f"missing variant '{default_variant}'"
                 )
+            default_build_profile = str(document.value["default_build_profile"])
+            if default_build_profile not in profiles["build-profile"]:
+                errors.append(
+                    f"{_display_path(document.path, root_dir)}: "
+                    f"$.default_build_profile: missing build-profile "
+                    f"'{default_build_profile}'"
+                )
         if document.kind == "scenario":
-            contracts = document.value["contracts"]
-            if not isinstance(contracts, dict):
+            default_profiles = document.value["default_profiles"]
+            if not isinstance(default_profiles, dict):
                 continue
-            for key, kind in _PROFILE_REFERENCE_KINDS.items():
-                profile_id = str(contracts[key])
+            for key, kind in _SCENARIO_PROFILE_REFERENCE_KINDS.items():
+                profile_id = str(default_profiles[key])
                 if profile_id not in profiles[kind]:
                     errors.append(
-                        f"{_display_path(document.path, root_dir)}: $.contracts.{key}: "
+                        f"{_display_path(document.path, root_dir)}: "
+                        f"$.default_profiles.{key}: "
                         f"missing {kind} '{profile_id}'"
                     )
     return errors

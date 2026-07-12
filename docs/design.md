@@ -28,12 +28,12 @@ It coordinates cleanup, build measurement, image build measurement, startup meas
 
 Runner behavior is configuration-driven:
 
-- implementation ownership and default variant: `implementations/<language>/<framework>/implementation.yaml`
+- implementation ownership, default variant, and default build profile: `implementations/<language>/<framework>/implementation.yaml`
 - runtime and image metadata: `implementations/<language>/<framework>/variants/<variant>.yaml`
-- service behavior and profile references: `scenarios/<scenario>/scenario.yaml`
-- load, environment, measurement, and build profiles: `contracts/`
+- service behavior and default load, environment, and measurement profiles: `scenarios/<scenario>/scenario.yaml`
+- load, environment, measurement, and build profile catalogs: `contracts/`
 
-The complete ownership model and current catalog status are documented in [benchmark-contracts.md](benchmark-contracts.md). Current runs use development profiles for local Docker Compose execution. Draft load profiles are not yet executed by the runner and do not define official benchmark results.
+The complete ownership model and current catalog status are documented in [benchmark-contracts.md](benchmark-contracts.md). Current runs use development profiles for local Docker Compose execution. Run resolution rejects any selected draft profile, and draft profiles do not define official benchmark results.
 
 ## Build Measurement
 

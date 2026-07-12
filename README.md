@@ -68,6 +68,28 @@ With explicit values:
 make run IMPLEMENTATION=java/spring-boot SCENARIO=ping-api VARIANT=jvm-java25
 ```
 
+With explicit profile selections:
+
+```bash
+make run \
+  LOAD_PROFILE=development-local \
+  ENVIRONMENT_PROFILE=local-docker-compose \
+  MEASUREMENT_PROTOCOL=development-service \
+  BUILD_PROFILE=local-gradle-docker
+```
+
+The runner accepts the same selections as flags after the two required positional
+arguments and optional variant:
+
+```bash
+PYTHONPATH=runner uv run --project runner python -m hrw_runner \
+  java/spring-boot ping-api jvm-java25 \
+  --load-profile development-local \
+  --environment-profile local-docker-compose \
+  --measurement-protocol development-service \
+  --build-profile local-gradle-docker
+```
+
 Cold start scenario:
 
 ```bash
@@ -102,7 +124,9 @@ The shorter `spring-boot` form is kept as a compatibility alias for the default 
 
 The Makefile calls the uv-managed Python runner. The runner cleans previous containers, builds the app, builds the target image, starts Docker Compose, waits for the scenario endpoint to return 200, runs warmup and benchmark k6 phases when enabled, collects Docker stats, writes results, and shuts down the container.
 
-The runner reads implementation, variant, and service scenario contracts from:
+The implementation contract owns the default variant and build profile. Each
+service scenario owns the default load profile, environment profile, and
+measurement protocol. The runner reads these contracts from:
 
 ```text
 implementations/java/spring-boot/implementation.yaml
@@ -113,9 +137,18 @@ scenarios/cold-start-api/scenario.yaml
 scenarios/transactional-command-api/scenario.yaml
 scenarios/io-aggregation-api/scenario.yaml
 scenarios/io-aggregation-timeout-api/scenario.yaml
+contracts/load-profiles/
+contracts/environment-profiles/
+contracts/measurement-protocols/
+contracts/build-profiles/
 ```
 
-Each scenario references load, environment, measurement, and build profiles under `contracts/`. The current local runner uses the scenario's `load` timing and VU values through the `development-local` profile. The ownership model and validation rules are documented in [docs/benchmark-contracts.md](docs/benchmark-contracts.md).
+CLI flags and the corresponding Make variables can override all four profile
+selections. Every run validates the complete contract repository first and rejects
+selected draft profiles before execution. The current local runner still obtains
+timing and VU values from each scenario's `load` section through the
+`development-local` profile. The ownership model and validation rules are
+documented in [docs/benchmark-contracts.md](docs/benchmark-contracts.md).
 
 Scenario details for humans live in each scenario directory:
 

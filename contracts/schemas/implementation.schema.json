@@ -12,7 +12,8 @@
     "language",
     "framework",
     "programming_model",
-    "default_variant"
+    "default_variant",
+    "default_build_profile"
   ],
   "properties": {
     "schema_version": { "const": "1.0" },
@@ -25,6 +26,7 @@
     "language": { "type": "string", "minLength": 1 },
     "framework": { "type": "string", "minLength": 1 },
     "programming_model": { "type": "string", "minLength": 1 },
-    "default_variant": { "type": "string", "minLength": 1 }
+    "default_variant": { "type": "string", "minLength": 1 },
+    "default_build_profile": { "type": "string", "minLength": 1 }
   }
 }

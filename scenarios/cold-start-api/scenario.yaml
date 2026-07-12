@@ -17,11 +17,10 @@ dependencies: []
 variants:
   - id: first-success
     description: "First successful business response after process start."
-contracts:
+default_profiles:
   environment_profile: local-docker-compose
   measurement_protocol: cold-start
   load_profile: none
-  build_profile: local-gradle-docker
 
 target:
   base_url: "http://localhost:8080"

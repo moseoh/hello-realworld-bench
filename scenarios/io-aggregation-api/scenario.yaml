@@ -20,11 +20,10 @@ dependencies:
 variants:
   - id: baseline
     description: "All upstream responses complete within the response timeout."
-contracts:
+default_profiles:
   environment_profile: local-docker-compose
   measurement_protocol: development-service
   load_profile: development-local
-  build_profile: local-gradle-docker
 
 target:
   base_url: "http://localhost:8080"
