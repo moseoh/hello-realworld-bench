@@ -18,6 +18,18 @@ class ResolveRunConfigTest(unittest.TestCase):
         self.assertEqual(config.target["endpoint"], "/ping")
         self.assertNotIn("health_path", config.target)
 
+    def test_resolves_contract_ownership_and_references(self):
+        config = resolve_run_config("java/spring-boot", "ping-api", None)
+
+        self.assertEqual(config.implementation_config["default_variant"], "jvm-java25")
+        self.assertEqual(config.environment_profile_config["id"], "local-docker-compose")
+        self.assertEqual(config.measurement_protocol_config["id"], "development-service")
+        self.assertEqual(config.load_profile_config["id"], "development-local")
+        self.assertEqual(config.build_profile_config["id"], "local-gradle-docker")
+        self.assertNotIn("implementation", config.scenario_config)
+        self.assertNotIn("variant", config.scenario_config)
+        self.assertNotIn("runtime", config.scenario_config)
+
     def test_uses_canonical_result_prefix(self):
         config = resolve_run_config("java/spring-boot", "ping-api", "jvm-java25")
 
@@ -69,6 +81,8 @@ class ResolveRunConfigTest(unittest.TestCase):
         self.assertEqual(config.startup["poll_interval_seconds"], 0.25)
         self.assertEqual(config.target["endpoint"], "/ping")
         self.assertNotIn("health_path", config.target)
+        self.assertEqual(config.measurement_protocol_config["id"], "cold-start")
+        self.assertEqual(config.load_profile_config["id"], "none")
 
     def test_reads_transactional_command_configuration(self):
         root_dir = Path(__file__).resolve().parents[2]

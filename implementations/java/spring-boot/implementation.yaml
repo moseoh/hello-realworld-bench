@@ -1,0 +1,8 @@
+schema_version: "1.0"
+id: java/spring-boot
+contract_version: "1.0"
+description: "Spring Boot reference implementation using Spring Web MVC."
+language: java
+framework: spring-boot
+programming_model: spring-web-mvc
+default_variant: jvm-java25

@@ -24,23 +24,14 @@ Framework health endpoints are intentionally not used for this scenario because 
 - warm request latency under load
 - database performance
 - serverless platform cold starts
-- native image startup unless a native-image variant is added later
 
 ## Dependencies
 
 - target HTTP service only
 
-## Default Implementation
-
-- `java/spring-boot`
-
-## Default Variant
-
-- `jvm-java25`
-
 ## Variants
 
-- none in the MVP
+- `first-success`: First successful business response after process start.
 
 ## Metrics
 

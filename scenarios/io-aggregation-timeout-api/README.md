@@ -9,17 +9,16 @@ How does the target behave when an aggregation request must return despite one s
 ## What This Measures
 
 - HTTP client timeout behavior
-- Fallback response overhead
-- Aggregation latency when one upstream is slow
-- Resource usage while handling upstream timeout pressure
+- fallback response overhead
+- aggregation latency when one upstream is slow
+- resource usage while handling upstream timeout pressure
 
 ## What This Does Not Measure
 
-- Retry behavior
-- Circuit breaker state machines
-- Database transactions
-- Real internet latency
-- Virtual thread behavior
+- retry behavior
+- circuit breaker state machines
+- database transactions
+- real internet latency
 
 ## Dependencies
 
@@ -29,15 +28,7 @@ HTTP client and mock upstream baseline settings are documented in [../../docs/ht
 
 ## Variants
 
-Initial variant:
-
-- Spring Boot MVC, JVM Java 25, regular platform threads
-- inventory upstream is slower than the target timeout and should fall back
-- low concurrency, so this scenario isolates timeout/fallback behavior instead of mock server saturation
-
-Future variants:
-
-- Spring Boot virtual threads
+- `slow-upstream-fallback`: One upstream exceeds the response timeout and returns a fallback.
 
 ## Metrics
 

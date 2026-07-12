@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-import yaml
+from .contracts import read_contract
 
 
 @dataclass(frozen=True)
@@ -27,6 +27,11 @@ class RunConfig:
     scenario_config: dict[str, object]
     variant_config: dict[str, object]
     result_prefix: tuple[str, str, str, str]
+    implementation_config: dict[str, object]
+    environment_profile_config: dict[str, object]
+    measurement_protocol_config: dict[str, object]
+    load_profile_config: dict[str, object]
+    build_profile_config: dict[str, object]
 
 
 def resolve_run_config(
@@ -46,14 +51,17 @@ def resolve_run_config(
 
     language, framework = resolved_implementation.split("/", 1)
     app_dir = root / "implementations" / language / framework
+    implementation_file = app_dir / "implementation.yaml"
     scenario_dir = root / "scenarios" / scenario
     scenario_file = scenario_dir / "scenario.yaml"
 
     if not scenario_file.is_file():
         raise ValueError(f"Unsupported scenario: {scenario}")
 
-    scenario_config = _read_yaml(scenario_file)
-    resolved_variant = variant or str(scenario_config.get("variant") or "jvm-java25")
+    implementation_config = read_contract(
+        implementation_file, "implementation", root
+    ).value
+    resolved_variant = variant or str(implementation_config["default_variant"])
     variant_file = app_dir / "variants" / f"{resolved_variant}.yaml"
 
     if not variant_file.is_file():
@@ -61,7 +69,37 @@ def resolve_run_config(
             f"Unsupported variant for {resolved_implementation}: {resolved_variant}"
         )
 
-    variant_config = _read_yaml(variant_file)
+    variant_config = read_contract(variant_file, "variant", root).value
+    scenario_config = read_contract(scenario_file, "scenario", root).value
+    contract_references = _dict_value(scenario_config, "contracts")
+    environment_profile_config = _read_profile_contract(
+        root,
+        contract_references,
+        "environment_profile",
+        "environment-profiles",
+        "environment-profile",
+    )
+    measurement_protocol_config = _read_profile_contract(
+        root,
+        contract_references,
+        "measurement_protocol",
+        "measurement-protocols",
+        "measurement-protocol",
+    )
+    load_profile_config = _read_profile_contract(
+        root,
+        contract_references,
+        "load_profile",
+        "load-profiles",
+        "load-profile",
+    )
+    build_profile_config = _read_profile_contract(
+        root,
+        contract_references,
+        "build_profile",
+        "build-profiles",
+        "build-profile",
+    )
     target = _dict_value(scenario_config, "target")
     load = _dict_value(scenario_config, "load")
     startup = _optional_dict_value(scenario_config, "startup")
@@ -92,14 +130,24 @@ def resolve_run_config(
         scenario_config=scenario_config,
         variant_config=variant_config,
         result_prefix=(language, framework, resolved_variant, scenario),
+        implementation_config=implementation_config,
+        environment_profile_config=environment_profile_config,
+        measurement_protocol_config=measurement_protocol_config,
+        load_profile_config=load_profile_config,
+        build_profile_config=build_profile_config,
     )
 
 
-def _read_yaml(path: Path) -> dict[str, object]:
-    value = yaml.safe_load(path.read_text())
-    if not isinstance(value, dict):
-        raise ValueError(f"Expected YAML object in {path}")
-    return value
+def _read_profile_contract(
+    root_dir: Path,
+    references: dict[str, object],
+    reference_key: str,
+    directory: str,
+    kind: str,
+) -> dict[str, object]:
+    profile_id = str(references[reference_key])
+    profile_file = root_dir / "contracts" / directory / f"{profile_id}.yaml"
+    return read_contract(profile_file, kind, root_dir).value
 
 
 def _dict_value(source: dict[str, object], key: str) -> dict[str, object]:

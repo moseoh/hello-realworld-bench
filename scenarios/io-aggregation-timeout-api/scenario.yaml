@@ -1,8 +1,29 @@
-name: io-aggregation-timeout-api
+schema_version: "1.0"
+id: io-aggregation-timeout-api
+contract_version: "1.0"
 description: "HTTP aggregation API where one upstream is slower than the target client timeout and should fall back."
+kind: service
 question: "How does the target behave when an aggregation request must return despite one slow upstream dependency?"
-implementation: java/spring-boot
-variant: jvm-java25
+measures:
+  - HTTP client timeout behavior
+  - fallback response overhead
+  - aggregation latency when one upstream is slow
+  - resource usage while handling upstream timeout pressure
+does_not_measure:
+  - retry behavior
+  - circuit breaker state machines
+  - database transactions
+  - real internet latency
+dependencies:
+  - mock-upstream
+variants:
+  - id: slow-upstream-fallback
+    description: "One upstream exceeds the response timeout and returns a fallback."
+contracts:
+  environment_profile: local-docker-compose
+  measurement_protocol: development-service
+  load_profile: development-local
+  build_profile: local-gradle-docker
 
 target:
   base_url: "http://localhost:8080"
@@ -16,15 +37,12 @@ services:
   mock_upstream: true
 
 load:
+  enabled: true
   tool: k6
   script: "scenarios/io-aggregation-timeout-api/k6.js"
   warmup_duration: "15s"
   test_duration: "45s"
   vus: 5
-
-runtime:
-  virtual_threads: false
-  otel: false
 
 metrics:
   collect:

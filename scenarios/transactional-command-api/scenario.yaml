@@ -1,8 +1,34 @@
-name: transactional-command-api
+schema_version: "1.0"
+id: transactional-command-api
+contract_version: "1.0"
 description: "HTTP command API that validates an order, writes it in one PostgreSQL transaction, and inserts an outbox event."
+kind: service
 question: "How does the target behave when handling a command request with validation, domain logic, one database transaction, and an outbox insert?"
-implementation: java/spring-boot
-variant: jvm-java25
+measures:
+  - HTTP request parsing and validation
+  - domain total calculation for an order command
+  - persistence through PostgreSQL
+  - one database transaction per request
+  - order, order item, and outbox inserts
+  - latency and error rate under a short write-heavy load profile
+does_not_measure:
+  - read-heavy query performance
+  - cache behavior
+  - message broker throughput
+  - outbox publishing
+  - distributed transactions
+  - external service aggregation
+  - observability overhead
+dependencies:
+  - postgres
+variants:
+  - id: baseline
+    description: "Single transaction with order and outbox writes."
+contracts:
+  environment_profile: local-docker-compose
+  measurement_protocol: development-service
+  load_profile: development-local
+  build_profile: local-gradle-docker
 
 target:
   base_url: "http://localhost:8080"
@@ -16,15 +42,12 @@ services:
   mock_upstream: false
 
 load:
+  enabled: true
   tool: k6
   script: "scenarios/transactional-command-api/k6.js"
   warmup_duration: "15s"
   test_duration: "45s"
   vus: 25
-
-runtime:
-  virtual_threads: false
-  otel: false
 
 metrics:
   collect:

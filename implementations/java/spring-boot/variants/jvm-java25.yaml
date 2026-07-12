@@ -1,5 +1,8 @@
-name: jvm-java25
+schema_version: "1.0"
+id: jvm-java25
+contract_version: "1.0"
 description: "Spring Boot JVM variant using Java 25."
+implementation: java/spring-boot
 
 runtime:
   language: java

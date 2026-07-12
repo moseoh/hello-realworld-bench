@@ -1,8 +1,32 @@
-name: ping-api
+schema_version: "1.0"
+id: ping-api
+contract_version: "1.0"
 description: "Minimal HTTP ping endpoint used to validate the benchmark runner."
+kind: smoke
 question: "Can the benchmark runner build, start, load test, collect metrics, and save results for a target implementation?"
-implementation: java/spring-boot
-variant: jvm-java25
+measures:
+  - runner automation correctness
+  - basic HTTP request handling under a short load profile
+  - startup first-success timing
+  - build and Docker image build timing
+  - basic Docker resource snapshot collection
+does_not_measure:
+  - database performance
+  - cache behavior
+  - message processing
+  - external HTTP aggregation
+  - file streaming
+  - observability overhead
+  - real transactional application behavior
+dependencies: []
+variants:
+  - id: baseline
+    description: "Minimal runner smoke contract."
+contracts:
+  environment_profile: local-docker-compose
+  measurement_protocol: development-service
+  load_profile: development-local
+  build_profile: local-gradle-docker
 
 target:
   base_url: "http://localhost:8080"
@@ -15,15 +39,12 @@ services:
   mock_upstream: false
 
 load:
+  enabled: true
   tool: k6
   script: "scenarios/ping-api/k6.js"
   warmup_duration: "10s"
   test_duration: "30s"
   vus: 50
-
-runtime:
-  virtual_threads: false
-  otel: false
 
 metrics:
   collect:

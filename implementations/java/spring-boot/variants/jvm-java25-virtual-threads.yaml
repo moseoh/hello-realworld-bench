@@ -1,5 +1,8 @@
-name: jvm-java25-virtual-threads
+schema_version: "1.0"
+id: jvm-java25-virtual-threads
+contract_version: "1.0"
 description: "Spring Boot JVM variant using Java 25 with virtual threads enabled."
+implementation: java/spring-boot
 
 runtime:
   language: java

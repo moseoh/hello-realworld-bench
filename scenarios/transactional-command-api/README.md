@@ -6,13 +6,13 @@ How does the target behave when handling a command request with validation, doma
 
 ## Role
 
-`transactional-command-api` is the first stateful service-pattern benchmark. It models a common backend write path without adding cache, messaging, external HTTP, file IO, OpenTelemetry, or Kubernetes.
+`transactional-command-api` is the first stateful service-pattern benchmark. It models a common backend write path without adding cache, messaging, external HTTP, file IO, observability instrumentation, or cluster orchestration.
 
 ## What This Measures
 
 - HTTP request parsing and validation
 - domain total calculation for an order command
-- JPA persistence through PostgreSQL
+- persistence through PostgreSQL
 - one database transaction per request
 - order, order item, and outbox inserts
 - latency and error rate under a short write-heavy load profile
@@ -32,17 +32,9 @@ How does the target behave when handling a command request with validation, doma
 - target HTTP service
 - PostgreSQL
 
-## Default Implementation
-
-- `java/spring-boot`
-
-## Default Variant
-
-- `jvm-java25`
-
 ## Variants
 
-- none in the first implementation
+- `baseline`: Single transaction with order and outbox writes.
 
 ## Metrics
 
