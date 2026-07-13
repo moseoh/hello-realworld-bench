@@ -45,6 +45,7 @@ platform:
 - `local-docker-compose` is a development environment profile with
   `official: false`; the target and load generator run on the same host.
 - `development-service` and `cold-start` are development measurement protocols.
+- `official-cold-start-v1` is the frozen five-trial lifecycle protocol.
 - `local-gradle-docker` is a development build profile with persistent Gradle
   dependencies and enabled Docker layer caching.
 - `none` is the frozen disabled-load profile used by lifecycle measurements.
@@ -58,15 +59,21 @@ frozen home k3s contract; and the current Gradle/image build path. Other
 executable profile semantics are rejected instead of being ignored. Results
 produced by local and calibration profiles are not official benchmark results.
 
-The `home-k3s-v1` environment and `official-service-v1` protocol are frozen
-official contracts. The k3s environment fixes host identity, non-exclusive CPU
+The `home-k3s-v1`/`official-service-v1` and
+`home-k3s-lifecycle-v1`/`official-cold-start-v1` pairs are frozen official
+contracts. The k3s environments fix host identity, non-exclusive CPU
 quota mode, role resources, immutable images, evidence cadence, and host-noise
 thresholds. Selecting the official environment dispatches `make run-set` to the
 Kubernetes runner; Docker Compose remains the development execution profile.
-The official environment accepts only `official-service-v1` together with the
+The service environment accepts only `official-service-v1` together with the
 frozen `platform-qualification-v1`, `steady`, `capacity-ramp`, or
 `burst-recovery` load contract. The platform qualification profile validates the
 runner path. The three open-model profiles are the official service workloads.
+The lifecycle environment accepts only `official-cold-start-v1` with the
+disabled `none` load profile. It fixes a pre-armed Pod-localhost observer,
+immutable pre-pulled images, an image-entrypoint pre-`exec` boundary, five trials, and a
+five-second quiet interval between trials. It uses per-trial boundary snapshots
+instead of the sustained service protocol's in-run resource cadence.
 
 The protocol `trials` field owns run-set repetition. Service startup is measured
 once inside each trial. Lifecycle protocols also execute one lifecycle measurement

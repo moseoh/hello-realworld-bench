@@ -125,7 +125,16 @@ Values may be `null` only when a measurement could not be collected.
 
 `dependency_ready_ms` is the time spent starting scenario support services before the target container is measured. For example, a PostgreSQL-backed scenario starts PostgreSQL first and waits for it to become ready before measuring the target application.
 
-`ready_ms` means time from target container start until the scenario endpoint first returns HTTP 200. It does not include dependency container startup time. It does not mean a framework health endpoint reported ready. `first_request_ms` is the latency of the successful request that completed that first-success check.
+`ready_ms` is the compatibility field for time from the selected target start boundary until the scenario endpoint first returns HTTP 200. It does not include dependency startup and does not mean a framework health endpoint reported ready. `first_request_ms` is the latency of the successful request that completed that first-success check.
+
+Official `cold-start-api` results also expose
+`entrypoint_pre_exec_to_first_valid_response_ms`. Its start boundary is the image entrypoint's
+millisecond marker immediately before application `exec`, and its completion boundary is the
+end of the first exact `{"message":"pong"}` response observed over Pod-localhost.
+Marker output and shell-to-JVM `exec` overhead are included in this interval.
+`startup.json` also records observer-ready, request-start, response-completion,
+attempt count, boundary identifiers, and CRI start provenance. Image pulling and Pod scheduling are
+outside this interval.
 
 For single-start scenarios such as `ping-api`, `ready_ms` and `first_request_ms` are the first and only sample. For repeated startup scenarios such as `cold-start-api`, these fields keep the first sample for backward-friendly quick reads, while `summary` contains aggregate values across samples. Full sample data lives in `startup.json`.
 
@@ -154,7 +163,7 @@ For load-test scenarios, k6 metrics are included:
 }
 ```
 
-For load-disabled scenarios such as `cold-start-api`, k6 metrics are omitted instead of written as `null`:
+For local load-disabled scenarios such as `cold-start-api`, sustained k6 metrics are omitted instead of written as `null`. In the official k3s lifecycle profile, k6 is used only as the pre-armed first-response observer; no runtime throughput metrics are produced:
 
 ```json
 {

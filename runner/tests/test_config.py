@@ -13,6 +13,32 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 class ResolveRunConfigTest(unittest.TestCase):
+    def test_resolves_frozen_official_cold_start_profile(self):
+        for implementation in ("java/spring-boot", "java/quarkus"):
+            with self.subTest(implementation=implementation):
+                config = resolve_run_config(
+                    implementation,
+                    "cold-start-api",
+                    "jvm-java25",
+                    PROJECT_ROOT,
+                    environment_profile="home-k3s-lifecycle-v1",
+                    measurement_protocol="official-cold-start-v1",
+                    load_profile="none",
+                )
+
+                self.assertEqual(config.measurement_protocol_config["trials"], 5)
+                self.assertEqual(
+                    config.measurement_protocol_config["evidence_family"],
+                    "lifecycle",
+                )
+                self.assertTrue(config.environment_profile_config["official"])
+                self.assertEqual(config.startup["iterations"], 5)
+                self.assertEqual(config.startup["start_boundary"], "image-entrypoint-pre-exec")
+                self.assertEqual(config.startup["poll_interval_ms"], 10)
+                self.assertEqual(config.startup["request_timeout_ms"], 250)
+                self.assertEqual(config.startup["between_trials_seconds"], 5)
+                self.assertFalse(config.load["enabled"])
+
     def test_resolves_official_open_model_load_profile_from_scenario_rate(self):
         config = resolve_run_config(
             "java/spring-boot",

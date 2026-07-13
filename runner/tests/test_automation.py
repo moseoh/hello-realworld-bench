@@ -26,6 +26,7 @@ class WorkflowTrustBoundaryTest(unittest.TestCase):
             if step.get("name") == "Validate execution mode"
         )
         self.assertIn("official-service-v1:true", validation["run"])
+        self.assertIn("official-cold-start-v1:true", validation["run"])
         self.assertIn("calibration-service:false", validation["run"])
 
     def test_official_benchmark_never_runs_for_pull_requests(self):
@@ -266,6 +267,7 @@ class WorkflowTrustBoundaryTest(unittest.TestCase):
             "read-heavy-query-api:burst-recovery",
             "read-heavy-query-api:calibration-steady:calibration-service",
             "read-heavy-query-api:calibration-burst:calibration-service",
+            "cold-start-api:none:official-cold-start-v1",
         ):
             self.assertIn(allowed_cell, script)
 
@@ -362,6 +364,20 @@ class WorkflowTrustBoundaryTest(unittest.TestCase):
         )
         self.assertEqual(official.returncode, 0, official.stderr)
         self.assertIn("environment_profile=home-k3s-v1", official.stdout)
+
+        lifecycle = self._run_allowlist(
+            script,
+            implementation="java/quarkus",
+            variant="jvm-java25",
+            image_key="quarkus",
+            scenario="cold-start-api",
+            load_profile="none",
+            measurement_protocol="official-cold-start-v1",
+        )
+        self.assertEqual(lifecycle.returncode, 0, lifecycle.stderr)
+        self.assertIn(
+            "environment_profile=home-k3s-lifecycle-v1", lifecycle.stdout
+        )
 
         published_calibration = self._run_allowlist(
             script,

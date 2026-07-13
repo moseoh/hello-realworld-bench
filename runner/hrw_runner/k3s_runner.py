@@ -23,6 +23,13 @@ from .evidence import (
 )
 from .kubernetes import Kubectl, evaluate_preflight
 from .kubernetes_image import build_and_export_image, build_and_push_image
+from .kubernetes_lifecycle import (
+    build_lifecycle_measurement,
+    build_prepull_evidence,
+    evaluate_lifecycle_boundaries,
+    render_lifecycle_documents,
+    validate_lifecycle_pod,
+)
 from .kubernetes_render import render_scenario_documents
 from .kubernetes_stats import normalize_stats_sample, validate_stats_series
 from .manifest import build_resolved_manifest, read_git_provenance, validate_resolved_manifest
@@ -51,6 +58,7 @@ def run_k3s_benchmark_set(config: RunConfig, root_dir: Path) -> Path:
         "transactional-command-api",
         "io-aggregation-api",
         "read-heavy-query-api",
+        "cold-start-api",
     }
     if config.scenario not in supported_scenarios:
         raise ValueError(f"The k3s runner does not support {config.scenario}")
@@ -134,17 +142,26 @@ def run_k3s_benchmark_set(config: RunConfig, root_dir: Path) -> Path:
     trial_documents: list[dict[str, Any]] = []
     trial_references = []
     started_at = _utc_timestamp()
-    script = (root_dir / str(config.load["script"])).read_text()
+    lifecycle = config.measurement_protocol_config["evidence_family"] == "lifecycle"
+    script = (
+        ""
+        if lifecycle
+        else (root_dir / str(config.load["script"])).read_text()
+    )
     template = root_dir / "infra/k8s" / f"{config.scenario}.yaml"
     try:
-        setup = _render(
-            execution_config,
-            environment,
-            template,
-            namespace,
-            script,
-            "k6-setup",
-            str(config.load["test_duration"]),
+        setup = (
+            _render_lifecycle(execution_config, environment, template, namespace)
+            if lifecycle
+            else _render(
+                execution_config,
+                environment,
+                template,
+                namespace,
+                script,
+                "k6-setup",
+                str(config.load["test_duration"]),
+            )
         )
         client.apply([_kind(setup, "Namespace")])
         if distribution in {"import", "prebuilt-import"}:
@@ -191,39 +208,74 @@ def run_k3s_benchmark_set(config: RunConfig, root_dir: Path) -> Path:
                     "read-heavy dataset preflight failed: "
                     + "; ".join(dataset_preflight["reasons"])
                 )
+        shared_components = (
+            {"target", "lifecycle-observer"}
+            if lifecycle
+            else {"target", "load-generator"}
+        )
         shared_resources = [
             document
             for document in setup
-            if _component_name(document) in {"target", "load-generator"}
+            if _component_name(document) in shared_components
             and document["kind"] not in {"Pod", "Job"}
         ]
         client.apply(shared_resources)
-        _prepull_target(
+        prepull_pod = _prepull_target(
             client,
             _component_document(setup, "Pod", "target"),
             namespace,
         )
+        if lifecycle:
+            prepull = build_prepull_evidence(
+                prepull_pod,
+                target_image=execution_config.image_tag,
+                observer_image=str(environment["images"]["k6"]),
+            )
+            write_json(paths.result_dir / "image-prepull.json", prepull)
+            if prepull["status"] != "valid":
+                raise RuntimeError(
+                    "lifecycle image pre-pull failed: "
+                    + "; ".join(prepull["reasons"])
+                )
 
         for index in range(1, trial_count + 1):
             trial_id = f"trial-{index:02d}"
             trial_dir = paths.result_dir / "trials" / f"{index:02d}"
             try:
-                trial = _run_trial(
-                    execution_config,
-                    environment,
-                    client,
-                    template,
-                    script,
-                    namespace,
-                    paths.run_id,
-                    trial_id,
-                    index,
-                    trial_dir,
-                    manifest_digest,
-                    cohort_fingerprint,
-                    image,
-                    preflight["cluster"],
-                    dependency_ready_ms,
+                trial = (
+                    _run_lifecycle_trial(
+                        execution_config,
+                        environment,
+                        client,
+                        template,
+                        namespace,
+                        paths.run_id,
+                        trial_id,
+                        index,
+                        trial_dir,
+                        manifest_digest,
+                        cohort_fingerprint,
+                        image,
+                        preflight["cluster"],
+                    )
+                    if lifecycle
+                    else _run_trial(
+                        execution_config,
+                        environment,
+                        client,
+                        template,
+                        script,
+                        namespace,
+                        paths.run_id,
+                        trial_id,
+                        index,
+                        trial_dir,
+                        manifest_digest,
+                        cohort_fingerprint,
+                        image,
+                        preflight["cluster"],
+                        dependency_ready_ms,
+                    )
                 )
             except Exception as error:
                 _cleanup_trial_workloads(client, namespace)
@@ -249,6 +301,8 @@ def run_k3s_benchmark_set(config: RunConfig, root_dir: Path) -> Path:
                     "sha256": sha256_file(trial_dir / "trial.json"),
                 }
             )
+            if lifecycle and index < trial_count:
+                time.sleep(int(config.startup["between_trials_seconds"]))
     finally:
         client.command(
             [
@@ -292,6 +346,12 @@ def run_k3s_benchmark_set(config: RunConfig, root_dir: Path) -> Path:
         run_set["platform_evidence"]["dataset_preflight"] = {
             "path": "dataset-preflight.json",
             "sha256": sha256_file(dataset_preflight_path),
+        }
+    image_prepull_path = paths.result_dir / "image-prepull.json"
+    if image_prepull_path.is_file():
+        run_set["platform_evidence"]["image_prepull"] = {
+            "path": "image-prepull.json",
+            "sha256": sha256_file(image_prepull_path),
         }
     validate_evidence_document(run_set, "run-set", root_dir)
     write_json(paths.result_dir / "run-set.json", run_set)
@@ -548,6 +608,206 @@ def _run_trial(
     return {**trial_document, "result": result}
 
 
+def _run_lifecycle_trial(
+    config: RunConfig,
+    environment: dict[str, Any],
+    client: Kubectl,
+    template: Path,
+    namespace: str,
+    run_set_id: str,
+    trial_id: str,
+    trial_index: int,
+    trial_dir: Path,
+    manifest_digest: str,
+    cohort_fingerprint: str,
+    build: dict[str, object],
+    cluster_metadata: dict[str, object],
+) -> dict[str, Any]:
+    trial_dir.mkdir(parents=True, exist_ok=False)
+    started_at = _utc_timestamp()
+    documents = _render_lifecycle(config, environment, template, namespace)
+    target = _component_document(documents, "Pod", "target")
+    timeout_seconds = int(config.startup["timeout_seconds"])
+    node_name = str(environment["cluster"]["node_name"])
+    stats_path = f"/api/v1/nodes/{node_name}/proxy/stats/summary"
+    before_snapshot = client.json(["get", "--raw", stats_path])
+    before = normalize_stats_sample(before_snapshot, namespace, 0)
+
+    try:
+        client.apply([target])
+        client.command(
+            [
+                "wait",
+                "--for=condition=Ready",
+                "pod/target",
+                "-n",
+                namespace,
+                f"--timeout={timeout_seconds + 5}s",
+            ]
+        )
+    except Exception:
+        _collect_lifecycle_failure_evidence(client, namespace, trial_dir)
+        raise
+    after_snapshot = client.json(["get", "--raw", stats_path])
+    after = normalize_stats_sample(after_snapshot, namespace, 0)
+    boundary_validity = evaluate_lifecycle_boundaries(
+        before,
+        after,
+        environment["validity"],
+    )
+    write_json(
+        trial_dir / "boundary-kubelet-stats.json",
+        {"before": before_snapshot, "after": after_snapshot},
+    )
+    write_json(trial_dir / "boundary-validity.json", boundary_validity)
+
+    observer_log = client.command(
+        ["logs", "pod/target", "-c", "observer", "-n", namespace], capture=True
+    )
+    target_log = client.command(
+        ["logs", "pod/target", "-c", "target", "-n", namespace], capture=True
+    )
+    (trial_dir / "observer.log").write_text(observer_log)
+    (trial_dir / "target.log").write_text(target_log)
+    target_pod = client.json(["get", "pod", "target", "-n", namespace])
+    write_json(trial_dir / "target-pod.json", target_pod)
+    startup = build_lifecycle_measurement(
+        target_pod,
+        target_log,
+        observer_log,
+        timeout_seconds=timeout_seconds,
+    )
+    write_json(trial_dir / "startup.json", startup)
+
+    invalid_reasons = validate_lifecycle_pod(
+        target_pod,
+        target_image=config.image_tag,
+        observer_image=str(environment["images"]["k6"]),
+    )
+    invalid_reasons.extend(str(reason) for reason in boundary_validity["reasons"])
+    status = "invalid" if invalid_reasons else "valid"
+    result = {
+        "schema_version": RESULT_SCHEMA_VERSION,
+        "run_id": trial_id,
+        "run_set_id": run_set_id,
+        "trial_index": trial_index,
+        "manifest_digest": manifest_digest,
+        "cohort_fingerprint": cohort_fingerprint,
+        "project": "hello-realworld-bench",
+        "scenario": config.scenario,
+        "implementation": config.implementation,
+        "variant": config.variant,
+        "runtime": _runtime(config),
+        "environment": cluster_metadata,
+        "build": build,
+        "startup": startup,
+        "runtime_metrics": {},
+    }
+    write_json(trial_dir / "result.json", result)
+    metadata = _metadata(config, trial_id, manifest_digest, cohort_fingerprint)
+    metadata["run_set_id"] = run_set_id
+    metadata["trial_index"] = trial_index
+    metadata["environment"] = cluster_metadata
+    write_json(trial_dir / "metadata.json", metadata)
+
+    time_series = {
+        "schema_version": "1.0",
+        "trial_id": trial_id,
+        "sample_interval_ms": 10,
+        "samples": [],
+    }
+    validate_evidence_document(time_series, "time-series", config.root_dir)
+    time_series_path = trial_dir / "time-series.json"
+    write_json(time_series_path, time_series)
+    client.command(["delete", "pod/target", "-n", namespace, "--wait=true"])
+
+    artifact_manifest = build_artifact_manifest(trial_id, trial_dir)
+    validate_evidence_document(artifact_manifest, "artifact-manifest", config.root_dir)
+    artifact_path = trial_dir / "artifact-manifest.json"
+    write_json(artifact_path, artifact_manifest)
+    trial_document: dict[str, Any] = {
+        "schema_version": "1.0",
+        "trial_id": trial_id,
+        "run_id": run_set_id,
+        "status": status,
+        "started_at": started_at,
+        "finished_at": _utc_timestamp(),
+        "manifest_digest": manifest_digest,
+        "cohort_fingerprint": cohort_fingerprint,
+        "summary": build_trial_summary(result, "target-pod.json"),
+        "time_series": {
+            "path": "time-series.json",
+            "sha256": sha256_file(time_series_path),
+        },
+        "artifact_manifest": {
+            "path": "artifact-manifest.json",
+            "sha256": sha256_file(artifact_path),
+        },
+    }
+    if invalid_reasons:
+        trial_document["invalidity_class"] = "infrastructure"
+        trial_document["invalid_reasons"] = invalid_reasons
+    validate_evidence_document(trial_document, "trial", config.root_dir)
+    write_json(trial_dir / "trial.json", trial_document)
+    return {**trial_document, "result": result}
+
+
+def _render_lifecycle(
+    config: RunConfig,
+    environment: dict[str, Any],
+    template: Path,
+    namespace: str,
+) -> list[dict[str, Any]]:
+    resources = environment["resources"]
+    return render_lifecycle_documents(
+        template,
+        namespace=namespace,
+        run_set_id=namespace,
+        target_image=config.image_tag,
+        observer_image=str(environment["images"]["k6"]),
+        java_tool_options="-XX:MaxRAMPercentage=75",
+        timeout_seconds=int(config.startup["timeout_seconds"]),
+        poll_interval_ms=int(config.startup["poll_interval_ms"]),
+        request_timeout_ms=int(config.startup["request_timeout_ms"]),
+        target_environment=config.target_environment,
+        target_resources=resources["target"],
+        observer_resources=resources["load_generator"],
+    )
+
+
+def _collect_lifecycle_failure_evidence(
+    client: Kubectl, namespace: str, trial_dir: Path
+) -> None:
+    try:
+        pod = client.json(["get", "pod", "target", "-n", namespace])
+        write_json(trial_dir / "target-pod-failure.json", pod)
+    except Exception:
+        pass
+    for container in ("observer", "target"):
+        try:
+            log = client.command(
+                ["logs", "pod/target", "-c", container, "-n", namespace],
+                capture=True,
+            )
+            (trial_dir / f"{container}-failure.log").write_text(log)
+        except Exception:
+            pass
+    try:
+        events = client.json(
+            [
+                "get",
+                "events",
+                "-n",
+                namespace,
+                "--field-selector",
+                "involvedObject.name=target",
+            ]
+        )
+        write_json(trial_dir / "target-events.json", events)
+    except Exception:
+        pass
+
+
 def _render(
     config: RunConfig,
     environment: dict[str, Any],
@@ -636,13 +896,25 @@ def _component_document(
     )
 
 
-def _prepull_target(client: Kubectl, target: dict[str, Any], namespace: str) -> None:
+def _prepull_target(
+    client: Kubectl, target: dict[str, Any], namespace: str
+) -> dict[str, Any]:
     pod = copy.deepcopy(target)
     pod["metadata"]["name"] = "target-image-prepull"
     pod["spec"]["restartPolicy"] = "Never"
-    container = pod["spec"]["containers"][0]
-    container["command"] = ["/bin/sh", "-c", "true"]
-    container.pop("readinessProbe", None)
+    containers = [
+        *pod["spec"].pop("initContainers", []),
+        *pod["spec"]["containers"],
+    ]
+    for container in containers:
+        container.pop("restartPolicy", None)
+        container["imagePullPolicy"] = "IfNotPresent"
+        container["command"] = ["/bin/sh", "-c", "true"]
+        container.pop("args", None)
+        container.pop("readinessProbe", None)
+        container.pop("startupProbe", None)
+        container.pop("livenessProbe", None)
+    pod["spec"]["containers"] = containers
     client.apply([pod])
     client.command(
         [
@@ -654,9 +926,11 @@ def _prepull_target(client: Kubectl, target: dict[str, Any], namespace: str) -> 
             "--timeout=120s",
         ]
     )
+    evidence = client.json(["get", "pod/target-image-prepull", "-n", namespace])
     client.command(
         ["delete", "pod", "target-image-prepull", "-n", namespace, "--wait=true"]
     )
+    return evidence
 
 
 def _import_image(client: Kubectl, namespace: str, archive: Path) -> None:

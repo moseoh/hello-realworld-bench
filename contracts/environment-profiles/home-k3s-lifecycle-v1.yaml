@@ -1,0 +1,41 @@
+schema_version: "1.0"
+id: home-k3s-lifecycle-v1
+contract_version: "1.0"
+status: frozen
+description: "Official single-node home k3s lifecycle benchmark environment."
+orchestrator: k3s
+official: true
+load_generator: in-cluster-k6-observer
+cluster:
+  context: homelab
+  node_name: homlab
+  machine_id: f66cd2d134b94bb18eb7e531d1baf343
+  architecture: amd64
+  cpu_model: "AMD Ryzen 7 5825U"
+  cpu_manager_policy: none
+  min_logical_cpus: 16
+  min_memory_bytes: 29313151795
+resources:
+  requests_equal_limits: true
+  target:
+    cpu: "2"
+    memory: 1Gi
+  dependency:
+    cpu: "1"
+    memory: 1Gi
+  load_generator:
+    cpu: "1"
+    memory: 256Mi
+images:
+  target_platform: linux/amd64
+  target_digest_required: true
+  k6: grafana/k6@sha256:68e78d94140704ec4ee0cb7c5cf6cd12a32b7d310a6f98d94931ee9b0b9dc629
+validity:
+  max_background_cpu_millicores: 2000
+  max_background_memory_bytes: 8000000000
+  boundary_snapshot_count: 2
+  phases:
+    - preflight
+    - trial-boundary
+    - postflight
+  threshold_exceeded_classification: infrastructure-invalid

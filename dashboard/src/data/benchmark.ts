@@ -10,6 +10,7 @@ export interface Selection {
 
 export interface CatalogEntry {
   cohort_fingerprint: string
+  evidence_family?: string
   finished_at: string
   image_digest: string
   path: string

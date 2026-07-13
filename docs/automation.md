@@ -72,7 +72,9 @@ promotion. It accepts only run sets that are:
 
 - complete with every expected trial present and valid;
 - produced from a clean checkout of the trusted source commit;
-- produced by `home-k3s-v1` and `official-service-v1`; and
+- produced by an allowlisted frozen pair: `home-k3s-v1` with
+  `official-service-v1`, or `home-k3s-lifecycle-v1` with
+  `official-cold-start-v1`; and
 - backed by an immutable target image digest.
 
 Compact public data is appended to the `benchmark-data` branch:
@@ -86,6 +88,7 @@ run-sets/<cohort-fingerprint>/<run-set-id>/
 ├── build.json
 ├── preflight.json
 ├── postflight.json
+├── image-prepull.json        # lifecycle cohorts only
 └── trials/<index>/
     ├── trial.json
     ├── result.json

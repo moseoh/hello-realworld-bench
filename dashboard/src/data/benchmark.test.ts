@@ -26,6 +26,7 @@ function entry(
 ): CatalogEntry {
   return {
     cohort_fingerprint: cohort,
+    evidence_family: 'service',
     finished_at: finishedAt,
     image_digest: `sha256:${implementation}`,
     path: `run-sets/${cohort}/${runSetId}`,

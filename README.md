@@ -47,7 +47,7 @@ Supported scenarios:
 
 The `ping-api` scenario exists to validate benchmark runner automation. It is not a meaningful real-world performance conclusion by itself.
 
-The `cold-start-api` scenario measures repeated time to first successful `/ping` response after the application starts. It does not model serverless platform cold starts.
+The `cold-start-api` scenario measures repeated application pre-`exec` marker to first valid `/ping` response. Official runs use a pre-armed Pod-localhost observer and pre-pulled immutable images; they do not model machine boot or serverless platform cold starts.
 
 The profile catalog supports local development, short home-k3s calibration, and
 frozen official service runs. Official open-model profiles are `steady`,

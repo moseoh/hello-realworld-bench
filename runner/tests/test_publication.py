@@ -8,7 +8,11 @@ from unittest.mock import patch
 
 from hrw_runner.config import resolve_run_config
 from hrw_runner.manifest import build_resolved_manifest
-from hrw_runner.publication import PublicationError, publish_run_set
+from hrw_runner.publication import (
+    PublicationError,
+    _validate_promotion,
+    publish_run_set,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -17,6 +21,68 @@ DIGEST_B = "b" * 64
 
 
 class DatasetPublicationTest(unittest.TestCase):
+    def test_lifecycle_publication_revalidates_raw_lifecycle_evidence(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            run_set_dir = self._write_run_set(root / "source", "run-001")
+            manifest_path = run_set_dir / "resolved-manifest.json"
+            manifest = json.loads(manifest_path.read_text())
+            manifest["selection"].update(
+                scenario="cold-start-api",
+                load_profile="none",
+                environment_profile="home-k3s-lifecycle-v1",
+                measurement_protocol="official-cold-start-v1",
+            )
+            manifest["cohort"]["evidence_family"] = "lifecycle"
+            manifest_path.write_text(json.dumps(manifest))
+
+            with (
+                patch("hrw_runner.publication.validate_run_set_evidence"),
+                patch("hrw_runner.publication.validate_resolved_manifest"),
+                patch(
+                    "hrw_runner.publication.validate_lifecycle_publication_evidence",
+                    side_effect=ValueError("invalid lifecycle evidence"),
+                ),
+                self.assertRaisesRegex(ValueError, "invalid lifecycle evidence"),
+            ):
+                publish_run_set(
+                    run_set_dir,
+                    root / "dataset",
+                    PROJECT_ROOT,
+                    source_commit="c" * 40,
+                )
+
+    def test_allows_only_the_frozen_official_lifecycle_combination(self):
+        run_set = {
+            "status": "complete",
+            "expected_trials": 1,
+            "trials": [{"status": "valid"}],
+            "summary": {"valid_trial_count": 1},
+        }
+        manifest = {
+            "source": {"git_commit": "c" * 40, "git_dirty": False},
+            "selection": {
+                "scenario": "cold-start-api",
+                "load_profile": "none",
+                "environment_profile": "home-k3s-lifecycle-v1",
+                "measurement_protocol": "official-cold-start-v1",
+            },
+            "cohort": {"evidence_family": "lifecycle"},
+        }
+
+        _validate_promotion(run_set, manifest, "c" * 40)
+
+        for field, value in (
+            ("scenario", "ping-api"),
+            ("load_profile", "steady"),
+            ("environment_profile", "home-k3s-v1"),
+            ("measurement_protocol", "cold-start"),
+        ):
+            changed = json.loads(json.dumps(manifest))
+            changed["selection"][field] = value
+            with self.subTest(field=field), self.assertRaises(PublicationError):
+                _validate_promotion(run_set, changed, "c" * 40)
+
     def test_publishes_only_compact_evidence_and_updates_catalog(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

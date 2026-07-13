@@ -60,7 +60,8 @@ The target image repository comes from the selected implementation contract.
 Spring Boot uses
 `ghcr.io/moseoh/hello-realworld-bench/spring-boot@sha256:<digest>` and Quarkus
 uses `ghcr.io/moseoh/hello-realworld-bench/quarkus@sha256:<digest>`, both for
-`linux/amd64`. k6 is pinned to its architecture-specific manifest digest.
+`linux/amd64`. Both runtime Dockerfiles use the same digest-pinned Temurin 25 JRE
+image index. k6 is pinned to its architecture-specific manifest digest.
 
 The default image mode pushes to GHCR. `TARGET_IMAGE` reuses an immutable image
 already built by a trusted pipeline. `IMAGE_DISTRIBUTION=import` is a local
@@ -85,3 +86,18 @@ use zero-second stages so 3x and 5x spikes are immediate rather than ramps.
 provide a one-trial development path. Calibration evidence is never publishable.
 `platform-qualification-v1` remains the closed-model smoke workload and is not a
 backend performance conclusion.
+
+`official-cold-start-v1` is a separate lifecycle evidence family. It fixes five
+trials under `home-k3s-lifecycle-v1`. Before measurement, the runner pre-pulls
+the immutable target and observer images and verifies their image IDs. Each
+measured Pod uses `imagePullPolicy: Never`. A Kubernetes native sidecar is armed
+before the target container starts and observes the exact `/ping` response over
+`127.0.0.1`, avoiding Service and EndpointSlice propagation. The interval starts
+at the image entrypoint's millisecond marker immediately before application
+`exec` and ends when the
+first valid response completes. Each trial uses a new target container, followed
+by a five-second quiet interval. Node-background snapshots bracket each measured
+startup, while run-level preflight and postflight checks bracket the complete set.
+Because kubelet sampling cannot resolve every transient inside a sub-second
+interval, lifecycle evidence does not claim the service protocol's sustained
+in-run sample coverage.
