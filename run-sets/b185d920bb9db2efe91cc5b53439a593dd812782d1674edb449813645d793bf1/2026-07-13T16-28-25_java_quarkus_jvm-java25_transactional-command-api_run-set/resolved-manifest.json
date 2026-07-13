@@ -1,0 +1,223 @@
+{
+  "assets": [
+    {
+      "path": "scenarios/transactional-command-api/k6.js",
+      "role": "scenario-file",
+      "sha256": "6ab7ede9f9c7b536fa3d10adedafeb63c491433a2ab3aea1a409fc8b7ebffb03"
+    },
+    {
+      "path": "infra/k8s/transactional-command-api.yaml",
+      "role": "kubernetes-template",
+      "sha256": "6788a45197b10e97b9d63dc86367e7c7818633ef5d30deee71e059d26abf79fe"
+    }
+  ],
+  "cohort": {
+    "assets": [
+      {
+        "path": "scenarios/transactional-command-api/k6.js",
+        "role": "scenario-file",
+        "sha256": "6ab7ede9f9c7b536fa3d10adedafeb63c491433a2ab3aea1a409fc8b7ebffb03"
+      },
+      {
+        "path": "infra/k8s/transactional-command-api.yaml",
+        "role": "kubernetes-template",
+        "sha256": "6788a45197b10e97b9d63dc86367e7c7818633ef5d30deee71e059d26abf79fe"
+      }
+    ],
+    "contracts": {
+      "environment_profile": {
+        "contract_version": "1.2",
+        "digest": "aa3c7317f3d9a4e8800f991b3cca1f100c695f425e0e412ef73da8d0674dc3eb",
+        "id": "home-k3s-v1",
+        "kind": "environment-profile",
+        "path": "contracts/environment-profiles/home-k3s-v1.yaml",
+        "schema_version": "1.0"
+      },
+      "load_profile": {
+        "contract_version": "1.0",
+        "digest": "328da3cae9ea7318e62c86ce30262efb5211d38862639952fdb45931c9af3bb0",
+        "id": "burst-recovery",
+        "kind": "load-profile",
+        "path": "contracts/load-profiles/burst-recovery.yaml",
+        "schema_version": "1.0"
+      },
+      "measurement_protocol": {
+        "contract_version": "1.0",
+        "digest": "72039cc6081a54027cf825c0e16311e7a56a2e3ecb935b61882fa1bf59a3dbe0",
+        "id": "official-service-v1",
+        "kind": "measurement-protocol",
+        "path": "contracts/measurement-protocols/official-service-v1.yaml",
+        "schema_version": "1.0"
+      },
+      "scenario": {
+        "contract_version": "1.3",
+        "digest": "6050e91be34a31437450a3d4d721afd58a6bd4d83d7b67296c8ba8eebf4752c5",
+        "id": "transactional-command-api",
+        "kind": "scenario",
+        "path": "scenarios/transactional-command-api/scenario.yaml",
+        "schema_version": "1.0"
+      }
+    },
+    "evidence_family": "service",
+    "fingerprint": "b185d920bb9db2efe91cc5b53439a593dd812782d1674edb449813645d793bf1"
+  },
+  "contracts": {
+    "build_profile": {
+      "contract_version": "1.0",
+      "digest": "b849ffb37b07c0abb209e9ef78c9a49afdf3087901e986b14c0f9d5a5612d828",
+      "id": "local-gradle-docker",
+      "kind": "build-profile",
+      "path": "contracts/build-profiles/local-gradle-docker.yaml",
+      "schema_version": "1.0"
+    },
+    "environment_profile": {
+      "contract_version": "1.2",
+      "digest": "aa3c7317f3d9a4e8800f991b3cca1f100c695f425e0e412ef73da8d0674dc3eb",
+      "id": "home-k3s-v1",
+      "kind": "environment-profile",
+      "path": "contracts/environment-profiles/home-k3s-v1.yaml",
+      "schema_version": "1.0"
+    },
+    "implementation": {
+      "contract_version": "1.1",
+      "digest": "28d77a035839152fcf63eb03309b6ebff2d714c2f4ac8353056c8813e344772e",
+      "id": "java/quarkus",
+      "kind": "implementation",
+      "path": "implementations/java/quarkus/implementation.yaml",
+      "schema_version": "1.0"
+    },
+    "load_profile": {
+      "contract_version": "1.0",
+      "digest": "328da3cae9ea7318e62c86ce30262efb5211d38862639952fdb45931c9af3bb0",
+      "id": "burst-recovery",
+      "kind": "load-profile",
+      "path": "contracts/load-profiles/burst-recovery.yaml",
+      "schema_version": "1.0"
+    },
+    "measurement_protocol": {
+      "contract_version": "1.0",
+      "digest": "72039cc6081a54027cf825c0e16311e7a56a2e3ecb935b61882fa1bf59a3dbe0",
+      "id": "official-service-v1",
+      "kind": "measurement-protocol",
+      "path": "contracts/measurement-protocols/official-service-v1.yaml",
+      "schema_version": "1.0"
+    },
+    "scenario": {
+      "contract_version": "1.3",
+      "digest": "6050e91be34a31437450a3d4d721afd58a6bd4d83d7b67296c8ba8eebf4752c5",
+      "id": "transactional-command-api",
+      "kind": "scenario",
+      "path": "scenarios/transactional-command-api/scenario.yaml",
+      "schema_version": "1.0"
+    },
+    "variant": {
+      "contract_version": "1.0",
+      "digest": "0a0879098f6e5c2f2864240b6c098d5b2ab4c4abccc79c2e03547aa1dab21a68",
+      "id": "jvm-java25",
+      "kind": "variant",
+      "path": "implementations/java/quarkus/variants/jvm-java25.yaml",
+      "schema_version": "1.0"
+    }
+  },
+  "execution": {
+    "compose_profile": "quarkus",
+    "image_tag": "ghcr.io/moseoh/hello-realworld-bench/quarkus@sha256:8e7fe6c4154788d10cc9bb2e37c8fd40e4529ff157b0d84e1ca38821a3b5f4b3",
+    "load": {
+      "arrival_rate": {
+        "base_per_second": 200,
+        "max_vus": 400,
+        "pre_allocated_vus": 200
+      },
+      "enabled": true,
+      "executor": "ramping-arrival-rate",
+      "max_vus": 400,
+      "pre_allocated_vus": 200,
+      "rate": 200,
+      "script": "scenarios/transactional-command-api/k6.js",
+      "stages": [
+        {
+          "duration": "120s",
+          "target": 200
+        },
+        {
+          "duration": "0s",
+          "target": 600
+        },
+        {
+          "duration": "30s",
+          "target": 600
+        },
+        {
+          "duration": "0s",
+          "target": 200
+        },
+        {
+          "duration": "120s",
+          "target": 200
+        },
+        {
+          "duration": "0s",
+          "target": 1000
+        },
+        {
+          "duration": "30s",
+          "target": 1000
+        },
+        {
+          "duration": "0s",
+          "target": 200
+        },
+        {
+          "duration": "180s",
+          "target": 200
+        }
+      ],
+      "test_duration": "480s",
+      "tool": "k6",
+      "vus": 25,
+      "warmup_duration": "120s",
+      "warmup_rate": 200
+    },
+    "runtime": {
+      "build_mode": "jvm",
+      "framework": "quarkus",
+      "framework_version": "3.33.2.1",
+      "java_version": "25",
+      "language": "java",
+      "native_image": false,
+      "otel": false,
+      "virtual_threads": false
+    },
+    "services": {
+      "kafka": false,
+      "mock_upstream": false,
+      "postgres": true,
+      "redis": false
+    },
+    "startup": {
+      "iterations": 1
+    },
+    "target": {
+      "base_url": "http://localhost:8080",
+      "endpoint": "/orders",
+      "startup_path": "/ping"
+    }
+  },
+  "manifest_digest": "8bc978753cd59e239322b77547a9f9fa8c0a6fa754e979eb608940c0e20018fb",
+  "run_id": "2026-07-13T16-28-25_java_quarkus_jvm-java25_transactional-command-api_run-set",
+  "schema_version": "1.0",
+  "selection": {
+    "build_profile": "local-gradle-docker",
+    "environment_profile": "home-k3s-v1",
+    "implementation": "java/quarkus",
+    "load_profile": "burst-recovery",
+    "measurement_protocol": "official-service-v1",
+    "scenario": "transactional-command-api",
+    "variant": "jvm-java25"
+  },
+  "source": {
+    "git_commit": "dd6f6d6117ae0fb7a33cb13532257b325a70b959",
+    "git_dirty": false,
+    "worktree_digest": "d821374b0610ebe7c627dc1db2bd03d57af835d98a4a9dc424a35191d194763d"
+  }
+}
