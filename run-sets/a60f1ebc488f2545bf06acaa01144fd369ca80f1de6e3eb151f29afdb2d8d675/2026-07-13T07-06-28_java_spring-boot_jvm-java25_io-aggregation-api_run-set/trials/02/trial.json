@@ -1,0 +1,108 @@
+{
+  "schema_version": "1.0",
+  "trial_id": "trial-02",
+  "run_id": "2026-07-13T07-06-28_java_spring-boot_jvm-java25_io-aggregation-api_run-set",
+  "status": "valid",
+  "started_at": "2026-07-13T07:17:26.153088Z",
+  "finished_at": "2026-07-13T07:27:44.223061Z",
+  "manifest_digest": "d8773c5c57ce99b0b8014ef07c5edf922b5f5c3da0f82d75484e4be2249e7c85",
+  "cohort_fingerprint": "a60f1ebc488f2545bf06acaa01144fd369ca80f1de6e3eb151f29afdb2d8d675",
+  "summary": [
+    {
+      "name": "rps",
+      "unit": "requests_per_second",
+      "value": 79.9959820439493,
+      "source_artifacts": [
+        "k6-summary.json"
+      ]
+    },
+    {
+      "name": "p50_ms",
+      "unit": "milliseconds",
+      "value": 35.862548,
+      "source_artifacts": [
+        "k6-summary.json"
+      ]
+    },
+    {
+      "name": "p95_ms",
+      "unit": "milliseconds",
+      "value": 36.219009,
+      "source_artifacts": [
+        "k6-summary.json"
+      ]
+    },
+    {
+      "name": "p99_ms",
+      "unit": "milliseconds",
+      "value": 36.804059,
+      "source_artifacts": [
+        "k6-summary.json"
+      ]
+    },
+    {
+      "name": "error_rate",
+      "unit": "ratio",
+      "value": 0,
+      "source_artifacts": [
+        "k6-summary.json"
+      ]
+    },
+    {
+      "name": "cpu_percent_avg",
+      "unit": "percent",
+      "value": 7.9092,
+      "source_artifacts": [
+        "kubelet-stats.json"
+      ]
+    },
+    {
+      "name": "cpu_percent_max",
+      "unit": "percent",
+      "value": 9.0766,
+      "source_artifacts": [
+        "kubelet-stats.json"
+      ]
+    },
+    {
+      "name": "memory_usage_max_bytes",
+      "unit": "bytes",
+      "value": 237318144,
+      "source_artifacts": [
+        "kubelet-stats.json"
+      ]
+    },
+    {
+      "name": "dependency_ready_ms",
+      "unit": "milliseconds",
+      "value": 3039,
+      "source_artifacts": [
+        "startup.json"
+      ]
+    },
+    {
+      "name": "ready_ms",
+      "unit": "milliseconds",
+      "value": 3982,
+      "source_artifacts": [
+        "startup.json"
+      ]
+    },
+    {
+      "name": "first_request_ms",
+      "unit": "milliseconds",
+      "value": null,
+      "source_artifacts": [
+        "startup.json"
+      ]
+    }
+  ],
+  "time_series": {
+    "path": "time-series.json",
+    "sha256": "938ca9c9999cf5ab2426f5b76e4f66478166079dfbf880727fe2eec0c93eff2e"
+  },
+  "artifact_manifest": {
+    "path": "artifact-manifest.json",
+    "sha256": "fb7de1a1b442c6d66c819de1986a1e64ea9c3ba74f5a0ff8a5b801861a36fa61"
+  }
+}

@@ -1,0 +1,189 @@
+{
+  "schema_version": "1.0",
+  "run_set_id": "2026-07-13T07-06-28_java_spring-boot_jvm-java25_io-aggregation-api_run-set",
+  "run_id": "2026-07-13T07-06-28_java_spring-boot_jvm-java25_io-aggregation-api_run-set",
+  "status": "complete",
+  "started_at": "2026-07-13T07:06:29.292285Z",
+  "finished_at": "2026-07-13T07:38:18.470649Z",
+  "manifest_digest": "d8773c5c57ce99b0b8014ef07c5edf922b5f5c3da0f82d75484e4be2249e7c85",
+  "cohort_fingerprint": "a60f1ebc488f2545bf06acaa01144fd369ca80f1de6e3eb151f29afdb2d8d675",
+  "expected_trials": 3,
+  "trials": [
+    {
+      "trial_id": "trial-01",
+      "index": 1,
+      "status": "valid",
+      "path": "trials/01/trial.json",
+      "sha256": "13e7aa99ba8eccf3f85d82edc9edc3fc106b821a7543e6cf4237fe7ce5bffdc4"
+    },
+    {
+      "trial_id": "trial-02",
+      "index": 2,
+      "status": "valid",
+      "path": "trials/02/trial.json",
+      "sha256": "74175da96a3e65cd71a64c4ce29908e7c8efdb27da5cbcd7919377b82b1d3261"
+    },
+    {
+      "trial_id": "trial-03",
+      "index": 3,
+      "status": "valid",
+      "path": "trials/03/trial.json",
+      "sha256": "556f7490878ff8af330d312c6794f02cade0b282e3b9d3a636fccf053e224bdf"
+    }
+  ],
+  "summary": {
+    "trial_count": 3,
+    "valid_trial_count": 3,
+    "runtime_metrics": {
+      "rps": {
+        "min": 79.99589667031057,
+        "median": 79.99597108267075,
+        "max": 79.9959820439493,
+        "trials": [
+          {
+            "trial_id": "trial-01",
+            "value": 79.99597108267075
+          },
+          {
+            "trial_id": "trial-02",
+            "value": 79.9959820439493
+          },
+          {
+            "trial_id": "trial-03",
+            "value": 79.99589667031057
+          }
+        ]
+      },
+      "p50_ms": {
+        "min": 35.862548,
+        "median": 35.8658095,
+        "max": 35.872166,
+        "trials": [
+          {
+            "trial_id": "trial-01",
+            "value": 35.872166
+          },
+          {
+            "trial_id": "trial-02",
+            "value": 35.862548
+          },
+          {
+            "trial_id": "trial-03",
+            "value": 35.8658095
+          }
+        ]
+      },
+      "p95_ms": {
+        "min": 36.219009,
+        "median": 36.22130355,
+        "max": 36.271542,
+        "trials": [
+          {
+            "trial_id": "trial-01",
+            "value": 36.271542
+          },
+          {
+            "trial_id": "trial-02",
+            "value": 36.219009
+          },
+          {
+            "trial_id": "trial-03",
+            "value": 36.22130355
+          }
+        ]
+      },
+      "p99_ms": {
+        "min": 36.804059,
+        "median": 36.81219456000001,
+        "max": 36.89653,
+        "trials": [
+          {
+            "trial_id": "trial-01",
+            "value": 36.89653
+          },
+          {
+            "trial_id": "trial-02",
+            "value": 36.804059
+          },
+          {
+            "trial_id": "trial-03",
+            "value": 36.81219456000001
+          }
+        ]
+      },
+      "error_rate": {
+        "min": 0.0,
+        "median": 0.0,
+        "max": 0.0,
+        "trials": [
+          {
+            "trial_id": "trial-01",
+            "value": 0.0
+          },
+          {
+            "trial_id": "trial-02",
+            "value": 0.0
+          },
+          {
+            "trial_id": "trial-03",
+            "value": 0.0
+          }
+        ]
+      }
+    },
+    "startup_metrics": {
+      "dependency_ready_ms": {
+        "min": 3039.0,
+        "median": 3039.0,
+        "max": 3039.0,
+        "trials": [
+          {
+            "trial_id": "trial-01",
+            "value": 3039.0
+          },
+          {
+            "trial_id": "trial-02",
+            "value": 3039.0
+          },
+          {
+            "trial_id": "trial-03",
+            "value": 3039.0
+          }
+        ]
+      },
+      "ready_ms": {
+        "min": 3876.0,
+        "median": 3961.0,
+        "max": 3982.0,
+        "trials": [
+          {
+            "trial_id": "trial-01",
+            "value": 3876.0
+          },
+          {
+            "trial_id": "trial-02",
+            "value": 3982.0
+          },
+          {
+            "trial_id": "trial-03",
+            "value": 3961.0
+          }
+        ]
+      }
+    }
+  },
+  "platform_evidence": {
+    "preflight": {
+      "path": "preflight.json",
+      "sha256": "e8f3ccdb335df0540d01f8da2bc259b8ad76726280cab284fc73c9122c3b616a"
+    },
+    "postflight": {
+      "path": "postflight.json",
+      "sha256": "5278ad61c93e956235031548f21762b3daff46adef4b6ded9fed3e0c5536adac"
+    },
+    "build": {
+      "path": "build.json",
+      "sha256": "385333dee8323ee05925212a8f1a1ad2177f4d84fda19b6455a44c565e03f8b0"
+    }
+  }
+}
