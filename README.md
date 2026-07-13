@@ -61,6 +61,29 @@ append-only `benchmark-data` branch, with full raw evidence stored as a
 checksummed GitHub Release asset. See [Continuous Benchmark
 Automation](docs/automation.md) for the trust boundary and publication model.
 
+## Public Dashboard
+
+The static dashboard compares only complete run sets from the same cohort and
+provides APM-style trial timelines for requested and achieved load, latency,
+errors, CPU, and memory. Every deployment resolves the `benchmark-data` branch
+to an exact commit, so the displayed dataset can be reproduced without a
+database or backend service.
+
+Run it locally:
+
+```bash
+make dashboard-dev
+```
+
+Validate tests, lint, and the production build:
+
+```bash
+make dashboard-check
+```
+
+The development server reads the mutable `benchmark-data` branch unless
+`VITE_DATA_COMMIT` is set to an exact dataset commit.
+
 ## Requirements
 
 - Docker

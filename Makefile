@@ -15,7 +15,7 @@ WORKFLOW_URL ?=
 RAW_ARTIFACT_URL ?=
 RAW_ARTIFACT_SHA256 ?=
 
-.PHONY: run run-set publish summarize summarize-json summarize-latest summarize-latest-json validate-contracts test-runner test-spring test-quarkus check
+.PHONY: run run-set publish summarize summarize-json summarize-latest summarize-latest-json validate-contracts test-runner test-spring test-quarkus dashboard-dev dashboard-check check
 
 run:
 	PYTHONPATH=runner uv run --project runner python -m hrw_runner $(IMPLEMENTATION) $(SCENARIO) $(if $(strip $(VARIANT)),$(VARIANT)) $(if $(strip $(LOAD_PROFILE)),--load-profile $(LOAD_PROFILE)) $(if $(strip $(ENVIRONMENT_PROFILE)),--environment-profile $(ENVIRONMENT_PROFILE)) $(if $(strip $(MEASUREMENT_PROTOCOL)),--measurement-protocol $(MEASUREMENT_PROTOCOL)) $(if $(strip $(BUILD_PROFILE)),--build-profile $(BUILD_PROFILE))
@@ -51,4 +51,10 @@ test-spring:
 test-quarkus:
 	cd implementations/java/quarkus && ./gradlew test --no-daemon
 
-check: validate-contracts test-runner test-spring test-quarkus
+dashboard-dev:
+	cd dashboard && npm run dev
+
+dashboard-check:
+	cd dashboard && npm test && npm run lint && npm run build
+
+check: validate-contracts test-runner test-spring test-quarkus dashboard-check

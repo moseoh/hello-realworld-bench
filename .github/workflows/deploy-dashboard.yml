@@ -1,0 +1,64 @@
+name: Deploy benchmark dashboard
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - dashboard/**
+      - .github/workflows/deploy-dashboard.yml
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Resolve immutable benchmark dataset
+        id: dataset
+        run: |
+          sha="$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/benchmark-data | cut -f1)"
+          printf '%s\n' "$sha" | grep -Eq '^[0-9a-f]{40}$'
+          printf 'sha=%s\n' "$sha" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+      - uses: actions/configure-pages@v5
+      - name: Install dashboard dependencies
+        working-directory: dashboard
+        run: npm ci
+      - name: Build pinned dashboard
+        working-directory: dashboard
+        env:
+          VITE_BASE_PATH: /${{ github.event.repository.name }}/
+          VITE_DATA_COMMIT: ${{ steps.dataset.outputs.sha }}
+          VITE_DATA_REPOSITORY: ${{ github.repository }}
+        run: npm run build
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: dashboard/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
