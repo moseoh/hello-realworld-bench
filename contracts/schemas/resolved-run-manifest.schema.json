@@ -164,7 +164,8 @@
           "properties": {
             "base_per_second": { "type": "integer", "minimum": 1 },
             "pre_allocated_vus": { "type": "integer", "minimum": 1 },
-            "max_vus": { "type": "integer", "minimum": 1 }
+            "max_vus": { "type": "integer", "minimum": 1 },
+            "calibrated": { "type": "boolean" }
           }
         },
         "executor": {

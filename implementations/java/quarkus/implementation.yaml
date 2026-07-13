@@ -15,6 +15,11 @@ kubernetes:
       QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://postgres:5432/hrw
       QUARKUS_DATASOURCE_USERNAME: hrw
       QUARKUS_DATASOURCE_PASSWORD: hrw
+    read-heavy-query-api:
+      QUARKUS_PROFILE: read-heavy
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://postgres:5432/hrw
+      QUARKUS_DATASOURCE_USERNAME: hrw
+      QUARKUS_DATASOURCE_PASSWORD: hrw
     io-aggregation-api:
       MOCK_UPSTREAM_BASE_URL: http://mock-upstream:8080
       AGGREGATION_HTTP_CONNECT_TIMEOUT_MS: "500"

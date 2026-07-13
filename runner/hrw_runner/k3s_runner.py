@@ -41,6 +41,7 @@ def run_k3s_benchmark_set(config: RunConfig, root_dir: Path) -> Path:
         "ping-api",
         "transactional-command-api",
         "io-aggregation-api",
+        "read-heavy-query-api",
     }
     if config.scenario not in supported_scenarios:
         raise ValueError(f"The k3s runner does not support {config.scenario}")
@@ -166,6 +167,20 @@ def run_k3s_benchmark_set(config: RunConfig, root_dir: Path) -> Path:
         dependency_ready_ms = round(
             (time.perf_counter() - dependency_start) * 1000
         )
+        if config.scenario == "read-heavy-query-api":
+            dataset_preflight = _scenario_correctness(
+                client,
+                namespace,
+                config.scenario,
+                {},
+                config.scenario_config,
+            )
+            write_json(paths.result_dir / "dataset-preflight.json", dataset_preflight)
+            if dataset_preflight["status"] != "valid":
+                raise RuntimeError(
+                    "read-heavy dataset preflight failed: "
+                    + "; ".join(dataset_preflight["reasons"])
+                )
         shared_resources = [
             document
             for document in setup
@@ -261,6 +276,12 @@ def run_k3s_benchmark_set(config: RunConfig, root_dir: Path) -> Path:
             for name in ("preflight", "postflight", "build")
         },
     }
+    dataset_preflight_path = paths.result_dir / "dataset-preflight.json"
+    if dataset_preflight_path.is_file():
+        run_set["platform_evidence"]["dataset_preflight"] = {
+            "path": "dataset-preflight.json",
+            "sha256": sha256_file(dataset_preflight_path),
+        }
     validate_evidence_document(run_set, "run-set", root_dir)
     write_json(paths.result_dir / "run-set.json", run_set)
     validate_run_set_evidence(paths.result_dir, root_dir)
@@ -387,6 +408,7 @@ def _run_trial(
         namespace,
         config.scenario,
         k6_summary,
+        config.scenario_config,
     )
     write_json(trial_dir / "correctness.json", correctness)
     write_json(trial_dir / "kubelet-stats.json", {"snapshots": raw_snapshots})
@@ -522,6 +544,9 @@ export function handleSummary(data) {
     executor = str(config.load.get("executor", "constant-vus"))
     if open_model and warmup:
         executor = "constant-arrival-rate"
+    postgres_init_sql = None
+    if config.scenario == "read-heavy-query-api":
+        postgres_init_sql = _read_dataset_init_sql(config)
     return render_scenario_documents(
         template,
         namespace=namespace,
@@ -541,8 +566,22 @@ export function handleSummary(data) {
         stages=json.dumps(config.load.get("stages", []), separators=(",", ":")),
         pre_allocated_vus=int(config.load.get("pre_allocated_vus", 1)),
         max_vus=int(config.load.get("max_vus", 1)),
+        postgres_init_sql=postgres_init_sql,
         target_environment=config.target_environment,
     )
+
+
+def _read_dataset_init_sql(config: RunConfig) -> str:
+    dataset = config.scenario_config.get("dataset", {})
+    asset = dataset.get("asset") if isinstance(dataset, dict) else None
+    if not isinstance(asset, str) or not asset:
+        raise ValueError("read-heavy-query-api requires dataset.asset")
+    root = Path(config.root_dir).resolve()
+    scenario_dir = Path(config.scenario_dir).resolve()
+    path = (root / asset).resolve()
+    if not path.is_relative_to(scenario_dir) or not path.is_file():
+        raise ValueError("read-heavy dataset.asset must be a scenario file")
+    return path.read_text()
 
 
 def _kind(documents: list[dict[str, Any]], kind: str) -> dict[str, Any]:
@@ -820,7 +859,12 @@ def _scenario_correctness(
     namespace: str,
     scenario: str,
     k6_summary: dict[str, Any],
+    scenario_config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    if scenario == "read-heavy-query-api":
+        if scenario_config is None:
+            raise ValueError("read-heavy correctness requires scenario configuration")
+        return _read_heavy_correctness(client, namespace, scenario_config)
     if scenario != "transactional-command-api":
         return {
             "status": "valid",
@@ -868,6 +912,75 @@ def _scenario_correctness(
         "status": "valid" if not reasons else "invalid",
         "oracle": "transactional-row-counts",
         "expected_iterations": expected,
+        "observed": observed,
+        "reasons": reasons,
+    }
+
+
+def _read_heavy_correctness(
+    client: Kubectl,
+    namespace: str,
+    scenario_config: dict[str, Any],
+) -> dict[str, Any]:
+    dataset = scenario_config.get("dataset")
+    query_contract = scenario_config.get("query_contract")
+    if not isinstance(dataset, dict) or not isinstance(query_contract, dict):
+        raise ValueError("read-heavy dataset and query contract must be objects")
+    fingerprint = dataset.get("fingerprint")
+    index_name = query_contract.get("index")
+    if not isinstance(fingerprint, dict) or not isinstance(index_name, str):
+        raise ValueError("read-heavy fingerprint and index are required")
+    if re.fullmatch(r"[a-z_][a-z0-9_]*", index_name) is None:
+        raise ValueError("read-heavy index name is invalid")
+
+    expected = {
+        "row_count": int(dataset["row_count"]),
+        "id_sum": int(fingerprint["id_sum"]),
+        "price_cents_sum": int(fingerprint["price_cents_sum"]),
+        "rating_basis_points_sum": int(fingerprint["rating_basis_points_sum"]),
+        "active_count": int(fingerprint["active_count"]),
+        "index_count": 1,
+    }
+    output = client.command(
+        [
+            "exec",
+            "pod/postgres",
+            "-n",
+            namespace,
+            "--",
+            "psql",
+            "-v",
+            "ON_ERROR_STOP=1",
+            "-U",
+            "hrw",
+            "-d",
+            "hrw",
+            "-At",
+            "-c",
+            "select count(*) || ',' || coalesce(sum(id), 0) || ',' || "
+            "coalesce(sum(price_cents), 0) || ',' || "
+            "coalesce(sum(rating_basis_points), 0) || ',' || "
+            "count(*) filter (where active) || ',' || "
+            "(select count(*) from pg_indexes where schemaname = 'public' "
+            "and tablename = 'catalog_products' "
+            f"and indexname = '{index_name}') from catalog_products;",
+        ],
+        capture=True,
+    ).strip()
+    names = tuple(expected)
+    try:
+        observed = dict(zip(names, (int(value) for value in output.split(",")), strict=True))
+    except (TypeError, ValueError) as error:
+        raise RuntimeError(f"Invalid PostgreSQL fingerprint output: {output}") from error
+    reasons = [
+        f"{name} {observed[name]} does not match expected {value}"
+        for name, value in expected.items()
+        if observed[name] != value
+    ]
+    return {
+        "status": "valid" if not reasons else "invalid",
+        "oracle": "read-heavy-dataset-fingerprint",
+        "expected": expected,
         "observed": observed,
         "reasons": reasons,
     }

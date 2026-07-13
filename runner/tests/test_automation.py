@@ -177,6 +177,9 @@ class WorkflowTrustBoundaryTest(unittest.TestCase):
             "io-aggregation-api:steady",
             "io-aggregation-api:capacity-ramp",
             "io-aggregation-api:burst-recovery",
+            "read-heavy-query-api:steady",
+            "read-heavy-query-api:capacity-ramp",
+            "read-heavy-query-api:burst-recovery",
         ):
             self.assertIn(allowed_cell, script)
 

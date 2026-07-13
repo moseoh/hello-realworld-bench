@@ -106,7 +106,8 @@
       "properties": {
         "preflight": { "$ref": "#/$defs/evidenceRef" },
         "postflight": { "$ref": "#/$defs/evidenceRef" },
-        "build": { "$ref": "#/$defs/evidenceRef" }
+        "build": { "$ref": "#/$defs/evidenceRef" },
+        "dataset_preflight": { "$ref": "#/$defs/evidenceRef" }
       }
     }
   }

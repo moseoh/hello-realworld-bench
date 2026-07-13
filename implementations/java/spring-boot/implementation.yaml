@@ -15,6 +15,11 @@ kubernetes:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/hrw
       SPRING_DATASOURCE_USERNAME: hrw
       SPRING_DATASOURCE_PASSWORD: hrw
+    read-heavy-query-api:
+      SPRING_PROFILES_ACTIVE: read-heavy
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/hrw
+      SPRING_DATASOURCE_USERNAME: hrw
+      SPRING_DATASOURCE_PASSWORD: hrw
     io-aggregation-api:
       MOCK_UPSTREAM_BASE_URL: http://mock-upstream:8080
       AGGREGATION_HTTP_CONNECT_TIMEOUT_MS: "500"

@@ -331,6 +331,14 @@ def _resolve_load_config(
             for value in (base_rate, pre_allocated_vus, max_vus)
         ) or int(pre_allocated_vus) > int(max_vus):
             raise _unsupported_profile("load profile", load_profile_config)
+        if (
+            load_profile_config["status"] == "frozen"
+            and arrival_rate.get("calibrated") is False
+        ):
+            raise ValueError(
+                "Uncalibrated arrival rate cannot use frozen open-model load "
+                f"profile '{load_profile_config['id']}'."
+            )
         resolved_phases = []
         for phase in phases:
             if not isinstance(phase, dict):

@@ -85,6 +85,7 @@ comes from the official Quarkus generator. Both implement:
 
 - `GET /ping`
 - transactional command handling with PostgreSQL
+- indexed read-only PostgreSQL queries with keyset pagination
 - parallel upstream HTTP aggregation
 
 They preserve the same request and response contracts, PostgreSQL transaction
@@ -108,9 +109,10 @@ Create a separate implementation folder only when the implementation source or f
 ## Scenario Load Tests
 
 `ping-api` validates the runner path and is not a performance conclusion. Core
-service qualification uses `transactional-command-api` and
-`io-aggregation-api` under frozen steady, capacity-ramp, and burst-recovery load
-profiles.
+service qualification uses `transactional-command-api`,
+`read-heavy-query-api`, and `io-aggregation-api` under steady, capacity-ramp,
+and burst-recovery load profiles. The read-heavy profile remains unfrozen until
+its arrival rate is calibrated on the home k3s environment.
 
 Transactional scenario contract version `1.2` raises immediately available k6
 VUs from 100 to 200. Calibration at the 1,000 requests/second burst observed a

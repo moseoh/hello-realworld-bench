@@ -110,3 +110,8 @@ jobs are also serialized so append-only catalog updates cannot race.
 
 `ping-api` remains a separate platform qualification cell and is not a backend
 performance conclusion.
+
+`read-heavy-query-api` is implemented for both targets and allowlisted by the
+worker, but it is not part of the private campaign matrix while its scenario
+contract is marked uncalibrated. Promotion requires a home-k3s calibration run,
+a frozen arrival rate, and a scenario contract version change.

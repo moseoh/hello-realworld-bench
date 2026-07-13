@@ -53,6 +53,19 @@ def _rehash_manifest(manifest):
 
 
 class ResolvedManifestTest(unittest.TestCase):
+    def test_read_heavy_manifest_records_arrival_rate_calibration_state(self):
+        config = resolve_run_config(
+            "java/spring-boot",
+            "read-heavy-query-api",
+            "jvm-java25",
+            PROJECT_ROOT,
+        )
+
+        manifest = build_resolved_manifest(config, "run-001", self.source)
+
+        self.assertIs(manifest["execution"]["load"]["arrival_rate"]["calibrated"], False)
+        validate_resolved_manifest(manifest, PROJECT_ROOT)
+
     def test_k3s_manifest_uses_the_scenario_kubernetes_template_without_compose(self):
         config = resolve_run_config(
             "java/spring-boot",

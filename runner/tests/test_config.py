@@ -70,6 +70,46 @@ class ResolveRunConfigTest(unittest.TestCase):
         self.assertEqual(config.load["test_duration"], "60s")
         self.assertEqual(config.load["rate"], 80)
 
+    def test_rejects_uncalibrated_read_heavy_rate_for_frozen_open_profile(self):
+        root_dir = self._copy_runnable_contracts()
+        self._copy_scenario(root_dir, "read-heavy-query-api")
+        scenario_path = root_dir / "scenarios/read-heavy-query-api/scenario.yaml"
+        scenario = yaml.safe_load(scenario_path.read_text())
+        scenario["load"]["arrival_rate"]["calibrated"] = False
+        scenario_path.write_text(yaml.safe_dump(scenario, sort_keys=False))
+
+        with self.assertRaisesRegex(ValueError, "Uncalibrated arrival rate"):
+            resolve_run_config(
+                "java/spring-boot",
+                "read-heavy-query-api",
+                "jvm-java25",
+                root_dir,
+                environment_profile="home-k3s-v1",
+                measurement_protocol="official-service-v1",
+                load_profile="steady",
+            )
+
+    def test_allows_uncalibrated_read_heavy_rate_for_development_calibration(self):
+        root_dir = self._copy_runnable_contracts()
+        self._copy_scenario(root_dir, "read-heavy-query-api")
+        scenario_path = root_dir / "scenarios/read-heavy-query-api/scenario.yaml"
+        scenario = yaml.safe_load(scenario_path.read_text())
+        scenario["load"]["arrival_rate"]["calibrated"] = False
+        scenario_path.write_text(yaml.safe_dump(scenario, sort_keys=False))
+
+        config = resolve_run_config(
+            "java/spring-boot",
+            "read-heavy-query-api",
+            "jvm-java25",
+            root_dir,
+            environment_profile="home-k3s-calibration",
+            measurement_protocol="calibration-service",
+            load_profile="calibration-steady",
+        )
+
+        self.assertEqual(config.load["rate"], 100)
+        self.assertIs(config.load["arrival_rate"]["calibrated"], False)
+
     def test_rejects_unknown_non_official_k3s_environment(self):
         root_dir = self._copy_runnable_contracts()
         source = root_dir / "contracts/environment-profiles/home-k3s-calibration.yaml"

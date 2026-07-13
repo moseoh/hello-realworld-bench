@@ -1,0 +1,287 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: __NAMESPACE__
+  labels:
+    app.kubernetes.io/part-of: hello-realworld-bench
+    hello-real-world/run-set: __RUN_SET_ID__
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init
+  namespace: __NAMESPACE__
+  labels:
+    app.kubernetes.io/name: read-heavy-query-api
+    app.kubernetes.io/component: dependency
+    app.kubernetes.io/part-of: hello-realworld-bench
+    hello-real-world/run-set: __RUN_SET_ID__
+data:
+  init.sql: __POSTGRES_INIT_SQL__
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: __NAMESPACE__
+  labels:
+    app.kubernetes.io/name: read-heavy-query-api
+    app.kubernetes.io/component: dependency
+    app.kubernetes.io/part-of: hello-realworld-bench
+    hello-real-world/run-set: __RUN_SET_ID__
+spec:
+  selector:
+    app.kubernetes.io/name: read-heavy-query-api
+    app.kubernetes.io/component: dependency
+    hello-real-world/run-set: __RUN_SET_ID__
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: postgres
+  namespace: __NAMESPACE__
+  labels:
+    app.kubernetes.io/name: read-heavy-query-api
+    app.kubernetes.io/component: dependency
+    app.kubernetes.io/part-of: hello-realworld-bench
+    hello-real-world/run-set: __RUN_SET_ID__
+spec:
+  automountServiceAccountToken: false
+  nodeSelector:
+    kubernetes.io/hostname: homlab
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 999
+    runAsGroup: 999
+    fsGroup: 999
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: postgres
+      image: postgres:18@sha256:0c49c0c906cb405ea65e70c284570fee91c7750ca9336369afc0edf4fce211db
+      imagePullPolicy: IfNotPresent
+      env:
+        - name: POSTGRES_DB
+          value: hrw
+        - name: POSTGRES_USER
+          value: hrw
+        - name: POSTGRES_PASSWORD
+          value: hrw
+      ports:
+        - name: postgres
+          containerPort: 5432
+      readinessProbe:
+        exec:
+          command:
+            - sh
+            - -ec
+            - >-
+              test "$(psql -U hrw -d hrw -Atc "SELECT 1 FROM benchmark_init_markers WHERE name = 'catalog_products_ready'")" = "1"
+        periodSeconds: 1
+        timeoutSeconds: 1
+        failureThreshold: 30
+      resources:
+        requests:
+          cpu: "1"
+          memory: 1Gi
+        limits:
+          cpu: "1"
+          memory: 1Gi
+      securityContext:
+        privileged: false
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop:
+            - ALL
+      volumeMounts:
+        - name: data
+          mountPath: /var/lib/postgresql
+        - name: tmp
+          mountPath: /tmp
+        - name: run
+          mountPath: /var/run/postgresql
+        - name: init
+          mountPath: /docker-entrypoint-initdb.d/init.sql
+          subPath: init.sql
+          readOnly: true
+  volumes:
+    - name: data
+      emptyDir: {}
+    - name: tmp
+      emptyDir: {}
+    - name: run
+      emptyDir: {}
+    - name: init
+      configMap:
+        name: postgres-init
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: target
+  namespace: __NAMESPACE__
+  labels:
+    app.kubernetes.io/name: read-heavy-query-api
+    app.kubernetes.io/component: target
+    app.kubernetes.io/part-of: hello-realworld-bench
+    hello-real-world/run-set: __RUN_SET_ID__
+spec:
+  selector:
+    app.kubernetes.io/name: read-heavy-query-api
+    app.kubernetes.io/component: target
+    hello-real-world/run-set: __RUN_SET_ID__
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: target
+  namespace: __NAMESPACE__
+  labels:
+    app.kubernetes.io/name: read-heavy-query-api
+    app.kubernetes.io/component: target
+    app.kubernetes.io/part-of: hello-realworld-bench
+    hello-real-world/run-set: __RUN_SET_ID__
+spec:
+  automountServiceAccountToken: false
+  nodeSelector:
+    kubernetes.io/hostname: homlab
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: target
+      image: __TARGET_IMAGE__
+      imagePullPolicy: IfNotPresent
+      env: __TARGET_ENV__
+      ports:
+        - name: http
+          containerPort: 8080
+      readinessProbe:
+        httpGet:
+          path: /ping
+          port: http
+        periodSeconds: 1
+        timeoutSeconds: 1
+        failureThreshold: 30
+      resources:
+        requests:
+          cpu: "2"
+          memory: 1Gi
+        limits:
+          cpu: "2"
+          memory: 1Gi
+      securityContext:
+        privileged: false
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop:
+            - ALL
+      volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+  volumes:
+    - name: tmp
+      emptyDir: {}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k6-script
+  namespace: __NAMESPACE__
+  labels:
+    app.kubernetes.io/name: read-heavy-query-api
+    app.kubernetes.io/component: load-generator
+    app.kubernetes.io/part-of: hello-realworld-bench
+    hello-real-world/run-set: __RUN_SET_ID__
+data:
+  k6.js: __K6_SCRIPT__
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: __K6_JOB_NAME__
+  namespace: __NAMESPACE__
+  labels:
+    app.kubernetes.io/name: read-heavy-query-api
+    app.kubernetes.io/component: load-generator
+    app.kubernetes.io/part-of: hello-realworld-bench
+    hello-real-world/run-set: __RUN_SET_ID__
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: read-heavy-query-api
+        app.kubernetes.io/component: load-generator
+        app.kubernetes.io/part-of: hello-realworld-bench
+        hello-real-world/run-set: __RUN_SET_ID__
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/hostname: homlab
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: k6
+          image: __K6_IMAGE__
+          imagePullPolicy: IfNotPresent
+          args:
+            - run
+            - /scripts/k6.js
+          env:
+            - name: BASE_URL
+              value: http://target:8080
+            - name: DURATION
+              value: __K6_DURATION__
+            - name: VUS
+              value: __K6_VUS__
+            - name: HRW_LOAD_EXECUTOR
+              value: __HRW_LOAD_EXECUTOR__
+            - name: HRW_LOAD_RATE
+              value: __HRW_LOAD_RATE__
+            - name: HRW_LOAD_STAGES
+              value: __HRW_LOAD_STAGES__
+            - name: HRW_LOAD_PRE_ALLOCATED_VUS
+              value: __HRW_LOAD_PRE_ALLOCATED_VUS__
+            - name: HRW_LOAD_MAX_VUS
+              value: __HRW_LOAD_MAX_VUS__
+          resources:
+            requests:
+              cpu: "4"
+              memory: 3Gi
+            limits:
+              cpu: "4"
+              memory: 3Gi
+          securityContext:
+            privileged: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: script
+              mountPath: /scripts
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: script
+          configMap:
+            name: k6-script
+        - name: tmp
+          emptyDir: {}
