@@ -379,6 +379,25 @@
       },
       "source_commit": "dd6f6d6117ae0fb7a33cb13532257b325a70b959",
       "started_at": "2026-07-13T17:34:13.029684Z"
+    },
+    {
+      "cohort_fingerprint": "7ef2b5ddeeddaa8fe88553eeee08594669effafd00fb7759dc276e6357453b17",
+      "finished_at": "2026-07-13T18:38:54.320427Z",
+      "image_digest": "sha256:46190058b43f6c33fd253ffcdc27aca93ac3ef409c4aeff4530b07d221685ea4",
+      "path": "run-sets/7ef2b5ddeeddaa8fe88553eeee08594669effafd00fb7759dc276e6357453b17/2026-07-13T18-07-04_java_spring-boot_jvm-java25_io-aggregation-api_run-set",
+      "publication_sha256": "cdcf9bc324789cbb71e920d0c4cb3bcc3bd22ea19dc0e04a78647e288bb6ea1f",
+      "run_set_id": "2026-07-13T18-07-04_java_spring-boot_jvm-java25_io-aggregation-api_run-set",
+      "selection": {
+        "build_profile": "local-gradle-docker",
+        "environment_profile": "home-k3s-v1",
+        "implementation": "java/spring-boot",
+        "load_profile": "capacity-ramp",
+        "measurement_protocol": "official-service-v1",
+        "scenario": "io-aggregation-api",
+        "variant": "jvm-java25"
+      },
+      "source_commit": "dd6f6d6117ae0fb7a33cb13532257b325a70b959",
+      "started_at": "2026-07-13T18:07:05.294260Z"
     }
   ],
   "schema_version": "1.0"
