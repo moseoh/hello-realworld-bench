@@ -156,10 +156,12 @@ jobs:
           raw_sha="$(sha256sum raw-evidence.tar.gz | cut -d' ' -f1)"
           printf '%s  raw-evidence.tar.gz\n' "$raw_sha" > raw-evidence.tar.gz.sha256
           release_tag="benchmark-evidence-${run_set_id}"
-          printf 'RAW_ARTIFACT_SHA256=%s\n' "$raw_sha" >> "$GITHUB_ENV"
-          printf 'RAW_ARTIFACT_URL=https://github.com/%s/releases/download/%s/raw-evidence.tar.gz\n' \
-            "$REPOSITORY" "$release_tag" >> "$GITHUB_ENV"
-          printf 'RELEASE_TAG=%s\n' "$release_tag" >> "$GITHUB_ENV"
+          {
+            printf 'RAW_ARTIFACT_SHA256=%s\n' "$raw_sha"
+            printf 'RAW_ARTIFACT_URL=https://github.com/%s/releases/download/%s/raw-evidence.tar.gz\n' \
+              "$REPOSITORY" "$release_tag"
+            printf 'RELEASE_TAG=%s\n' "$release_tag"
+          } >> "$GITHUB_ENV"
       - name: Publish validated compact evidence
         working-directory: source
         env:
