@@ -2,6 +2,7 @@ import json
 import os
 import unittest
 import tempfile
+from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -257,6 +258,8 @@ class ScenarioLifecycleTest(unittest.TestCase):
 
 
 class RuntimeTimelineTest(unittest.TestCase):
+    ORIGIN_MS = 1_800_000_000_000
+
     def test_merges_k6_buckets_with_nearest_resource_samples(self):
         resources = [
             self._resource(500, 10.0),
@@ -265,6 +268,9 @@ class RuntimeTimelineTest(unittest.TestCase):
         ]
         summary = {
             "metrics": {
+                "hrw_timeline_origin_ms": {
+                    "values": {"value": self.ORIGIN_MS}
+                },
                 "hrw_timeline_requests{bucket:0}": {"values": {"count": 1000}},
                 "hrw_timeline_failures{bucket:0}": {"values": {"count": 10}},
                 "hrw_timeline_duration{bucket:0}": {
@@ -307,10 +313,15 @@ class RuntimeTimelineTest(unittest.TestCase):
     def test_requested_rps_tracks_linear_ramp_midpoints(self):
         summary = {
             "metrics": {
-                f"hrw_timeline_requests{{bucket:{bucket}}}": {
-                    "values": {"count": 1000}
-                }
-                for bucket in range(2)
+                "hrw_timeline_origin_ms": {
+                    "values": {"value": self.ORIGIN_MS}
+                },
+                **{
+                    f"hrw_timeline_requests{{bucket:{bucket}}}": {
+                        "values": {"count": 1000}
+                    }
+                    for bucket in range(2)
+                },
             }
         }
 
@@ -339,11 +350,28 @@ class RuntimeTimelineTest(unittest.TestCase):
             resources,
         )
 
-    @staticmethod
-    def _resource(elapsed_ms: int, cpu: float) -> dict[str, object]:
+    def test_rejects_timeline_without_scenario_start_timestamp(self):
+        summary = {
+            "metrics": {
+                "hrw_timeline_requests{bucket:0}": {"values": {"count": 1}}
+            }
+        }
+
+        with self.assertRaisesRegex(RuntimeError, "scenario start timestamp"):
+            _build_runtime_timeline([], summary, 10, {})
+
+    def test_rejects_missing_timeline_for_core_scenario(self):
+        with self.assertRaisesRegex(RuntimeError, "missing k6 timeline metrics"):
+            _build_runtime_timeline([], {"metrics": {}}, 10, {}, required=True)
+
+    def _resource(self, elapsed_ms: int, cpu: float) -> dict[str, object]:
+        source_time = datetime.fromtimestamp(
+            (self.ORIGIN_MS + elapsed_ms) / 1000,
+            UTC,
+        ).isoformat().replace("+00:00", "Z")
         return {
             "elapsed_ms": elapsed_ms,
-            "source_time": "2026-07-13T00:00:00Z",
+            "source_time": source_time,
             "target_cpu_percent": cpu,
             "target_memory_bytes": 100,
             "target_memory_percent": 1.0,

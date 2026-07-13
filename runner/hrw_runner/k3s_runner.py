@@ -7,6 +7,7 @@ import re
 import threading
 import time
 from dataclasses import replace
+from datetime import datetime
 from pathlib import Path
 from statistics import mean
 from typing import Any
@@ -34,6 +35,13 @@ from .runner import (
     _trial_validity,
     _utc_timestamp,
 )
+
+
+_TIMELINE_SCENARIOS = {
+    "transactional-command-api",
+    "io-aggregation-api",
+    "read-heavy-query-api",
+}
 
 
 def run_k3s_benchmark_set(config: RunConfig, root_dir: Path) -> Path:
@@ -433,6 +441,7 @@ def _run_trial(
             k6_summary,
             _duration_seconds(str(config.load["test_duration"])),
             config.load,
+            required=config.scenario in _TIMELINE_SCENARIOS,
         ),
     }
     validate_evidence_document(time_series, "time-series", config.root_dir)
@@ -839,12 +848,17 @@ def _build_runtime_timeline(
     measured_seconds: int,
     load: dict[str, Any],
     bucket_seconds: int = 10,
+    *,
+    required: bool = False,
 ) -> list[dict[str, Any]]:
     metrics = k6_summary.get("metrics", {})
     if not isinstance(metrics, dict) or not any(
         str(name).startswith("hrw_timeline_requests{") for name in metrics
     ):
+        if required:
+            raise RuntimeError("Core scenario is missing k6 timeline metrics")
         return resource_samples
+    origin_ms = _timeline_origin_ms(metrics)
 
     samples = []
     bucket_count = max(1, (measured_seconds + bucket_seconds - 1) // bucket_seconds)
@@ -853,7 +867,7 @@ def _build_runtime_timeline(
         end_seconds = min(measured_seconds, (bucket + 1) * bucket_seconds)
         window_seconds = end_seconds - start_seconds
         elapsed_ms = end_seconds * 1000
-        resource = _nearest_resource_sample(resource_samples, elapsed_ms)
+        resource = _nearest_resource_sample(resource_samples, elapsed_ms, origin_ms)
         request_values = _timeline_metric_values(
             metrics, "hrw_timeline_requests", bucket
         )
@@ -888,13 +902,15 @@ def _build_runtime_timeline(
 
 
 def _nearest_resource_sample(
-    samples: list[dict[str, Any]], elapsed_ms: int
+    samples: list[dict[str, Any]], elapsed_ms: int, origin_ms: float
 ) -> dict[str, Any]:
     if samples:
         return dict(
             min(
                 samples,
-                key=lambda sample: abs(int(sample["elapsed_ms"]) - elapsed_ms),
+                key=lambda sample: abs(
+                    _resource_elapsed_ms(sample, origin_ms) - elapsed_ms
+                ),
             )
         )
     return {
@@ -904,10 +920,32 @@ def _nearest_resource_sample(
     }
 
 
+def _timeline_origin_ms(metrics: dict[str, Any]) -> float:
+    values = _timeline_metric_values(metrics, "hrw_timeline_origin_ms", None)
+    origin = values.get("value")
+    if not isinstance(origin, (int, float)) or origin <= 0:
+        raise RuntimeError("k6 timeline is missing its scenario start timestamp")
+    return float(origin)
+
+
+def _resource_elapsed_ms(sample: dict[str, Any], origin_ms: float) -> int:
+    source_time = sample.get("source_time")
+    if not isinstance(source_time, str):
+        raise RuntimeError("Kubernetes resource sample is missing source_time")
+    try:
+        timestamp = datetime.fromisoformat(source_time.replace("Z", "+00:00"))
+    except ValueError as error:
+        raise RuntimeError("Kubernetes resource sample has invalid source_time") from error
+    if timestamp.tzinfo is None:
+        raise RuntimeError("Kubernetes resource sample source_time has no timezone")
+    return round(timestamp.timestamp() * 1000 - origin_ms)
+
+
 def _timeline_metric_values(
-    metrics: dict[str, Any], name: str, bucket: int
+    metrics: dict[str, Any], name: str, bucket: int | None
 ) -> dict[str, Any]:
-    metric = metrics.get(f"{name}{{bucket:{bucket}}}", {})
+    key = name if bucket is None else f"{name}{{bucket:{bucket}}}"
+    metric = metrics.get(key, {})
     if not isinstance(metric, dict):
         return {}
     values = metric.get("values", metric)

@@ -132,9 +132,14 @@ class K6ScriptDeterminismTest(unittest.TestCase):
                 self.assertIn("new Counter('hrw_timeline_requests')", source)
                 self.assertIn("new Counter('hrw_timeline_failures')", source)
                 self.assertIn("new Trend('hrw_timeline_duration', true)", source)
+                self.assertIn("new Gauge('hrw_timeline_origin_ms')", source)
                 self.assertIn("timelineBucketCount - 1", source)
+                self.assertLess(
+                    source.index("const bucket = timelineBucket();"),
+                    source.index("const response = http."),
+                )
                 self.assertIn("const valid = check(response", source)
-                self.assertIn("recordTimeline(response, valid);", source)
+                self.assertIn("recordTimeline(bucket, response, valid);", source)
 
     def test_scripts_do_not_use_random_input(self):
         for script in SCRIPTS:

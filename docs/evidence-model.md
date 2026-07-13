@@ -17,6 +17,8 @@ dependency, load-generator, and host resource sample. `elapsed_ms` is measured
 from the start of benchmark collection. A `null` value means that a metric was
 unavailable for that sample; missing samples must not be converted to zero.
 Per-request events are not part of compact evidence.
+Core scenario producers reject missing or partial timeline metrics. Rates and
+latencies must be non-negative, and error rates must remain between zero and one.
 
 `artifact-manifest.json` inventories the immutable raw evidence for the trial.
 Paths are relative to the trial directory. Each entry records the file size and

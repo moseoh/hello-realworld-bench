@@ -9,6 +9,7 @@ from hrw_runner.evidence import (
     build_compact_time_series,
     sha256_file,
     summarize_trials,
+    validate_evidence_document,
     validate_run_set_evidence,
 )
 
@@ -51,6 +52,52 @@ class CompactTimeSeriesTest(unittest.TestCase):
                 "target_memory_percent": 12.74,
             },
         )
+
+    def test_rejects_invalid_or_partial_runtime_timeline_metrics(self):
+        sample = {
+            "elapsed_ms": 10_000,
+            "target_cpu_percent": 10.0,
+            "target_memory_bytes": 100,
+            "target_memory_percent": 1.0,
+            "requested_rps": 100.0,
+            "achieved_rps": 99.0,
+            "request_count": 990,
+            "failure_count": 1,
+            "error_rate": 0.01,
+            "p50_ms": 1.0,
+            "p95_ms": 2.0,
+            "p99_ms": 3.0,
+        }
+
+        for field, value in (("achieved_rps", -1), ("p95_ms", -1), ("error_rate", 1.1)):
+            with self.subTest(field=field):
+                invalid = dict(sample)
+                invalid[field] = value
+                with self.assertRaises(ValueError):
+                    validate_evidence_document(
+                        {
+                            "schema_version": "1.0",
+                            "trial_id": "trial-01",
+                            "sample_interval_ms": 10_000,
+                            "samples": [invalid],
+                        },
+                        "time-series",
+                        PROJECT_ROOT,
+                    )
+
+        partial = dict(sample)
+        partial.pop("p99_ms")
+        with self.assertRaises(ValueError):
+            validate_evidence_document(
+                {
+                    "schema_version": "1.0",
+                    "trial_id": "trial-01",
+                    "sample_interval_ms": 10_000,
+                    "samples": [partial],
+                },
+                "time-series",
+                PROJECT_ROOT,
+            )
 
 
 class ArtifactManifestTest(unittest.TestCase):

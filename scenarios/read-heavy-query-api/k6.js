@@ -1,7 +1,7 @@
 import http from 'k6/http';
 import { check } from 'k6';
 import exec from 'k6/execution';
-import { Counter, Trend } from 'k6/metrics';
+import { Counter, Gauge, Trend } from 'k6/metrics';
 
 const vus = Number(__ENV.VUS || '25');
 const duration = __ENV.DURATION || '45s';
@@ -12,6 +12,7 @@ const timelineBucketCount = Math.ceil(durationMilliseconds(duration) / timelineB
 const timelineRequests = new Counter('hrw_timeline_requests');
 const timelineFailures = new Counter('hrw_timeline_failures');
 const timelineDuration = new Trend('hrw_timeline_duration', true);
+const timelineOrigin = new Gauge('hrw_timeline_origin_ms');
 const categories = [
   'electronics',
   'home',
@@ -89,12 +90,16 @@ function durationMilliseconds(value) {
   return Number(match[1]) * { s: 1000, m: 60000, h: 3600000 }[match[2]];
 }
 
-function recordTimeline(response, valid) {
-  const bucket = Math.min(
+function timelineBucket() {
+  return Math.min(
     timelineBucketCount - 1,
     Math.max(0, Math.floor((Date.now() - exec.scenario.startTime) / timelineBucketMs)),
   );
+}
+
+function recordTimeline(bucket, response, valid) {
   const tags = { bucket: String(bucket) };
+  timelineOrigin.add(exec.scenario.startTime);
   timelineRequests.add(1, tags);
   timelineDuration.add(response.timings.duration, tags);
   if (!valid) {
@@ -169,6 +174,7 @@ export default function () {
     );
     return;
   }
+  const bucket = timelineBucket();
   const query = request.query;
   const response = http.get(`${baseUrl}/products?${query}`);
 
@@ -222,5 +228,5 @@ export default function () {
       );
     },
   });
-  recordTimeline(response, valid);
+  recordTimeline(bucket, response, valid);
 }

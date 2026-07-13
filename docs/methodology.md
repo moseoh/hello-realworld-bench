@@ -34,7 +34,11 @@ generator capacity failure.
 Core service scripts also emit bounded 10-second k6 aggregates. Each bucket
 records requested and achieved request rate, semantic failure rate, and p50,
 p95, and p99 HTTP latency. The k3s runner aligns those buckets with the nearest
-target, dependency, load-generator, and host resource sample. Per-request
+target, dependency, load-generator, and host resource sample. Requests are
+assigned by request start time, including responses that finish during k6's
+graceful-stop window. k6's scenario-start timestamp and kubelet's UTC sample
+timestamps provide the shared time origin, so Pod scheduling time is excluded.
+Per-request
 events are not retained; raw evidence remains bounded while preserving the
 timeline needed to inspect load transitions and recovery behavior.
 

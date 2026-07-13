@@ -1,7 +1,7 @@
 import http from 'k6/http';
 import { check } from 'k6';
 import exec from 'k6/execution';
-import { Counter, Trend } from 'k6/metrics';
+import { Counter, Gauge, Trend } from 'k6/metrics';
 
 const vus = Number(__ENV.VUS || '25');
 const duration = __ENV.DURATION || '45s';
@@ -12,6 +12,7 @@ const timelineBucketCount = Math.ceil(durationMilliseconds(duration) / timelineB
 const timelineRequests = new Counter('hrw_timeline_requests');
 const timelineFailures = new Counter('hrw_timeline_failures');
 const timelineDuration = new Trend('hrw_timeline_duration', true);
+const timelineOrigin = new Gauge('hrw_timeline_origin_ms');
 
 const customers = ['customer-001', 'customer-002', 'customer-003', 'customer-004', 'customer-005'];
 const skus = ['SKU-001', 'SKU-002', 'SKU-003', 'SKU-004', 'SKU-005'];
@@ -65,12 +66,16 @@ function durationMilliseconds(value) {
   return Number(match[1]) * { s: 1000, m: 60000, h: 3600000 }[match[2]];
 }
 
-function recordTimeline(response, valid) {
-  const bucket = Math.min(
+function timelineBucket() {
+  return Math.min(
     timelineBucketCount - 1,
     Math.max(0, Math.floor((Date.now() - exec.scenario.startTime) / timelineBucketMs)),
   );
+}
+
+function recordTimeline(bucket, response, valid) {
   const tags = { bucket: String(bucket) };
+  timelineOrigin.add(exec.scenario.startTime);
   timelineRequests.add(1, tags);
   timelineDuration.add(response.timings.duration, tags);
   if (!valid) {
@@ -81,6 +86,7 @@ function recordTimeline(response, valid) {
 export const options = loadOptions();
 
 export default function () {
+  const bucket = timelineBucket();
   const iteration = exec.scenario.iterationInTest;
   const customerId = customers[iteration % customers.length];
   const sku = skus[Math.floor(iteration / customers.length) % skus.length];
@@ -103,5 +109,5 @@ export default function () {
     'order accepted': (r) => r.json('status') === 'accepted',
     'order id exists': (r) => Boolean(r.json('orderId')),
   });
-  recordTimeline(response, valid);
+  recordTimeline(bucket, response, valid);
 }
