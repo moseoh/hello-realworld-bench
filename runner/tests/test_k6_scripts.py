@@ -108,7 +108,15 @@ class K6ScriptDeterminismTest(unittest.TestCase):
             with self.subTest(script=script):
                 source = script.read_text()
                 self.assertIn("import exec from 'k6/execution';", source)
-                self.assertIn("exec.scenario.iterationInTest", source)
+                self.assertIn(
+                    "const iteration = exec.scenario.iterationInTest;", source
+                )
+                self.assertIn("customers[iteration % customers.length]", source)
+                self.assertIn(
+                    "skus[Math.floor(iteration / customers.length) % skus.length]",
+                    source,
+                )
+                self.assertNotIn("exec.vu.", source)
                 self.assertNotIn("__VU", source)
                 self.assertNotIn("__ITER", source)
 

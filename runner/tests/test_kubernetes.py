@@ -232,51 +232,57 @@ class TargetImageIdentityTest(unittest.TestCase):
 
         self.assertTrue(any("imageID" in reason for reason in reasons))
 
-    def test_rejects_target_oom_in_current_container_state(self):
+    def test_rejects_target_oom_in_current_or_previous_container_state(self):
         expected = "ghcr.io/example/target@sha256:" + "a" * 64
-        pod = {
-            "status": {
-                "containerStatuses": [
-                    {
-                        "imageID": expected,
-                        "restartCount": 0,
-                        "state": {"terminated": {"reason": "OOMKilled"}},
-                    }
-                ]
-            }
-        }
-
-        reasons = _pod_failure_reasons(pod, expected)
-
-        self.assertIn("target was OOMKilled", reasons)
-
-
-class DependencyPodEvidenceTest(unittest.TestCase):
-    def test_rejects_dependency_oom_in_current_container_state(self):
-        client = Mock()
-        client.json.return_value = {
-            "items": [
-                {
-                    "metadata": {"name": "postgres"},
+        for state_name in ("state", "lastState"):
+            with self.subTest(state_name=state_name):
+                pod = {
                     "status": {
                         "containerStatuses": [
                             {
+                                "imageID": expected,
                                 "restartCount": 0,
-                                "state": {"terminated": {"reason": "OOMKilled"}},
+                                state_name: {"terminated": {"reason": "OOMKilled"}},
                             }
                         ]
-                    },
+                    }
                 }
-            ]
-        }
-        client.command.return_value = "dependency log"
 
-        with tempfile.TemporaryDirectory() as temp_dir:
-            _, reasons = _collect_dependency_evidence(
-                client, "hrw-run", Path(temp_dir)
-            )
+                reasons = _pod_failure_reasons(pod, expected)
 
-        self.assertIn("dependency postgres was OOMKilled", reasons)
+                self.assertIn("target was OOMKilled", reasons)
+
+
+class DependencyPodEvidenceTest(unittest.TestCase):
+    def test_rejects_dependency_oom_in_current_or_previous_container_state(self):
+        for state_name in ("state", "lastState"):
+            with self.subTest(state_name=state_name):
+                client = Mock()
+                client.json.return_value = {
+                    "items": [
+                        {
+                            "metadata": {"name": "postgres"},
+                            "status": {
+                                "containerStatuses": [
+                                    {
+                                        "restartCount": 0,
+                                        state_name: {
+                                            "terminated": {"reason": "OOMKilled"}
+                                        },
+                                    }
+                                ]
+                            },
+                        }
+                    ]
+                }
+                client.command.return_value = "dependency log"
+
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    _, reasons = _collect_dependency_evidence(
+                        client, "hrw-run", Path(temp_dir)
+                    )
+
+                self.assertIn("dependency postgres was OOMKilled", reasons)
 
 
 class KubernetesJobWaitTest(unittest.TestCase):

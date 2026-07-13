@@ -42,6 +42,14 @@ class WorkflowTrustBoundaryTest(unittest.TestCase):
         self.assertIn("pull_request", workflow["on"])
         self.assertEqual(workflow["permissions"], {"contents": "read"})
         self.assertEqual(workflow["jobs"]["check"]["runs-on"], "ubuntu-latest")
+        uses = [step.get("uses") for step in workflow["jobs"]["check"]["steps"]]
+        self.assertIn("grafana/setup-k6-action@v1", uses)
+        setup_k6 = next(
+            step
+            for step in workflow["jobs"]["check"]["steps"]
+            if step.get("uses") == "grafana/setup-k6-action@v1"
+        )
+        self.assertEqual(setup_k6["with"]["k6-version"], "2.1.0")
 
     def _load(self, name: str):
         with (ROOT / ".github/workflows" / name).open() as file:
