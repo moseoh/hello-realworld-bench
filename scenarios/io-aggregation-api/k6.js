@@ -1,19 +1,26 @@
 import http from 'k6/http';
 import { check } from 'k6';
 import exec from 'k6/execution';
+import { Counter, Trend } from 'k6/metrics';
 
 const vus = Number(__ENV.VUS || '25');
 const duration = __ENV.DURATION || '45s';
 const baseUrl = __ENV.BASE_URL || 'http://localhost:8080';
 const summaryTrendStats = ['avg', 'min', 'med', 'p(90)', 'p(95)', 'p(99)', 'max'];
+const timelineBucketMs = 10000;
+const timelineBucketCount = Math.ceil(durationMilliseconds(duration) / timelineBucketMs);
+const timelineRequests = new Counter('hrw_timeline_requests');
+const timelineFailures = new Counter('hrw_timeline_failures');
+const timelineDuration = new Trend('hrw_timeline_duration', true);
 
 const customers = ['customer-001', 'customer-002', 'customer-003', 'customer-004'];
 const skus = ['SKU-001', 'SKU-002', 'SKU-003', 'SKU-004'];
 
 function loadOptions() {
+  const timeline = { thresholds: timelineThresholds() };
   const executor = __ENV.HRW_LOAD_EXECUTOR;
   if (!executor || executor === 'constant-vus') {
-    return { vus, duration, summaryTrendStats };
+    return { vus, duration, summaryTrendStats, ...timeline };
   }
 
   const rate = Number(__ENV.HRW_LOAD_RATE || vus);
@@ -37,7 +44,38 @@ function loadOptions() {
     throw new Error(`Unsupported HRW_LOAD_EXECUTOR: ${executor}`);
   }
 
-  return { scenarios: { default: scenario }, summaryTrendStats };
+  return { scenarios: { default: scenario }, summaryTrendStats, ...timeline };
+}
+
+function timelineThresholds() {
+  const thresholds = {};
+  for (let bucket = 0; bucket < timelineBucketCount; bucket += 1) {
+    thresholds[`hrw_timeline_requests{bucket:${bucket}}`] = ['count>=0'];
+    thresholds[`hrw_timeline_failures{bucket:${bucket}}`] = ['count>=0'];
+    thresholds[`hrw_timeline_duration{bucket:${bucket}}`] = ['med>=0'];
+  }
+  return thresholds;
+}
+
+function durationMilliseconds(value) {
+  const match = /^(\d+)(s|m|h)$/.exec(value);
+  if (!match) {
+    throw new Error(`Unsupported duration: ${value}`);
+  }
+  return Number(match[1]) * { s: 1000, m: 60000, h: 3600000 }[match[2]];
+}
+
+function recordTimeline(response, valid) {
+  const bucket = Math.min(
+    timelineBucketCount - 1,
+    Math.max(0, Math.floor((Date.now() - exec.scenario.startTime) / timelineBucketMs)),
+  );
+  const tags = { bucket: String(bucket) };
+  timelineRequests.add(1, tags);
+  timelineDuration.add(response.timings.duration, tags);
+  if (!valid) {
+    timelineFailures.add(1, tags);
+  }
 }
 
 export const options = loadOptions();
@@ -48,10 +86,11 @@ export default function () {
   const sku = skus[Math.floor(iteration / customers.length) % skus.length];
   const response = http.get(`${baseUrl}/aggregate?customerId=${customerId}&sku=${sku}`);
 
-  check(response, {
+  const valid = check(response, {
     'status is 200': (r) => r.status === 200,
     'customer exists': (r) => Boolean(r.json('customer.id')),
     'recommendations exist': (r) => Array.isArray(r.json('recommendations')),
     'inventory exists': (r) => typeof r.json('inventory.available') === 'boolean',
   });
+  recordTimeline(response, valid);
 }

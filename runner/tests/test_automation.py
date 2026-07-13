@@ -66,6 +66,14 @@ class WorkflowTrustBoundaryTest(unittest.TestCase):
             benchmark_step["env"]["HRW_TARGET_IMAGE"],
             "${{ steps.image_ref.outputs.target_image }}",
         )
+        self.assertEqual(
+            benchmark_step["env"]["ENVIRONMENT_PROFILE"],
+            "${{ steps.allowlist.outputs.environment_profile }}",
+        )
+        self.assertIn(
+            '--environment-profile "$ENVIRONMENT_PROFILE"',
+            benchmark_step["run"],
+        )
         self.assertIn('"$IMPLEMENTATION" "$SCENARIO" "$VARIANT"', benchmark_step["run"])
         self.assertEqual(benchmark["strategy"]["max-parallel"], "1")
         self.assertEqual(
@@ -287,6 +295,15 @@ class WorkflowTrustBoundaryTest(unittest.TestCase):
         )
         self.assertEqual(calibration.returncode, 0, calibration.stderr)
         self.assertIn("measurement_protocol=calibration-service", calibration.stdout)
+        self.assertIn("environment_profile=home-k3s-calibration", calibration.stdout)
+
+        official = self._run_allowlist(
+            script,
+            scenario="transactional-command-api",
+            load_profile="steady",
+        )
+        self.assertEqual(official.returncode, 0, official.stderr)
+        self.assertIn("environment_profile=home-k3s-v1", official.stdout)
 
         published_calibration = self._run_allowlist(
             script,

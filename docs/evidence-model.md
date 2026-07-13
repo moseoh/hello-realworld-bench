@@ -10,11 +10,13 @@ resolved manifest and comparison cohort, records its validity outcome, and carri
 the normalized summary metrics. Every summary metric names the raw artifact paths
 from which it was calculated.
 
-`time-series.json` contains compact normalized target resource samples for the
-trial. Each row records `elapsed_ms`, CPU percent, memory bytes, and memory percent
-at the declared sample interval. `elapsed_ms` is measured from the start of
-benchmark collection. A `null` value means that a metric was unavailable for that
-sample; missing samples must not be converted to zero.
+`time-series.json` contains compact normalized runtime samples for the trial.
+For core service scenarios, each 10-second row combines requested and achieved
+load, request and failure counts, p50/p95/p99 latency, and the nearest target,
+dependency, load-generator, and host resource sample. `elapsed_ms` is measured
+from the start of benchmark collection. A `null` value means that a metric was
+unavailable for that sample; missing samples must not be converted to zero.
+Per-request events are not part of compact evidence.
 
 `artifact-manifest.json` inventories the immutable raw evidence for the trial.
 Paths are relative to the trial directory. Each entry records the file size and

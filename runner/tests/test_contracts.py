@@ -1594,7 +1594,7 @@ class ReadHeavyScenarioContractTest(unittest.TestCase):
             PROJECT_ROOT,
         ).value
 
-        self.assertEqual(scenario["contract_version"], "0.2")
+        self.assertEqual(scenario["contract_version"], "0.3")
         self.assertEqual(
             scenario["dataset"],
             {

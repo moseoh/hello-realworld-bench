@@ -39,9 +39,11 @@ does not yet have a comparative public dataset.
 
 Environment contract version `1.2` starts a new comparison cohort because target
 image repository ownership moved from the Spring-specific environment profile to
-each implementation contract. Transactional scenario version `1.2` also raises
+each implementation contract. Transactional scenario version `1.2` also raised
 pre-allocated VUs from 100 to 200 after a 1,000 requests/second burst showed a
 113 ms tail and four dropped iterations while dynamic allocation caught up.
+Transactional v1.3, I/O aggregation v1.2, and provisional read-heavy v0.3 add
+bounded 10-second request, failure, latency, and resource timeline evidence.
 
 ## Benchmark Model
 
@@ -199,7 +201,7 @@ Core service scenarios:
 `read-heavy-query-api` excludes application caching in v1. Its dataset, schema, indexes, selectivity, pagination, response size, and cache-temperature policy must be fixed by the scenario contract.
 
 The implementation and local runner path are complete. The remaining work is
-home-k3s arrival-rate calibration, contract promotion from `0.2`, and inclusion
+home-k3s arrival-rate calibration, contract promotion from `0.3`, and inclusion
 in the trusted 54-trial campaign.
 
 Exit criteria:

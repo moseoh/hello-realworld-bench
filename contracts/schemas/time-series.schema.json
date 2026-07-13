@@ -36,7 +36,15 @@
           "host_cpu_percent": { "$ref": "#/$defs/metricValue" },
           "host_memory_bytes": { "type": ["integer", "null"], "minimum": 0 },
           "background_cpu_millicores": { "$ref": "#/$defs/metricValue" },
-          "background_memory_bytes": { "type": ["integer", "null"], "minimum": 0 }
+          "background_memory_bytes": { "type": ["integer", "null"], "minimum": 0 },
+          "requested_rps": { "$ref": "#/$defs/metricValue" },
+          "achieved_rps": { "$ref": "#/$defs/metricValue" },
+          "request_count": { "type": ["integer", "null"], "minimum": 0 },
+          "failure_count": { "type": ["integer", "null"], "minimum": 0 },
+          "error_rate": { "$ref": "#/$defs/metricValue" },
+          "p50_ms": { "$ref": "#/$defs/metricValue" },
+          "p95_ms": { "$ref": "#/$defs/metricValue" },
+          "p99_ms": { "$ref": "#/$defs/metricValue" }
         }
       }
     }

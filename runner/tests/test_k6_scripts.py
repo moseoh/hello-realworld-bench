@@ -18,6 +18,11 @@ SERVICE_INPUT_SCRIPTS = (
     ROOT / "scenarios/transactional-command-api/k6.js",
     ROOT / "scenarios/io-aggregation-api/k6.js",
 )
+TIMELINE_SCRIPTS = (
+    ROOT / "scenarios/transactional-command-api/k6.js",
+    ROOT / "scenarios/io-aggregation-api/k6.js",
+    ROOT / "scenarios/read-heavy-query-api/k6.js",
+)
 
 
 @unittest.skipUnless(shutil.which("k6"), "k6 is required to inspect scripts")
@@ -103,8 +108,34 @@ class K6ScriptOptionsTest(unittest.TestCase):
                 self.assertEqual(default["preAllocatedVUs"], 25)
                 self.assertEqual(default["maxVUs"], 75)
 
+    def test_core_scenarios_expose_ten_second_timeline_submetrics(self):
+        for script in TIMELINE_SCRIPTS:
+            with self.subTest(script=script):
+                inspected = self.inspect(script, "DURATION=20s")
+                thresholds = inspected["thresholds"]
+
+                self.assertEqual(
+                    set(thresholds),
+                    {
+                        f"hrw_timeline_{metric}{{bucket:{bucket}}}"
+                        for metric in ("requests", "failures", "duration")
+                        for bucket in range(2)
+                    },
+                )
+
 
 class K6ScriptDeterminismTest(unittest.TestCase):
+    def test_core_scenarios_record_semantic_outcomes_in_timeline_metrics(self):
+        for script in TIMELINE_SCRIPTS:
+            with self.subTest(script=script):
+                source = script.read_text()
+                self.assertIn("new Counter('hrw_timeline_requests')", source)
+                self.assertIn("new Counter('hrw_timeline_failures')", source)
+                self.assertIn("new Trend('hrw_timeline_duration', true)", source)
+                self.assertIn("timelineBucketCount - 1", source)
+                self.assertIn("const valid = check(response", source)
+                self.assertIn("recordTimeline(response, valid);", source)
+
     def test_scripts_do_not_use_random_input(self):
         for script in SCRIPTS:
             with self.subTest(script=script):

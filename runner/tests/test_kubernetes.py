@@ -8,6 +8,7 @@ from unittest.mock import Mock, patch
 
 from hrw_runner.config import resolve_run_config
 from hrw_runner.k3s_runner import (
+    _build_runtime_timeline,
     _collect_dependency_evidence,
     _pod_failure_reasons,
     _read_dataset_init_sql,
@@ -253,6 +254,100 @@ class ScenarioLifecycleTest(unittest.TestCase):
         self.assertEqual(correctness["status"], "invalid")
         self.assertTrue(any("row_count" in reason for reason in correctness["reasons"]))
         self.assertTrue(any("index_count" in reason for reason in correctness["reasons"]))
+
+
+class RuntimeTimelineTest(unittest.TestCase):
+    def test_merges_k6_buckets_with_nearest_resource_samples(self):
+        resources = [
+            self._resource(500, 10.0),
+            self._resource(10_200, 20.0),
+            self._resource(20_100, 30.0),
+        ]
+        summary = {
+            "metrics": {
+                "hrw_timeline_requests{bucket:0}": {"values": {"count": 1000}},
+                "hrw_timeline_failures{bucket:0}": {"values": {"count": 10}},
+                "hrw_timeline_duration{bucket:0}": {
+                    "values": {"med": 5.0, "p(95)": 10.0, "p(99)": 20.0}
+                },
+                "hrw_timeline_requests{bucket:1}": {"values": {"count": 1200}},
+                "hrw_timeline_duration{bucket:1}": {
+                    "values": {"med": 6.0, "p(95)": 11.0, "p(99)": 21.0}
+                },
+            }
+        }
+
+        timeline = _build_runtime_timeline(
+            resources,
+            summary,
+            20,
+            {"executor": "constant-arrival-rate", "rate": 100},
+        )
+
+        self.assertEqual(len(timeline), 2)
+        self.assertEqual(
+            timeline[0],
+            {
+                **resources[1],
+                "elapsed_ms": 10_000,
+                "requested_rps": 100.0,
+                "achieved_rps": 100.0,
+                "request_count": 1000,
+                "failure_count": 10,
+                "error_rate": 0.01,
+                "p50_ms": 5.0,
+                "p95_ms": 10.0,
+                "p99_ms": 20.0,
+            },
+        )
+        self.assertEqual(timeline[1]["achieved_rps"], 120.0)
+        self.assertEqual(timeline[1]["failure_count"], 0)
+        self.assertEqual(timeline[1]["error_rate"], 0.0)
+
+    def test_requested_rps_tracks_linear_ramp_midpoints(self):
+        summary = {
+            "metrics": {
+                f"hrw_timeline_requests{{bucket:{bucket}}}": {
+                    "values": {"count": 1000}
+                }
+                for bucket in range(2)
+            }
+        }
+
+        timeline = _build_runtime_timeline(
+            [],
+            summary,
+            20,
+            {
+                "executor": "ramping-arrival-rate",
+                "rate": 100,
+                "stages": [
+                    {"duration": "10s", "target": 200},
+                    {"duration": "10s", "target": 400},
+                ],
+            },
+        )
+
+        self.assertEqual([sample["requested_rps"] for sample in timeline], [150.0, 300.0])
+        self.assertIsNone(timeline[0]["target_cpu_percent"])
+
+    def test_preserves_resource_series_when_k6_has_no_timeline_metrics(self):
+        resources = [self._resource(500, 10.0)]
+
+        self.assertEqual(
+            _build_runtime_timeline(resources, {"metrics": {}}, 20, {}),
+            resources,
+        )
+
+    @staticmethod
+    def _resource(elapsed_ms: int, cpu: float) -> dict[str, object]:
+        return {
+            "elapsed_ms": elapsed_ms,
+            "source_time": "2026-07-13T00:00:00Z",
+            "target_cpu_percent": cpu,
+            "target_memory_bytes": 100,
+            "target_memory_percent": 1.0,
+        }
 
     def test_resets_transactional_tables_after_warmup(self):
         client = Mock()
