@@ -1,0 +1,125 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: __NAMESPACE__
+  labels:
+    app.kubernetes.io/part-of: hello-realworld-bench
+    hello-real-world/run-set: __RUN_SET_ID__
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: first-success-observer
+  namespace: __NAMESPACE__
+  labels:
+    app.kubernetes.io/name: cold-start-api
+    app.kubernetes.io/component: lifecycle-observer
+    app.kubernetes.io/part-of: hello-realworld-bench
+    hello-real-world/run-set: __RUN_SET_ID__
+data:
+  observer.js: __OBSERVER_SCRIPT__
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: target
+  namespace: __NAMESPACE__
+  labels:
+    app.kubernetes.io/name: cold-start-api
+    app.kubernetes.io/component: target
+    app.kubernetes.io/part-of: hello-realworld-bench
+    hello-real-world/run-set: __RUN_SET_ID__
+spec:
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  nodeSelector:
+    kubernetes.io/hostname: homlab
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  initContainers:
+    - name: observer
+      image: __OBSERVER_IMAGE__
+      imagePullPolicy: Never
+      restartPolicy: Always
+      command:
+        - /bin/sh
+        - -c
+      args:
+        - |
+          set -eu
+          output=/tmp/k6-output
+          rm -f /evidence/armed /evidence/success "$output"
+          mkfifo "$output"
+          k6 run /scripts/observer.js >"$output" 2>&1 &
+          pid=$!
+          while IFS= read -r line; do
+            printf '%s\n' "$line"
+            case "$line" in
+              *HRW_OBSERVER_READY_EPOCH_MS=*) : > /evidence/armed ;;
+              *HRW_FIRST_SUCCESS_EPOCH_MS=*) : > /evidence/success ;;
+            esac
+          done <"$output"
+          wait "$pid"
+      startupProbe:
+        exec:
+          command:
+            - /bin/sh
+            - -c
+            - test -f /evidence/armed
+        periodSeconds: 1
+        timeoutSeconds: 1
+        failureThreshold: 30
+      readinessProbe:
+        exec:
+          command:
+            - /bin/sh
+            - -c
+            - test -f /evidence/success
+        periodSeconds: 1
+        timeoutSeconds: 1
+        failureThreshold: 1
+      resources: __OBSERVER_RESOURCES__
+      securityContext:
+        privileged: false
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop:
+            - ALL
+      volumeMounts:
+        - name: script
+          mountPath: /scripts
+          readOnly: true
+        - name: evidence
+          mountPath: /evidence
+        - name: tmp
+          mountPath: /tmp
+  containers:
+    - name: target
+      image: __TARGET_IMAGE__
+      imagePullPolicy: Never
+      env: __TARGET_ENV__
+      ports:
+        - name: http
+          containerPort: 8080
+      resources: __TARGET_RESOURCES__
+      securityContext:
+        privileged: false
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop:
+            - ALL
+      volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+  volumes:
+    - name: script
+      configMap:
+        name: first-success-observer
+    - name: evidence
+      emptyDir: {}
+    - name: tmp
+      emptyDir: {}

@@ -427,6 +427,10 @@ def _resolve_startup_config(
 
     startup = dict(_optional_dict_value(scenario_config, "startup"))
     startup["iterations"] = trials if expected_evidence == "lifecycle" else 1
+    lifecycle = measurement_protocol_config.get("lifecycle")
+    if expected_evidence == "lifecycle" and isinstance(lifecycle, dict):
+        startup.update(lifecycle)
+        startup["timeout_seconds"] = lifecycle["trial_timeout_seconds"]
     return startup
 
 
@@ -440,15 +444,24 @@ def _validate_environment_profile(
     )
     home_k3s = (
         environment_profile_config["orchestrator"] == "k3s"
-        and environment_profile_config["load_generator"] == "in-cluster-k6-job"
         and (
             (
                 environment_profile_config["id"] == "home-k3s-v1"
                 and environment_profile_config["official"] is True
+                and environment_profile_config["load_generator"]
+                == "in-cluster-k6-job"
+            )
+            or (
+                environment_profile_config["id"] == "home-k3s-lifecycle-v1"
+                and environment_profile_config["official"] is True
+                and environment_profile_config["load_generator"]
+                == "in-cluster-k6-observer"
             )
             or (
                 environment_profile_config["id"] == "home-k3s-calibration"
                 and environment_profile_config["official"] is False
+                and environment_profile_config["load_generator"]
+                == "in-cluster-k6-job"
             )
         )
     )
@@ -478,6 +491,16 @@ def _validate_profile_combination(
 ) -> None:
     if environment["official"] is not True:
         return
+    if environment["id"] == "home-k3s-lifecycle-v1":
+        if (
+            measurement_protocol["id"] == "official-cold-start-v1"
+            and load_profile["id"] == "none"
+        ):
+            return
+        raise ValueError(
+            "Official environment 'home-k3s-lifecycle-v1' requires measurement "
+            "protocol 'official-cold-start-v1' and load profile 'none'."
+        )
     allowed_load_profiles = {
         "platform-qualification-v1",
         "steady",

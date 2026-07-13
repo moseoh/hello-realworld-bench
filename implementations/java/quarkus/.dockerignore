@@ -2,3 +2,4 @@
 !build/
 !build/quarkus-app/
 !build/quarkus-app/**
+!benchmark-entrypoint.sh

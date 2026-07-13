@@ -1,18 +1,18 @@
 schema_version: "1.0"
 id: cold-start-api
-contract_version: "1.0"
-description: "Startup-focused API scenario that measures the first successful business endpoint response after app start."
+contract_version: "1.1"
+description: "Lifecycle scenario that measures from the image entrypoint's pre-exec marker to the first valid business response."
 kind: lifecycle
-question: "How long does the target take to serve the first successful business endpoint response after the application starts?"
+question: "How long after a new application process begins execution does it take to complete the first valid business endpoint response?"
 measures:
-  - repeated time-to-first-success timing for /ping
+  - repeated entrypoint-pre-exec-to-first-valid-response timing for /ping
   - latency of the first successful /ping request
-  - basic Docker resource snapshot collection after the final startup sample
 does_not_measure:
   - sustained throughput
   - warm request latency under load
   - database performance
   - serverless platform cold starts
+  - machine boot or cold filesystem page-cache behavior
 dependencies: []
 variants:
   - id: first-success
@@ -42,16 +42,11 @@ load:
 
 metrics:
   collect:
-    - startup_ready_time
+    - entrypoint_pre_exec_to_first_valid_response_ms
     - first_request_latency
-    - startup_ready_time_min
-    - startup_ready_time_median
-    - startup_ready_time_p95
-    - startup_ready_time_max
+    - entrypoint_pre_exec_to_first_valid_response_min
+    - entrypoint_pre_exec_to_first_valid_response_median
+    - entrypoint_pre_exec_to_first_valid_response_max
     - first_request_latency_min
     - first_request_latency_median
-    - first_request_latency_p95
     - first_request_latency_max
-    - cpu_percent
-    - memory_usage
-    - memory_percent

@@ -35,7 +35,12 @@ export function listComparisonGroups(
     { cohort: string; loadProfile: string; scenario: string }
   >()
 
-  for (const entry of entries) {
+  for (const entry of entries.filter(
+    (candidate) =>
+      candidate.evidence_family === 'service' ||
+      (candidate.evidence_family === undefined &&
+        candidate.selection.measurement_protocol === 'official-service-v1'),
+  )) {
     const value = {
       cohort: entry.cohort_fingerprint,
       loadProfile: entry.selection.load_profile,

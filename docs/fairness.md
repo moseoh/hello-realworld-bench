@@ -24,9 +24,11 @@ same `transactional-command-api` and `io-aggregation-api` request, response,
 transaction, outbox, and fallback contracts. Their framework code is independent;
 only the observable work and dependencies are shared.
 
-Cold-start scenarios should use the scenario business endpoint as the readiness signal. Framework health endpoints should not be used for cold-start measurement because they can warm different parts of different runtimes before the first business request.
+Cold-start scenarios use the scenario business endpoint as the completion signal. Framework health endpoints are excluded because they can warm different parts of different runtimes before the first business request. The official lifecycle profile uses the same image-entrypoint pre-`exec` marker logic, Pod-localhost observer, poll interval, timeout, image policy, and resources for every implementation.
 
-Docker Compose health checks should not call benchmarked endpoints during startup measurement. The runner should perform endpoint polling from the host.
+The entrypoint timestamp is a controlled cross-implementation boundary, not a kernel `execve(2)` timestamp. Marker output and shell-to-JVM `exec` overhead are included for both implementations. Lifecycle trials use matching pre/post node-background snapshots; they do not claim service-style in-run coverage for the sub-second interval.
+
+Docker Compose health checks should not call benchmarked endpoints during startup measurement. Local development polling runs from the host; official lifecycle polling runs from a pre-armed native sidecar in the same Pod.
 
 ## Resource Limits
 

@@ -7,7 +7,16 @@ from pathlib import Path
 from statistics import median
 from typing import Any
 
+import yaml
 from jsonschema import Draft202012Validator
+
+from .kubernetes_lifecycle import (
+    build_lifecycle_measurement,
+    build_prepull_evidence,
+    evaluate_lifecycle_boundaries,
+    validate_lifecycle_pod,
+)
+from .kubernetes_stats import normalize_stats_sample
 
 
 _EVIDENCE_INDEX_FILES = {
@@ -73,7 +82,12 @@ def summarize_trials(trials: list[dict[str, Any]]) -> dict[str, object]:
     startup_metrics = _summarize_metric_group(
         valid_trials,
         "startup",
-        ("dependency_ready_ms", "ready_ms", "first_request_ms"),
+        (
+            "dependency_ready_ms",
+            "ready_ms",
+            "entrypoint_pre_exec_to_first_valid_response_ms",
+            "first_request_ms",
+        ),
     )
     return {
         "trial_count": len(trials),
@@ -148,7 +162,12 @@ def build_trial_summary(
         if name in runtime_metrics
     ]
     startup = result.get("startup", {})
-    for name in ("dependency_ready_ms", "ready_ms", "first_request_ms"):
+    for name in (
+        "dependency_ready_ms",
+        "ready_ms",
+        "entrypoint_pre_exec_to_first_valid_response_ms",
+        "first_request_ms",
+    ):
         if name in startup:
             summary.append(
                 {
@@ -197,11 +216,21 @@ def validate_run_set_evidence(run_set_dir: Path, root_dir: Path) -> None:
     if run_set["cohort_fingerprint"] != cohort.get("fingerprint"):
         raise ValueError("Run set cohort fingerprint does not match resolved manifest")
     selection = manifest.get("selection", {})
-    if (
-        selection.get("environment_profile") == "home-k3s-v1"
-        and "platform_evidence" not in run_set
-    ):
-        raise ValueError("Official k3s run set is missing platform evidence")
+    family = cohort.get("evidence_family")
+    environment_profile = selection.get("environment_profile")
+    if environment_profile in {"home-k3s-v1", "home-k3s-lifecycle-v1"}:
+        required_platform = {"preflight", "postflight", "build"}
+        if family == "lifecycle":
+            required_platform.add("image_prepull")
+        platform = run_set.get("platform_evidence")
+        if not isinstance(platform, dict):
+            raise ValueError("Official k3s run set is missing platform evidence")
+        missing = sorted(required_platform - platform.keys())
+        if missing:
+            raise ValueError(
+                "Official k3s run set is missing platform evidence: "
+                + ", ".join(missing)
+            )
     references = run_set["trials"]
     if run_set["expected_trials"] != len(references):
         raise ValueError("Run set expected_trials does not match trial references")
@@ -251,6 +280,160 @@ def validate_run_set_evidence(run_set_dir: Path, root_dir: Path) -> None:
         path = _contained_file(run_set_dir, str(reference["path"]))
         if sha256_file(path) != reference["sha256"]:
             raise ValueError(f"Platform evidence digest mismatch: {reference['path']}")
+    if family == "lifecycle":
+        validate_lifecycle_publication_evidence(
+            run_set_dir,
+            root_dir,
+            run_set=run_set,
+            manifest=manifest,
+        )
+
+
+def validate_lifecycle_publication_evidence(
+    run_set_dir: Path,
+    root_dir: Path,
+    *,
+    run_set: dict[str, Any] | None = None,
+    manifest: dict[str, Any] | None = None,
+) -> None:
+    run_set = run_set or _read_object(run_set_dir / "run-set.json")
+    manifest = manifest or _read_object(run_set_dir / "resolved-manifest.json")
+    if manifest.get("cohort", {}).get("evidence_family") != "lifecycle":
+        return
+    if (
+        manifest.get("selection", {}).get("environment_profile")
+        != "home-k3s-lifecycle-v1"
+    ):
+        return
+
+    environment_ref = manifest.get("contracts", {}).get("environment_profile", {})
+    relative_contract = environment_ref.get("path")
+    if not isinstance(relative_contract, str):
+        raise ValueError("Lifecycle manifest has no environment contract path")
+    contract_path = _contained_repository_file(root_dir, relative_contract)
+    environment = yaml.safe_load(contract_path.read_text())
+    if not isinstance(environment, dict):
+        raise ValueError("Lifecycle environment contract is not an object")
+    observer_image = str(environment.get("images", {}).get("k6", ""))
+    target_image = str(manifest.get("execution", {}).get("image_tag", ""))
+    timeout_seconds = int(
+        manifest.get("execution", {}).get("startup", {}).get("timeout_seconds", 0)
+    )
+    if timeout_seconds < 1:
+        raise ValueError("Lifecycle manifest has no positive timeout")
+
+    platform = run_set.get("platform_evidence", {})
+    prepull_ref = platform.get("image_prepull")
+    if not isinstance(prepull_ref, dict):
+        raise ValueError("Lifecycle run set has no image pre-pull evidence")
+    prepull_path = _contained_file(run_set_dir, str(prepull_ref.get("path", "")))
+    prepull = _read_object(prepull_path)
+    pod = prepull.get("pod")
+    if not isinstance(pod, dict):
+        raise ValueError("Lifecycle image pre-pull evidence has no Pod")
+    expected_prepull = build_prepull_evidence(
+        pod,
+        target_image=target_image,
+        observer_image=observer_image,
+    )
+    if prepull != expected_prepull or prepull.get("status") != "valid":
+        raise ValueError("Lifecycle image pre-pull evidence is invalid")
+
+    validated_trials = []
+    for reference in run_set["trials"]:
+        if reference.get("status") != "valid":
+            continue
+        trial_path = _contained_file(run_set_dir, str(reference["path"]))
+        trial_dir = trial_path.parent
+        required = {
+            "startup.json",
+            "target-pod.json",
+            "target.log",
+            "observer.log",
+            "boundary-validity.json",
+            "boundary-kubelet-stats.json",
+            "result.json",
+        }
+        artifact_manifest = _read_object(trial_dir / "artifact-manifest.json")
+        recorded = {
+            str(artifact.get("path"))
+            for artifact in artifact_manifest.get("artifacts", [])
+        }
+        missing = sorted(required - recorded)
+        if missing:
+            raise ValueError(
+                f"Lifecycle trial {reference['trial_id']} is missing raw evidence: "
+                + ", ".join(missing)
+            )
+
+        pod = _read_object(trial_dir / "target-pod.json")
+        expected_startup = build_lifecycle_measurement(
+            pod,
+            (trial_dir / "target.log").read_text(),
+            (trial_dir / "observer.log").read_text(),
+            timeout_seconds=timeout_seconds,
+        )
+        if _read_object(trial_dir / "startup.json") != expected_startup:
+            raise ValueError(
+                f"Lifecycle trial {reference['trial_id']} startup evidence is inconsistent"
+            )
+        result = _read_object(trial_dir / "result.json")
+        if result.get("startup") != expected_startup:
+            raise ValueError(
+                f"Lifecycle trial {reference['trial_id']} result startup is inconsistent"
+            )
+        pod_reasons = validate_lifecycle_pod(
+            pod,
+            target_image=target_image,
+            observer_image=observer_image,
+        )
+        if pod_reasons:
+            raise ValueError(
+                f"Lifecycle trial {reference['trial_id']} Pod evidence is invalid: "
+                + "; ".join(pod_reasons)
+            )
+
+        namespace = pod.get("metadata", {}).get("namespace")
+        if not isinstance(namespace, str) or not namespace:
+            raise ValueError("Lifecycle Pod evidence has no namespace")
+        raw_stats = _read_object(trial_dir / "boundary-kubelet-stats.json")
+        if not isinstance(raw_stats.get("before"), dict) or not isinstance(
+            raw_stats.get("after"), dict
+        ):
+            raise ValueError("Lifecycle boundary raw evidence is incomplete")
+        expected_boundary = evaluate_lifecycle_boundaries(
+            normalize_stats_sample(raw_stats["before"], namespace, 0),
+            normalize_stats_sample(raw_stats["after"], namespace, 0),
+            environment["validity"],
+        )
+        boundary = _read_object(trial_dir / "boundary-validity.json")
+        if boundary != expected_boundary or boundary.get("status") != "valid":
+            raise ValueError(
+                f"Lifecycle trial {reference['trial_id']} boundary evidence is invalid"
+            )
+        trial = _read_object(trial_path)
+        expected_trial_summary = build_trial_summary(result, "target-pod.json")
+        if trial.get("summary") != expected_trial_summary:
+            raise ValueError(
+                f"Lifecycle trial {reference['trial_id']} summary is inconsistent"
+            )
+        validated_trials.append({**trial, "result": result})
+
+    expected_summary = summarize_trials(validated_trials)
+    if run_set.get("summary") != expected_summary:
+        raise ValueError("Lifecycle run-set summary is inconsistent with raw evidence")
+
+
+def _contained_repository_file(root_dir: Path, relative_path: str) -> Path:
+    root = root_dir.resolve(strict=True)
+    path = (root / relative_path).resolve(strict=True)
+    try:
+        path.relative_to(root)
+    except ValueError:
+        raise ValueError("Contract path escapes the repository") from None
+    if not path.is_file():
+        raise ValueError("Contract path is not a file")
+    return path
 
 
 def _validated_reference(

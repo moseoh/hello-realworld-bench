@@ -198,7 +198,15 @@
       "properties": {
         "iterations": { "type": "integer", "minimum": 1 },
         "poll_interval_seconds": { "type": "number", "minimum": 0 },
-        "timeout_seconds": { "type": "number", "minimum": 0 }
+        "timeout_seconds": { "type": "number", "minimum": 0 },
+        "start_boundary": { "const": "image-entrypoint-pre-exec" },
+        "completion_boundary": { "const": "first-valid-response-complete" },
+        "observer_transport": { "const": "pod-localhost" },
+        "poll_interval_ms": { "type": "integer", "minimum": 1 },
+        "request_timeout_ms": { "type": "integer", "minimum": 1 },
+        "trial_timeout_seconds": { "type": "integer", "minimum": 1 },
+        "between_trials_seconds": { "type": "integer", "minimum": 0 },
+        "image_pull_policy": { "const": "Never" }
       }
     }
   },

@@ -8,14 +8,22 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from .evidence import sha256_file, validate_run_set_evidence
+from .evidence import (
+    sha256_file,
+    validate_lifecycle_publication_evidence,
+    validate_run_set_evidence,
+)
 from .manifest import validate_resolved_manifest
 
 
 _COMMIT_PATTERN = re.compile(r"[0-9a-f]{40}")
 _ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
-_OFFICIAL_ENVIRONMENT = "home-k3s-v1"
-_OFFICIAL_PROTOCOL = "official-service-v1"
+_OFFICIAL_SERVICE_SCENARIOS = {
+    "transactional-command-api",
+    "io-aggregation-api",
+    "read-heavy-query-api",
+}
+_OFFICIAL_SERVICE_LOAD_PROFILES = {"steady", "capacity-ramp", "burst-recovery"}
 
 
 class PublicationError(ValueError):
@@ -39,6 +47,8 @@ def publish_run_set(
     validate_run_set_evidence(run_set_dir, root_dir)
     run_set = _read_object(run_set_dir / "run-set.json")
     _validate_promotion(run_set, manifest, source_commit)
+    if manifest.get("cohort", {}).get("evidence_family") == "lifecycle":
+        validate_lifecycle_publication_evidence(run_set_dir, root_dir)
     if bool(raw_artifact_url) != bool(raw_artifact_sha256):
         raise PublicationError(
             "Raw artifact URL and SHA-256 must be provided together"
@@ -98,6 +108,7 @@ def publish_run_set(
         "image_digest": publication["image_digest"],
         "started_at": run_set["started_at"],
         "finished_at": run_set["finished_at"],
+        "evidence_family": manifest["cohort"]["evidence_family"],
         "selection": manifest["selection"],
     }
     _update_catalog(dataset_dir, catalog_entry)
@@ -127,10 +138,33 @@ def _validate_promotion(
     if source.get("git_commit") != source_commit:
         raise PublicationError("Trusted source commit does not match the run manifest")
     selection = manifest.get("selection", {})
-    if selection.get("environment_profile") != _OFFICIAL_ENVIRONMENT:
-        raise PublicationError("Only the official home k3s environment can be published")
-    if selection.get("measurement_protocol") != _OFFICIAL_PROTOCOL:
-        raise PublicationError("Only the official service protocol can be published")
+    cohort = manifest.get("cohort", {})
+    family = cohort.get("evidence_family") if isinstance(cohort, dict) else None
+    combination = (
+        selection.get("scenario"),
+        selection.get("load_profile"),
+        selection.get("environment_profile"),
+        selection.get("measurement_protocol"),
+    )
+    service_allowed = (
+        family == "service"
+        and combination[2:] == ("home-k3s-v1", "official-service-v1")
+        and (
+            combination[:2] == ("ping-api", "platform-qualification-v1")
+            or (
+                combination[0] in _OFFICIAL_SERVICE_SCENARIOS
+                and combination[1] in _OFFICIAL_SERVICE_LOAD_PROFILES
+            )
+        )
+    )
+    lifecycle_allowed = family == "lifecycle" and combination == (
+        "cold-start-api",
+        "none",
+        "home-k3s-lifecycle-v1",
+        "official-cold-start-v1",
+    )
+    if not (service_allowed or lifecycle_allowed):
+        raise PublicationError("Run set is not an allowlisted official evidence cohort")
 
 
 def _publication_files(run_set_dir: Path, run_set: dict[str, Any]) -> list[Path]:

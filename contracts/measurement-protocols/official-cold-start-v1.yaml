@@ -1,0 +1,19 @@
+schema_version: "1.0"
+id: official-cold-start-v1
+contract_version: "1.0"
+status: frozen
+description: "Frozen official lifecycle protocol from the image entrypoint pre-exec marker to the first valid business response completion."
+evidence_family: lifecycle
+trials: 5
+timing_source: none
+warmup_seconds: 0
+measured_seconds: 0
+lifecycle:
+  start_boundary: image-entrypoint-pre-exec
+  completion_boundary: first-valid-response-complete
+  observer_transport: pod-localhost
+  poll_interval_ms: 10
+  request_timeout_ms: 250
+  trial_timeout_seconds: 120
+  between_trials_seconds: 5
+  image_pull_policy: Never

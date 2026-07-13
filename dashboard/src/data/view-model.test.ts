@@ -17,6 +17,7 @@ function entry(
 ): CatalogEntry {
   return {
     cohort_fingerprint: cohort,
+    evidence_family: 'service',
     finished_at: finishedAt,
     image_digest: 'sha256:image',
     path: `run-sets/${cohort}/${runSetId}`,
@@ -63,6 +64,34 @@ function runSet(id: string): RunSet {
 }
 
 describe('listComparisonGroups', () => {
+  it('keeps lifecycle evidence out of the service comparison view', () => {
+    const service = entry('java/spring-boot', 'service')
+    delete service.evidence_family
+    const lifecycle = {
+      ...entry(
+        'java/quarkus',
+        'lifecycle',
+        'cold-start-api',
+        'none',
+        'cold-cohort',
+      ),
+      evidence_family: 'lifecycle',
+    }
+    const groups = listComparisonGroups(
+      [service, lifecycle],
+      new Map([
+        ['service', runSet('service')],
+        [
+          'lifecycle',
+          { ...runSet('lifecycle'), cohort_fingerprint: 'cold-cohort' },
+        ],
+      ]),
+    )
+
+    expect(groups).toHaveLength(1)
+    expect(groups[0].scenario).toBe('read-heavy-query-api')
+  })
+
   it('groups exact cohorts and prioritizes comparable recent groups', () => {
     const entries = [
       entry('java/spring-boot', 'spring'),

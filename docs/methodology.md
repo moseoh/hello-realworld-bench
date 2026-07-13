@@ -12,9 +12,13 @@ The MVP records Gradle clean build time and Docker image build time separately. 
 
 ### Startup Metrics
 
-Startup metrics capture how long the target container takes until the scenario endpoint first returns a successful response.
+Startup metrics capture how long a new target process takes to complete the scenario's first valid business response.
 
-For `cold-start-api`, startup means the time from starting the target container until `/ping` first returns HTTP 200. The successful `/ping` request latency is also recorded. The MVP measures this repeatedly on the same host by stopping and starting the target container between samples.
+For official `cold-start-api` evidence, the start boundary is a millisecond timestamp emitted by the image entrypoint immediately before it calls `exec` for the application process. The same marker logic is used by every implementation. A native sidecar is armed before the target starts and observes the first exact `/ping` contract over Pod-localhost. The completion boundary is the response completion timestamp. The immutable target and observer images are pre-pulled, and measured Pods use `imagePullPolicy: Never`; image transfer, pulls, scheduling, and Service propagation are therefore excluded. The successful request latency is recorded separately.
+
+Each official lifecycle set contains five fresh target containers with a fixed five-second quiet interval between trials. It represents a new JVM process on a warm node with warm image and filesystem caches. The marker is immediately before, but is not the kernel's exact `execve(2)` timestamp. Marker output and shell-to-JVM `exec` overhead are included in the interval. It is not a machine cold boot or a serverless platform cold start. Every boundary timestamp, observer attempt count, Pod state, image identity, and restart count remains in the evidence bundle.
+
+Lifecycle validity uses run-level preflight and postflight checks plus one node-background snapshot immediately before and after every measured startup. It does not reuse the service protocol's ten-second in-run coverage rule: kubelet sampling cannot resolve every transient inside a sub-second lifecycle interval. This limitation remains part of the evidence contract instead of being represented as false high-frequency coverage.
 
 For scenarios with support services, such as PostgreSQL or mock upstream HTTP services, the runner starts those dependencies first and waits for them before measuring the target container. Dependency startup time is recorded separately as `dependency_ready_ms`; target startup time is recorded as `ready_ms`.
 
@@ -50,7 +54,7 @@ fingerprint and required index before target startup and again after every
 measured trial. k6 independently checks filtering, ordering, cursor, field, and
 response-size semantics on every response.
 
-Some scenarios, such as `cold-start-api`, do not run a sustained k6 load phase. In those cases the k6 summary files record that load was skipped, and the startup result is the primary measurement.
+Some scenarios, such as `cold-start-api`, do not run a sustained load phase. k6 acts only as the pre-armed Pod-localhost lifecycle observer, and lifecycle timing is the primary measurement.
 
 ### Resource Metrics
 
@@ -83,6 +87,4 @@ A later phase should add remote load generator mode.
 
 Benchmark results should be phrased as trade-offs under specific scenario conditions. Avoid universal claims such as one framework being faster than another in general.
 
-Local and calibration outputs are development evidence. Official results require
-clean trusted commits, three valid trials, frozen profiles, complete correctness
-evidence, and the home-k3s validity checks.
+Local and calibration outputs are development evidence. Official service results require three valid trials; official lifecycle results require five valid trials. Both require clean trusted commits, frozen profiles, complete correctness evidence, immutable images, and the applicable home-k3s validity checks.

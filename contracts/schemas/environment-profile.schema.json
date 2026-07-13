@@ -113,10 +113,6 @@
       "required": [
         "max_background_cpu_millicores",
         "max_background_memory_bytes",
-        "max_load_generator_cpu_percent",
-        "max_dependency_cpu_percent",
-        "min_sample_coverage_ratio",
-        "stats_sample_interval_seconds",
         "phases",
         "threshold_exceeded_classification"
       ],
@@ -134,16 +130,13 @@
           "type": "integer",
           "minimum": 1
         },
+        "boundary_snapshot_count": { "const": 2 },
         "phases": {
           "type": "array",
-          "prefixItems": [
-            { "const": "preflight" },
-            { "const": "in-run" },
-            { "const": "postflight" }
-          ],
-          "items": false,
-          "minItems": 3,
-          "maxItems": 3
+          "items": {
+            "enum": ["preflight", "in-run", "trial-boundary", "postflight"]
+          },
+          "uniqueItems": true
         },
         "threshold_exceeded_classification": {
           "const": "infrastructure-invalid"
@@ -159,6 +152,57 @@
       },
       "then": {
         "required": ["cluster", "resources", "images", "validity"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "load_generator": { "const": "in-cluster-k6-observer" }
+        },
+        "required": ["load_generator"]
+      },
+      "then": {
+        "properties": {
+          "validity": {
+            "required": ["boundary_snapshot_count"],
+            "properties": {
+              "phases": {
+                "prefixItems": [
+                  { "const": "preflight" },
+                  { "const": "trial-boundary" },
+                  { "const": "postflight" }
+                ],
+                "items": false,
+                "minItems": 3,
+                "maxItems": 3
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "validity": {
+            "required": [
+              "max_load_generator_cpu_percent",
+              "max_dependency_cpu_percent",
+              "min_sample_coverage_ratio",
+              "stats_sample_interval_seconds"
+            ],
+            "properties": {
+              "phases": {
+                "prefixItems": [
+                  { "const": "preflight" },
+                  { "const": "in-run" },
+                  { "const": "postflight" }
+                ],
+                "items": false,
+                "minItems": 3,
+                "maxItems": 3
+              }
+            }
+          }
+        }
       }
     }
   ]
