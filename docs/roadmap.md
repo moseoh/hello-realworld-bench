@@ -24,7 +24,7 @@ It already provides:
 - Docker Compose execution;
 - Spring Boot 4 and Quarkus `3.33.2.1` LTS reference implementations on Java 25;
 - JVM and Spring virtual-thread variants;
-- `ping-api`, `cold-start-api`, `transactional-command-api`, `io-aggregation-api`, and `io-aggregation-timeout-api`;
+- `ping-api`, `cold-start-api`, `transactional-command-api`, `read-heavy-query-api`, `io-aggregation-api`, and `io-aggregation-timeout-api`;
 - build, startup, k6, and Docker resource measurements; and
 - normalized local result JSON.
 - a frozen home k3s platform with three-trial and time-series evidence;
@@ -197,6 +197,10 @@ Core service scenarios:
 - `io-aggregation-api`: parallel upstream HTTP calls and response aggregation.
 
 `read-heavy-query-api` excludes application caching in v1. Its dataset, schema, indexes, selectivity, pagination, response size, and cache-temperature policy must be fixed by the scenario contract.
+
+The implementation and local runner path are complete. The remaining work is
+home-k3s arrival-rate calibration, contract promotion from `0.1`, and inclusion
+in the trusted 54-trial campaign.
 
 Exit criteria:
 

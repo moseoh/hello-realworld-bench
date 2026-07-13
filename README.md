@@ -41,6 +41,7 @@ Supported scenarios:
 - `ping-api`
 - `cold-start-api`
 - `transactional-command-api`
+- `read-heavy-query-api`
 - `io-aggregation-api`
 - `io-aggregation-timeout-api`
 
@@ -161,6 +162,17 @@ Transactional command scenario:
 make run SCENARIO=transactional-command-api
 ```
 
+Read-heavy query scenario:
+
+```bash
+make run SCENARIO=read-heavy-query-api
+```
+
+Its deterministic 100,000-row PostgreSQL dataset is initialized before the
+target starts. The current `0.1` contract is available for local validation but
+remains excluded from frozen official open-model runs until its home-k3s arrival
+rate is calibrated and versioned.
+
 I/O aggregation scenario:
 
 ```bash
@@ -204,6 +216,7 @@ implementations/java/quarkus/variants/jvm-java25.yaml
 scenarios/ping-api/scenario.yaml
 scenarios/cold-start-api/scenario.yaml
 scenarios/transactional-command-api/scenario.yaml
+scenarios/read-heavy-query-api/scenario.yaml
 scenarios/io-aggregation-api/scenario.yaml
 scenarios/io-aggregation-timeout-api/scenario.yaml
 contracts/load-profiles/
@@ -221,9 +234,11 @@ documented in [docs/benchmark-contracts.md](docs/benchmark-contracts.md).
 The resolved selections, effective execution configuration, input assets, and Git
 provenance are documented in [docs/resolved-run-manifest.md](docs/resolved-run-manifest.md).
 
-Spring Boot and Quarkus implement the same request, response, transactional, and
-outbound-client behavior for `transactional-command-api` and
-`io-aggregation-api`. Moving the official target image repository from the
+Spring Boot and Quarkus implement the same request and response behavior for all
+three core scenarios. They preserve the same transaction/outbox semantics for
+`transactional-command-api`, indexed keyset pagination for
+`read-heavy-query-api`, and outbound-client behavior for `io-aggregation-api`.
+Moving the official target image repository from the
 Spring-specific environment profile to each implementation contract changed
 `home-k3s-v1` to contract version `1.2`; results under that version form a new
 comparison cohort and must not be merged with earlier environment versions.
@@ -234,6 +249,7 @@ Scenario details for humans live in each scenario directory:
 scenarios/ping-api/README.md
 scenarios/cold-start-api/README.md
 scenarios/transactional-command-api/README.md
+scenarios/read-heavy-query-api/README.md
 scenarios/io-aggregation-api/README.md
 scenarios/io-aggregation-timeout-api/README.md
 ```
@@ -262,6 +278,7 @@ results/<language>/<framework>/<variant>/<scenario>/<run_set_id>/
 ├── resolved-manifest.json
 ├── metadata.json
 ├── build.json
+├── dataset-preflight.json  # read-heavy-query-api only
 ├── run-set.json
 ├── run.log
 └── trials/
@@ -271,6 +288,7 @@ results/<language>/<framework>/<variant>/<scenario>/<run_set_id>/
         ├── time-series.json
         ├── artifact-manifest.json
         ├── startup.json
+        ├── correctness.json
         ├── k6-summary.json
         ├── docker-stats.json
         ├── target.log

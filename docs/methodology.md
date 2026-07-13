@@ -33,6 +33,12 @@ generator capacity failure.
 
 For HTTP aggregation scenarios, target outbound HTTP client settings and mock upstream settings are part of the benchmark contract. The baseline is documented in [http-baseline.md](http-baseline.md).
 
+For `read-heavy-query-api`, PostgreSQL initializes an immutable 100,000-row
+catalog before the target starts. The runner verifies the complete dataset
+fingerprint and required index before target startup and again after every
+measured trial. k6 independently checks filtering, ordering, cursor, field, and
+response-size semantics on every response.
+
 Some scenarios, such as `cold-start-api`, do not run a sustained k6 load phase. In those cases the k6 summary files record that load was skipped, and the startup result is the primary measurement.
 
 ### Resource Metrics

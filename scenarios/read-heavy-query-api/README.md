@@ -44,3 +44,10 @@ not exceed 16 KiB.
 PostgreSQL initializes the immutable dataset before the target starts. Normal
 warmup establishes warm database-cache evidence; the scenario does not permit
 an application cache.
+
+## Current Status
+
+Spring Boot and Quarkus implement this contract, and the local Compose runner is
+verified end to end. The provisional `0.1` contract deliberately sets
+`arrival_rate.calibrated: false`; frozen official open-model profiles reject it
+until the rate is calibrated on the home k3s environment.
