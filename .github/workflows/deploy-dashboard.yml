@@ -28,7 +28,7 @@ jobs:
       - name: Resolve immutable benchmark dataset
         id: dataset
         run: |
-          sha="$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/benchmark-data | cut -f1)"
+          sha="$(git ls-remote "https://github.com/${GITHUB_REPOSITORY}.git" refs/heads/benchmark-data | cut -f1)"
           printf '%s\n' "$sha" | grep -Eq '^[0-9a-f]{40}$'
           printf 'sha=%s\n' "$sha" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@v6
