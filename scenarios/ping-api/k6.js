@@ -8,7 +8,7 @@ const summaryTrendStats = ['avg', 'min', 'med', 'p(90)', 'p(95)', 'p(99)', 'max'
 
 function loadOptions() {
   const executor = __ENV.HRW_LOAD_EXECUTOR;
-  if (!executor) {
+  if (!executor || executor === 'constant-vus') {
     return { vus, duration, summaryTrendStats };
   }
 

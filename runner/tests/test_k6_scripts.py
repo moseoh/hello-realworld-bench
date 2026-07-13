@@ -41,6 +41,21 @@ class K6ScriptOptionsTest(unittest.TestCase):
                     ["avg", "min", "med", "p(90)", "p(95)", "p(99)", "max"],
                 )
 
+    def test_supports_explicit_constant_vus(self):
+        for script in SCRIPTS:
+            with self.subTest(script=script):
+                inspected = self.inspect(
+                    script,
+                    "HRW_LOAD_EXECUTOR=constant-vus",
+                    "VUS=40",
+                    "DURATION=20s",
+                )
+                default = inspected["scenarios"]["default"]
+
+                self.assertEqual(default["executor"], "constant-vus")
+                self.assertEqual(default["vus"], 40)
+                self.assertEqual(default["duration"], "20s")
+
     def test_supports_constant_arrival_rate(self):
         for script in SCRIPTS:
             with self.subTest(script=script):
@@ -88,12 +103,14 @@ class K6ScriptDeterminismTest(unittest.TestCase):
                 source = script.read_text()
                 self.assertNotIn("Math.random", source)
 
-    def test_service_inputs_use_vu_and_iteration(self):
+    def test_service_inputs_use_global_scenario_iteration(self):
         for script in SCRIPTS[1:]:
             with self.subTest(script=script):
                 source = script.read_text()
-                self.assertIn("__VU", source)
-                self.assertIn("__ITER", source)
+                self.assertIn("import exec from 'k6/execution';", source)
+                self.assertIn("exec.scenario.iterationInTest", source)
+                self.assertNotIn("__VU", source)
+                self.assertNotIn("__ITER", source)
 
 
 if __name__ == "__main__":

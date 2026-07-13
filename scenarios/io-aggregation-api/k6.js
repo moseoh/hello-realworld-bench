@@ -1,5 +1,6 @@
 import http from 'k6/http';
 import { check } from 'k6';
+import exec from 'k6/execution';
 
 const vus = Number(__ENV.VUS || '25');
 const duration = __ENV.DURATION || '45s';
@@ -11,7 +12,7 @@ const skus = ['SKU-001', 'SKU-002', 'SKU-003', 'SKU-004'];
 
 function loadOptions() {
   const executor = __ENV.HRW_LOAD_EXECUTOR;
-  if (!executor) {
+  if (!executor || executor === 'constant-vus') {
     return { vus, duration, summaryTrendStats };
   }
 
@@ -42,7 +43,7 @@ function loadOptions() {
 export const options = loadOptions();
 
 export default function () {
-  const iteration = (__VU - 1) * 1000003 + __ITER;
+  const iteration = exec.scenario.iterationInTest;
   const customerId = customers[iteration % customers.length];
   const sku = skus[Math.floor(iteration / customers.length) % skus.length];
   const response = http.get(`${baseUrl}/aggregate?customerId=${customerId}&sku=${sku}`);

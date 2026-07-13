@@ -898,8 +898,7 @@ def _pod_failure_reasons(
             )
         if int(status.get("restartCount", 0)) > 0:
             reasons.append(f"target restarted {status['restartCount']} time(s)")
-        terminated = status.get("lastState", {}).get("terminated", {})
-        if terminated.get("reason") == "OOMKilled":
+        if _container_was_oom_killed(status):
             reasons.append("target was OOMKilled")
     return reasons
 
@@ -927,10 +926,17 @@ def _collect_dependency_evidence(
         for status in pod.get("status", {}).get("containerStatuses", []):
             if int(status.get("restartCount", 0)) > 0:
                 reasons.append(f"dependency {name} restarted")
-            terminated = status.get("lastState", {}).get("terminated", {})
-            if terminated.get("reason") == "OOMKilled":
+            if _container_was_oom_killed(status):
                 reasons.append(f"dependency {name} was OOMKilled")
     return pods, reasons
+
+
+def _container_was_oom_killed(status: dict[str, Any]) -> bool:
+    return any(
+        status.get(state_name, {}).get("terminated", {}).get("reason")
+        == "OOMKilled"
+        for state_name in ("state", "lastState")
+    )
 
 
 def _duration_seconds(value: str) -> int:
