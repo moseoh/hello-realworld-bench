@@ -1,0 +1,60 @@
+{
+  "schema_version": "0.2",
+  "run_id": "trial-01",
+  "run_set_id": "2026-07-13T07-39-19_java_spring-boot_jvm-java25_io-aggregation-api_run-set",
+  "trial_index": 1,
+  "manifest_digest": "489b57ac971bae6f653022e656b1aa8557e28b938394c144bfa88ed603f0ed1e",
+  "cohort_fingerprint": "a3fd3255b430596cfe2fbde7ea8e133daaf2c3dc0498ca30f4989aa072a11ef8",
+  "project": "hello-realworld-bench",
+  "scenario": "io-aggregation-api",
+  "implementation": "java/spring-boot",
+  "variant": "jvm-java25",
+  "runtime": {
+    "java_version": "25",
+    "spring_boot_version": "4.1.0",
+    "build_mode": "jvm",
+    "native_image": false,
+    "virtual_threads": false,
+    "otel": false,
+    "language": "java",
+    "framework": "spring-boot"
+  },
+  "environment": {
+    "context": "homelab",
+    "node_name": "homlab",
+    "architecture": "amd64",
+    "machine_id": "f66cd2d134b94bb18eb7e531d1baf343",
+    "logical_cpus": 16,
+    "memory_bytes": 29341941760,
+    "cpu_manager_policy": "none",
+    "kubernetes_version": "v1.36.2+k3s1",
+    "kubelet_version": "v1.36.2+k3s1",
+    "container_runtime": "containerd://2.3.2-k3s2",
+    "kernel_version": "6.8.0-134-generic",
+    "os_image": "Ubuntu 24.04.4 LTS"
+  },
+  "build": {
+    "image": "ghcr.io/moseoh/hello-realworld-bench/spring-boot@sha256:a539f4be198d89eb28ebe4890b5c4adf3d3966a5b94f25982c26f1cdeafc96bd",
+    "digest": "sha256:a539f4be198d89eb28ebe4890b5c4adf3d3966a5b94f25982c26f1cdeafc96bd",
+    "platform": "linux/amd64",
+    "distribution": "prebuilt-import",
+    "clean_build_ms": null,
+    "image_build_ms": null
+  },
+  "startup": {
+    "dependency_ready_ms": 4050,
+    "ready_ms": 3858,
+    "first_request_ms": null,
+    "iterations": 1
+  },
+  "runtime_metrics": {
+    "rps": 81.2425907615763,
+    "p50_ms": 35.849943,
+    "p95_ms": 36.580828499999996,
+    "p99_ms": 37.215265959999996,
+    "error_rate": 0,
+    "cpu_percent_avg": 8.1251,
+    "cpu_percent_max": 13.4928,
+    "memory_usage_max_bytes": 233877504
+  }
+}
