@@ -144,7 +144,7 @@ jobs:
           else
             git worktree add --detach ../dataset HEAD
             git -C ../dataset switch --orphan benchmark-data
-            git -C ../dataset rm -rf .
+            git -C ../dataset rm -rf --ignore-unmatch .
           fi
       - name: Prepare raw evidence release
         env:
