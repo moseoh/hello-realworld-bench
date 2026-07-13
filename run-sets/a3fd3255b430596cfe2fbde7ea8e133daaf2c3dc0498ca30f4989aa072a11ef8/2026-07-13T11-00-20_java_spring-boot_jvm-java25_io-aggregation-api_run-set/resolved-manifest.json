@@ -1,0 +1,249 @@
+{
+  "assets": [
+    {
+      "path": "scenarios/io-aggregation-api/k6.js",
+      "role": "scenario-file",
+      "sha256": "fd481abe4990884105e0fdca2c9de4b4ce3415966afb6160576ad30d2878869f"
+    },
+    {
+      "path": "scenarios/io-aggregation-api/wiremock/mappings/inventory.json",
+      "role": "scenario-file",
+      "sha256": "ddae4e4c2fc2cd68f57937971b5ff6de0430d256234415674b7239d689f989c5"
+    },
+    {
+      "path": "scenarios/io-aggregation-api/wiremock/mappings/profile.json",
+      "role": "scenario-file",
+      "sha256": "4dfe005def014bc2a0ae6464971f0d843d70b334390a3d43b69c8055c84cbf32"
+    },
+    {
+      "path": "scenarios/io-aggregation-api/wiremock/mappings/recommendations.json",
+      "role": "scenario-file",
+      "sha256": "0a12ebdc99cee7696f8df8e43bfba298ebec52cb05903442e52c381cc068eb0b"
+    },
+    {
+      "path": "infra/k8s/io-aggregation-api.yaml",
+      "role": "kubernetes-template",
+      "sha256": "503246b689fb236e50d4b3d114146eb188bb3fa9716d6dc6f2cd8a5bbdc140f0"
+    }
+  ],
+  "cohort": {
+    "assets": [
+      {
+        "path": "scenarios/io-aggregation-api/k6.js",
+        "role": "scenario-file",
+        "sha256": "fd481abe4990884105e0fdca2c9de4b4ce3415966afb6160576ad30d2878869f"
+      },
+      {
+        "path": "scenarios/io-aggregation-api/wiremock/mappings/inventory.json",
+        "role": "scenario-file",
+        "sha256": "ddae4e4c2fc2cd68f57937971b5ff6de0430d256234415674b7239d689f989c5"
+      },
+      {
+        "path": "scenarios/io-aggregation-api/wiremock/mappings/profile.json",
+        "role": "scenario-file",
+        "sha256": "4dfe005def014bc2a0ae6464971f0d843d70b334390a3d43b69c8055c84cbf32"
+      },
+      {
+        "path": "scenarios/io-aggregation-api/wiremock/mappings/recommendations.json",
+        "role": "scenario-file",
+        "sha256": "0a12ebdc99cee7696f8df8e43bfba298ebec52cb05903442e52c381cc068eb0b"
+      },
+      {
+        "path": "infra/k8s/io-aggregation-api.yaml",
+        "role": "kubernetes-template",
+        "sha256": "503246b689fb236e50d4b3d114146eb188bb3fa9716d6dc6f2cd8a5bbdc140f0"
+      }
+    ],
+    "contracts": {
+      "environment_profile": {
+        "contract_version": "1.1",
+        "digest": "80ca6ff754f237a33539689491a845b58813a185a645d07a2afa180b9c5e8e96",
+        "id": "home-k3s-v1",
+        "kind": "environment-profile",
+        "path": "contracts/environment-profiles/home-k3s-v1.yaml",
+        "schema_version": "1.0"
+      },
+      "load_profile": {
+        "contract_version": "1.0",
+        "digest": "39a68d87211adfbda7619358ddebee35cfda8e404b1cd7c0241c548b88477c06",
+        "id": "capacity-ramp",
+        "kind": "load-profile",
+        "path": "contracts/load-profiles/capacity-ramp.yaml",
+        "schema_version": "1.0"
+      },
+      "measurement_protocol": {
+        "contract_version": "1.0",
+        "digest": "72039cc6081a54027cf825c0e16311e7a56a2e3ecb935b61882fa1bf59a3dbe0",
+        "id": "official-service-v1",
+        "kind": "measurement-protocol",
+        "path": "contracts/measurement-protocols/official-service-v1.yaml",
+        "schema_version": "1.0"
+      },
+      "scenario": {
+        "contract_version": "1.1",
+        "digest": "165856704e0a1ae13ebfc415b4f3d12e846c00ad82790aa55fbf3958954fef67",
+        "id": "io-aggregation-api",
+        "kind": "scenario",
+        "path": "scenarios/io-aggregation-api/scenario.yaml",
+        "schema_version": "1.0"
+      }
+    },
+    "evidence_family": "service",
+    "fingerprint": "a3fd3255b430596cfe2fbde7ea8e133daaf2c3dc0498ca30f4989aa072a11ef8"
+  },
+  "contracts": {
+    "build_profile": {
+      "contract_version": "1.0",
+      "digest": "b849ffb37b07c0abb209e9ef78c9a49afdf3087901e986b14c0f9d5a5612d828",
+      "id": "local-gradle-docker",
+      "kind": "build-profile",
+      "path": "contracts/build-profiles/local-gradle-docker.yaml",
+      "schema_version": "1.0"
+    },
+    "environment_profile": {
+      "contract_version": "1.1",
+      "digest": "80ca6ff754f237a33539689491a845b58813a185a645d07a2afa180b9c5e8e96",
+      "id": "home-k3s-v1",
+      "kind": "environment-profile",
+      "path": "contracts/environment-profiles/home-k3s-v1.yaml",
+      "schema_version": "1.0"
+    },
+    "implementation": {
+      "contract_version": "1.1",
+      "digest": "416c9a8bdf61e5626cd5f74a2240dc99b738b4c78c2fa7731d50070c899d846a",
+      "id": "java/spring-boot",
+      "kind": "implementation",
+      "path": "implementations/java/spring-boot/implementation.yaml",
+      "schema_version": "1.0"
+    },
+    "load_profile": {
+      "contract_version": "1.0",
+      "digest": "39a68d87211adfbda7619358ddebee35cfda8e404b1cd7c0241c548b88477c06",
+      "id": "capacity-ramp",
+      "kind": "load-profile",
+      "path": "contracts/load-profiles/capacity-ramp.yaml",
+      "schema_version": "1.0"
+    },
+    "measurement_protocol": {
+      "contract_version": "1.0",
+      "digest": "72039cc6081a54027cf825c0e16311e7a56a2e3ecb935b61882fa1bf59a3dbe0",
+      "id": "official-service-v1",
+      "kind": "measurement-protocol",
+      "path": "contracts/measurement-protocols/official-service-v1.yaml",
+      "schema_version": "1.0"
+    },
+    "scenario": {
+      "contract_version": "1.1",
+      "digest": "165856704e0a1ae13ebfc415b4f3d12e846c00ad82790aa55fbf3958954fef67",
+      "id": "io-aggregation-api",
+      "kind": "scenario",
+      "path": "scenarios/io-aggregation-api/scenario.yaml",
+      "schema_version": "1.0"
+    },
+    "variant": {
+      "contract_version": "1.0",
+      "digest": "38702097ab0dd95f27400e48e79b48bf1c29b939f756f2682270b37da38ec6c7",
+      "id": "jvm-java25",
+      "kind": "variant",
+      "path": "implementations/java/spring-boot/variants/jvm-java25.yaml",
+      "schema_version": "1.0"
+    }
+  },
+  "execution": {
+    "compose_profile": "spring-boot",
+    "image_tag": "ghcr.io/moseoh/hello-realworld-bench/spring-boot@sha256:1d17ace73163bb43d0f5fc0a702a306869f96ca6b7fc1ee8ac43e0496ca0205e",
+    "load": {
+      "arrival_rate": {
+        "base_per_second": 80,
+        "max_vus": 200,
+        "pre_allocated_vus": 50
+      },
+      "enabled": true,
+      "executor": "ramping-arrival-rate",
+      "max_vus": 200,
+      "pre_allocated_vus": 50,
+      "rate": 20,
+      "script": "scenarios/io-aggregation-api/k6.js",
+      "stages": [
+        {
+          "duration": "60s",
+          "target": 20
+        },
+        {
+          "duration": "60s",
+          "target": 40
+        },
+        {
+          "duration": "60s",
+          "target": 60
+        },
+        {
+          "duration": "60s",
+          "target": 80
+        },
+        {
+          "duration": "60s",
+          "target": 100
+        },
+        {
+          "duration": "60s",
+          "target": 120
+        },
+        {
+          "duration": "60s",
+          "target": 140
+        },
+        {
+          "duration": "60s",
+          "target": 160
+        }
+      ],
+      "test_duration": "480s",
+      "tool": "k6",
+      "vus": 25,
+      "warmup_duration": "120s",
+      "warmup_rate": 80
+    },
+    "runtime": {
+      "build_mode": "jvm",
+      "framework": "spring-boot",
+      "java_version": "25",
+      "language": "java",
+      "native_image": false,
+      "otel": false,
+      "spring_boot_version": "4.1.0",
+      "virtual_threads": false
+    },
+    "services": {
+      "kafka": false,
+      "mock_upstream": true,
+      "postgres": false,
+      "redis": false
+    },
+    "startup": {
+      "iterations": 1
+    },
+    "target": {
+      "base_url": "http://localhost:8080",
+      "endpoint": "/aggregate",
+      "startup_path": "/ping"
+    }
+  },
+  "manifest_digest": "3207e9f273fa7491814c73c57d94db997501f8f6e65f948f1f111d2d3766ce15",
+  "run_id": "2026-07-13T11-00-20_java_spring-boot_jvm-java25_io-aggregation-api_run-set",
+  "schema_version": "1.0",
+  "selection": {
+    "build_profile": "local-gradle-docker",
+    "environment_profile": "home-k3s-v1",
+    "implementation": "java/spring-boot",
+    "load_profile": "capacity-ramp",
+    "measurement_protocol": "official-service-v1",
+    "scenario": "io-aggregation-api",
+    "variant": "jvm-java25"
+  },
+  "source": {
+    "git_commit": "4fb4f943b82bc2ec1ca069847dc695afa71e2074",
+    "git_dirty": false,
+    "worktree_digest": "5eef4470393c90c2ea917e083d2f9eb457d7fe4ac1d85d0a1b88bf3be7d5be32"
+  }
+}
