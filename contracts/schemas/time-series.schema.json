@@ -27,7 +27,16 @@
           "elapsed_ms": { "type": "integer", "minimum": 0 },
           "target_cpu_percent": { "$ref": "#/$defs/metricValue" },
           "target_memory_bytes": { "type": ["integer", "null"], "minimum": 0 },
-          "target_memory_percent": { "$ref": "#/$defs/metricValue" }
+          "target_memory_percent": { "$ref": "#/$defs/metricValue" },
+          "source_time": { "type": "string", "format": "date-time" },
+          "load_generator_cpu_percent": { "$ref": "#/$defs/metricValue" },
+          "load_generator_memory_bytes": { "type": ["integer", "null"], "minimum": 0 },
+          "dependency_cpu_percent": { "$ref": "#/$defs/metricValue" },
+          "dependency_memory_bytes": { "type": ["integer", "null"], "minimum": 0 },
+          "host_cpu_percent": { "$ref": "#/$defs/metricValue" },
+          "host_memory_bytes": { "type": ["integer", "null"], "minimum": 0 },
+          "background_cpu_millicores": { "$ref": "#/$defs/metricValue" },
+          "background_memory_bytes": { "type": ["integer", "null"], "minimum": 0 }
         }
       }
     }

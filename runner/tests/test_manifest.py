@@ -53,6 +53,64 @@ def _rehash_manifest(manifest):
 
 
 class ResolvedManifestTest(unittest.TestCase):
+    def test_k3s_manifest_uses_the_scenario_kubernetes_template_without_compose(self):
+        config = resolve_run_config(
+            "java/spring-boot",
+            "ping-api",
+            "jvm-java25",
+            PROJECT_ROOT,
+            environment_profile="home-k3s-v1",
+            measurement_protocol="official-service-v1",
+            load_profile="platform-qualification-v1",
+        )
+
+        assets = resolve_input_assets(config)
+        roles = [asset["role"] for asset in assets]
+
+        self.assertIn("kubernetes-template", roles)
+        self.assertNotIn("environment-compose", roles)
+        self.assertNotIn("implementation-compose", roles)
+        self.assertIn(
+            "infra/k8s/ping-api.yaml",
+            [asset["path"] for asset in assets],
+        )
+
+    def test_k3s_manifest_accepts_only_the_official_immutable_image_repository(self):
+        config = resolve_run_config(
+            "java/spring-boot",
+            "ping-api",
+            "jvm-java25",
+            PROJECT_ROOT,
+            environment_profile="home-k3s-v1",
+            measurement_protocol="official-service-v1",
+            load_profile="platform-qualification-v1",
+        )
+        immutable = replace(
+            config,
+            image_tag=(
+                "ghcr.io/moseoh/hello-realworld-bench/spring-boot@sha256:"
+                + "c" * 64
+            ),
+        )
+        manifest = build_resolved_manifest(immutable, "run-id", read_git_provenance(PROJECT_ROOT))
+
+        validate_resolved_manifest(manifest, PROJECT_ROOT)
+        manifest["execution"]["image_tag"] = "ghcr.io/other/target@sha256:" + "c" * 64
+        manifest_payload = {
+            key: value for key, value in manifest.items() if key != "manifest_digest"
+        }
+        manifest["manifest_digest"] = hashlib.sha256(
+            json.dumps(
+                manifest_payload,
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=True,
+            ).encode()
+        ).hexdigest()
+
+        with self.assertRaisesRegex(ManifestValidationError, "official target repository"):
+            validate_resolved_manifest(manifest, PROJECT_ROOT)
+
     def setUp(self):
         self.config = resolve_run_config(
             "java/spring-boot",

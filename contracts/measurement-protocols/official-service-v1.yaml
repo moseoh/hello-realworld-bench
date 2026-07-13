@@ -1,0 +1,10 @@
+schema_version: "1.0"
+id: official-service-v1
+contract_version: "1.0"
+status: frozen
+description: "Frozen official service protocol with fixed warmup and measurement windows."
+evidence_family: service
+trials: 3
+timing_source: profile
+warmup_seconds: 120
+measured_seconds: 480

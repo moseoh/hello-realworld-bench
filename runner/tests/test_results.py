@@ -8,6 +8,28 @@ from hrw_runner.results import (
 
 
 class MetricsExtractionTest(unittest.TestCase):
+    def test_extracts_k6_handle_summary_values(self):
+        summary = {
+            "metrics": {
+                "http_reqs": {"values": {"rate": 321.0}},
+                "http_req_duration": {
+                    "values": {"med": 1.0, "p(95)": 2.0, "p(99)": 3.0}
+                },
+                "http_req_failed": {"values": {"rate": 0.0}},
+            }
+        }
+
+        self.assertEqual(
+            k6_runtime_metrics(summary),
+            {
+                "rps": 321.0,
+                "p50_ms": 1.0,
+                "p95_ms": 2.0,
+                "p99_ms": 3.0,
+                "error_rate": 0.0,
+            },
+        )
+
     def test_extracts_k6_http_metrics(self):
         summary = {
             "metrics": {

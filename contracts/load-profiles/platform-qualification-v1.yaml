@@ -1,0 +1,13 @@
+schema_version: "1.0"
+id: platform-qualification-v1
+contract_version: "1.0"
+status: frozen
+description: "Closed-model load used only to qualify the official measurement platform."
+model: closed
+executor: constant-vus
+timing:
+  source: measurement-protocol
+phases:
+  - source: scenario
+    duration_seconds: null
+    vus: null

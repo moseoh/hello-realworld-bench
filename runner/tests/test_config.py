@@ -13,6 +13,40 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 class ResolveRunConfigTest(unittest.TestCase):
+    def test_resolves_frozen_home_k3s_service_protocol_timing(self):
+        config = resolve_run_config(
+            "java/spring-boot",
+            "ping-api",
+            "jvm-java25",
+            PROJECT_ROOT,
+            environment_profile="home-k3s-v1",
+            measurement_protocol="official-service-v1",
+            load_profile="platform-qualification-v1",
+        )
+
+        self.assertEqual(config.environment_profile_config["orchestrator"], "k3s")
+        self.assertIs(config.environment_profile_config["official"], True)
+        self.assertEqual(config.measurement_protocol_config["trials"], 3)
+        self.assertEqual(config.load["warmup_duration"], "120s")
+        self.assertEqual(config.load["test_duration"], "480s")
+        self.assertEqual(config.startup["iterations"], 1)
+
+    def test_official_environment_rejects_development_protocol_or_load(self):
+        for overrides in (
+            {"measurement_protocol": "development-service", "load_profile": "platform-qualification-v1"},
+            {"measurement_protocol": "official-service-v1", "load_profile": "development-local"},
+        ):
+            with self.subTest(overrides=overrides):
+                with self.assertRaisesRegex(ValueError, "Official environment"):
+                    resolve_run_config(
+                        "java/spring-boot",
+                        "ping-api",
+                        "jvm-java25",
+                        PROJECT_ROOT,
+                        environment_profile="home-k3s-v1",
+                        **overrides,
+                    )
+
     def test_resolves_spring_boot_alias_to_java_spring_boot(self):
         config = resolve_run_config("spring-boot", "ping-api", None)
 
@@ -253,7 +287,7 @@ class ResolveRunConfigTest(unittest.TestCase):
                 "measurement protocol",
                 {
                     "timing_source": "profile",
-                    "warmup_seconds": 10,
+                    "warmup_seconds": 0,
                     "measured_seconds": 20,
                 },
             ),

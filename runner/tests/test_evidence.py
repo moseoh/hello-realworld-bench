@@ -127,6 +127,8 @@ class EvidenceBundleValidationTest(unittest.TestCase):
                     }
                 )
             )
+            for name in ("preflight", "postflight", "build"):
+                (run_set_dir / f"{name}.json").write_text('{"ok": true}\n')
             (trial_dir / "k6-summary.json").write_text('{"metric": 1}\n')
             time_series = build_compact_time_series("trial-01", 1, [])
             (trial_dir / "time-series.json").write_text(json.dumps(time_series))
@@ -184,6 +186,13 @@ class EvidenceBundleValidationTest(unittest.TestCase):
                     "runtime_metrics": {},
                     "startup_metrics": {},
                 },
+                "platform_evidence": {
+                    name: {
+                        "path": f"{name}.json",
+                        "sha256": sha256_file(run_set_dir / f"{name}.json"),
+                    }
+                    for name in ("preflight", "postflight", "build")
+                },
             }
             (run_set_dir / "run-set.json").write_text(json.dumps(run_set))
 
@@ -191,6 +200,11 @@ class EvidenceBundleValidationTest(unittest.TestCase):
             (trial_dir / "k6-summary.json").write_text("tampered\n")
 
             with self.assertRaisesRegex(ValueError, "Artifact (size|digest) mismatch"):
+                validate_run_set_evidence(run_set_dir, PROJECT_ROOT)
+
+            (trial_dir / "k6-summary.json").write_text('{"metric": 1}\n')
+            (run_set_dir / "preflight.json").write_text('{"ok": false}\n')
+            with self.assertRaisesRegex(ValueError, "Platform evidence digest mismatch"):
                 validate_run_set_evidence(run_set_dir, PROJECT_ROOT)
 
 

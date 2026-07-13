@@ -6,6 +6,21 @@
     "slug": {
       "type": "string",
       "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?![\\s\\S])"
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cpu", "memory"],
+      "properties": {
+        "cpu": {
+          "type": "string",
+          "pattern": "^(?:[1-9][0-9]*|[1-9][0-9]*m)$"
+        },
+        "memory": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*(?:Ki|Mi|Gi|Ti)$"
+        }
+      }
     }
   },
   "type": "object",
@@ -34,6 +49,118 @@
     },
     "orchestrator": { "type": "string", "minLength": 1 },
     "official": { "type": "boolean" },
-    "load_generator": { "type": "string", "minLength": 1 }
-  }
+    "load_generator": { "type": "string", "minLength": 1 },
+    "cluster": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "context",
+        "node_name",
+        "machine_id",
+        "architecture",
+        "cpu_model",
+        "cpu_manager_policy",
+        "min_logical_cpus",
+        "min_memory_bytes"
+      ],
+      "properties": {
+        "context": { "type": "string", "minLength": 1 },
+        "node_name": { "type": "string", "minLength": 1 },
+        "machine_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+        "architecture": { "const": "amd64" },
+        "cpu_model": { "type": "string", "minLength": 1 },
+        "cpu_manager_policy": { "const": "none" },
+        "min_logical_cpus": { "type": "integer", "minimum": 1 },
+        "min_memory_bytes": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requests_equal_limits",
+        "target",
+        "dependency",
+        "load_generator"
+      ],
+      "properties": {
+        "requests_equal_limits": { "const": true },
+        "target": { "$ref": "#/$defs/resources" },
+        "dependency": { "$ref": "#/$defs/resources" },
+        "load_generator": { "$ref": "#/$defs/resources" }
+      }
+    },
+    "images": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_repository",
+        "target_platform",
+        "target_digest_required",
+        "k6"
+      ],
+      "properties": {
+        "target_repository": {
+          "type": "string",
+          "pattern": "^[a-z0-9.-]+(?::[0-9]+)?/[a-z0-9._/-]+$"
+        },
+        "target_platform": { "const": "linux/amd64" },
+        "target_digest_required": { "const": true },
+        "k6": {
+          "type": "string",
+          "pattern": "^grafana/k6@sha256:[a-f0-9]{64}$"
+        }
+      }
+    },
+    "validity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_background_cpu_millicores",
+        "max_background_memory_bytes",
+        "min_sample_coverage_ratio",
+        "stats_sample_interval_seconds",
+        "phases",
+        "threshold_exceeded_classification"
+      ],
+      "properties": {
+        "max_background_cpu_millicores": { "type": "integer", "minimum": 0 },
+        "max_background_memory_bytes": { "type": "integer", "minimum": 0 },
+        "min_sample_coverage_ratio": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1
+        },
+        "stats_sample_interval_seconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "phases": {
+          "type": "array",
+          "prefixItems": [
+            { "const": "preflight" },
+            { "const": "in-run" },
+            { "const": "postflight" }
+          ],
+          "items": false,
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "threshold_exceeded_classification": {
+          "const": "infrastructure-invalid"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "official": { "const": true } },
+        "required": ["official"]
+      },
+      "then": {
+        "required": ["cluster", "resources", "images", "validity"]
+      }
+    }
+  ]
 }

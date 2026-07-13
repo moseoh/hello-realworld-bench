@@ -56,6 +56,9 @@
       "uniqueItems": true,
       "items": { "type": "string", "minLength": 1 }
     },
+    "invalidity_class": {
+      "enum": ["application", "infrastructure"]
+    },
     "started_at": { "type": "string", "format": "date-time" },
     "finished_at": { "type": "string", "format": "date-time" },
     "summary": {
@@ -83,8 +86,15 @@
   "allOf": [
     {
       "if": { "properties": { "status": { "const": "valid" } }, "required": ["status"] },
-      "then": { "not": { "required": ["invalid_reasons"] } },
-      "else": { "required": ["invalid_reasons"] }
+      "then": {
+        "not": {
+          "anyOf": [
+            { "required": ["invalid_reasons"] },
+            { "required": ["invalidity_class"] }
+          ]
+        }
+      },
+      "else": { "required": ["invalid_reasons", "invalidity_class"] }
     }
   ]
 }

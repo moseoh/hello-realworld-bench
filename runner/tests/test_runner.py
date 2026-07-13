@@ -181,6 +181,12 @@ class TrialValidityTest(unittest.TestCase):
             _trial_validity({"skipped": True, "reason": "load disabled"}),
             ("valid", []),
         )
+        self.assertEqual(
+            _trial_validity(
+                {"metrics": {"checks": {"values": {"passes": 10, "fails": 0}}}}
+            ),
+            ("valid", []),
+        )
 
 
 class DockerStatsSamplingTest(unittest.TestCase):
@@ -351,6 +357,24 @@ class ManifestRunFlowTest(unittest.TestCase):
 
 
 class RunSetFlowTest(unittest.TestCase):
+    @patch("hrw_runner.k3s_runner.run_k3s_benchmark_set", return_value=Path("result"))
+    def test_dispatches_k3s_environment_to_kubernetes_runner(self, k3s_runner):
+        root_dir = Path(__file__).resolve().parents[2]
+        config = resolve_run_config(
+            "java/spring-boot",
+            "ping-api",
+            "jvm-java25",
+            root_dir,
+            environment_profile="home-k3s-v1",
+            measurement_protocol="official-service-v1",
+            load_profile="platform-qualification-v1",
+        )
+
+        result = run_benchmark_set(config, root_dir)
+
+        self.assertEqual(result, Path("result"))
+        k3s_runner.assert_called_once_with(config, root_dir)
+
     @patch("hrw_runner.runner.validate_run_set_evidence")
     @patch("hrw_runner.runner.sha256_file", return_value="c" * 64)
     @patch("hrw_runner.runner._execute_trial")
