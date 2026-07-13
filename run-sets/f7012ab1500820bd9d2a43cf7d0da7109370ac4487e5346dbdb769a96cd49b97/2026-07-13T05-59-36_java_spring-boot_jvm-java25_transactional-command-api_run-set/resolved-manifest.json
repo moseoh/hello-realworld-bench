@@ -1,0 +1,219 @@
+{
+  "assets": [
+    {
+      "path": "scenarios/transactional-command-api/k6.js",
+      "role": "scenario-file",
+      "sha256": "7a8fd19788b7796db312d2ab5873f1803208bb8c76901bc3cfcb73c1f9f43554"
+    },
+    {
+      "path": "infra/k8s/transactional-command-api.yaml",
+      "role": "kubernetes-template",
+      "sha256": "11f85e3d7925a2198e2fce5f8eb530f22e9bbd32e156c49a4cd5e5f210ae48e2"
+    }
+  ],
+  "cohort": {
+    "assets": [
+      {
+        "path": "scenarios/transactional-command-api/k6.js",
+        "role": "scenario-file",
+        "sha256": "7a8fd19788b7796db312d2ab5873f1803208bb8c76901bc3cfcb73c1f9f43554"
+      },
+      {
+        "path": "infra/k8s/transactional-command-api.yaml",
+        "role": "kubernetes-template",
+        "sha256": "11f85e3d7925a2198e2fce5f8eb530f22e9bbd32e156c49a4cd5e5f210ae48e2"
+      }
+    ],
+    "contracts": {
+      "environment_profile": {
+        "contract_version": "1.1",
+        "digest": "80ca6ff754f237a33539689491a845b58813a185a645d07a2afa180b9c5e8e96",
+        "id": "home-k3s-v1",
+        "kind": "environment-profile",
+        "path": "contracts/environment-profiles/home-k3s-v1.yaml",
+        "schema_version": "1.0"
+      },
+      "load_profile": {
+        "contract_version": "1.0",
+        "digest": "39a68d87211adfbda7619358ddebee35cfda8e404b1cd7c0241c548b88477c06",
+        "id": "capacity-ramp",
+        "kind": "load-profile",
+        "path": "contracts/load-profiles/capacity-ramp.yaml",
+        "schema_version": "1.0"
+      },
+      "measurement_protocol": {
+        "contract_version": "1.0",
+        "digest": "72039cc6081a54027cf825c0e16311e7a56a2e3ecb935b61882fa1bf59a3dbe0",
+        "id": "official-service-v1",
+        "kind": "measurement-protocol",
+        "path": "contracts/measurement-protocols/official-service-v1.yaml",
+        "schema_version": "1.0"
+      },
+      "scenario": {
+        "contract_version": "1.1",
+        "digest": "a7222a07145328a5480f6370cde1c8c390c9f376daf275c68986d6b08fe97fd0",
+        "id": "transactional-command-api",
+        "kind": "scenario",
+        "path": "scenarios/transactional-command-api/scenario.yaml",
+        "schema_version": "1.0"
+      }
+    },
+    "evidence_family": "service",
+    "fingerprint": "f7012ab1500820bd9d2a43cf7d0da7109370ac4487e5346dbdb769a96cd49b97"
+  },
+  "contracts": {
+    "build_profile": {
+      "contract_version": "1.0",
+      "digest": "b849ffb37b07c0abb209e9ef78c9a49afdf3087901e986b14c0f9d5a5612d828",
+      "id": "local-gradle-docker",
+      "kind": "build-profile",
+      "path": "contracts/build-profiles/local-gradle-docker.yaml",
+      "schema_version": "1.0"
+    },
+    "environment_profile": {
+      "contract_version": "1.1",
+      "digest": "80ca6ff754f237a33539689491a845b58813a185a645d07a2afa180b9c5e8e96",
+      "id": "home-k3s-v1",
+      "kind": "environment-profile",
+      "path": "contracts/environment-profiles/home-k3s-v1.yaml",
+      "schema_version": "1.0"
+    },
+    "implementation": {
+      "contract_version": "1.1",
+      "digest": "416c9a8bdf61e5626cd5f74a2240dc99b738b4c78c2fa7731d50070c899d846a",
+      "id": "java/spring-boot",
+      "kind": "implementation",
+      "path": "implementations/java/spring-boot/implementation.yaml",
+      "schema_version": "1.0"
+    },
+    "load_profile": {
+      "contract_version": "1.0",
+      "digest": "39a68d87211adfbda7619358ddebee35cfda8e404b1cd7c0241c548b88477c06",
+      "id": "capacity-ramp",
+      "kind": "load-profile",
+      "path": "contracts/load-profiles/capacity-ramp.yaml",
+      "schema_version": "1.0"
+    },
+    "measurement_protocol": {
+      "contract_version": "1.0",
+      "digest": "72039cc6081a54027cf825c0e16311e7a56a2e3ecb935b61882fa1bf59a3dbe0",
+      "id": "official-service-v1",
+      "kind": "measurement-protocol",
+      "path": "contracts/measurement-protocols/official-service-v1.yaml",
+      "schema_version": "1.0"
+    },
+    "scenario": {
+      "contract_version": "1.1",
+      "digest": "a7222a07145328a5480f6370cde1c8c390c9f376daf275c68986d6b08fe97fd0",
+      "id": "transactional-command-api",
+      "kind": "scenario",
+      "path": "scenarios/transactional-command-api/scenario.yaml",
+      "schema_version": "1.0"
+    },
+    "variant": {
+      "contract_version": "1.0",
+      "digest": "38702097ab0dd95f27400e48e79b48bf1c29b939f756f2682270b37da38ec6c7",
+      "id": "jvm-java25",
+      "kind": "variant",
+      "path": "implementations/java/spring-boot/variants/jvm-java25.yaml",
+      "schema_version": "1.0"
+    }
+  },
+  "execution": {
+    "compose_profile": "spring-boot",
+    "image_tag": "ghcr.io/moseoh/hello-realworld-bench/spring-boot@sha256:a539f4be198d89eb28ebe4890b5c4adf3d3966a5b94f25982c26f1cdeafc96bd",
+    "load": {
+      "arrival_rate": {
+        "base_per_second": 200,
+        "max_vus": 400,
+        "pre_allocated_vus": 100
+      },
+      "enabled": true,
+      "executor": "ramping-arrival-rate",
+      "max_vus": 400,
+      "pre_allocated_vus": 100,
+      "rate": 50,
+      "script": "scenarios/transactional-command-api/k6.js",
+      "stages": [
+        {
+          "duration": "60s",
+          "target": 50
+        },
+        {
+          "duration": "60s",
+          "target": 100
+        },
+        {
+          "duration": "60s",
+          "target": 150
+        },
+        {
+          "duration": "60s",
+          "target": 200
+        },
+        {
+          "duration": "60s",
+          "target": 250
+        },
+        {
+          "duration": "60s",
+          "target": 300
+        },
+        {
+          "duration": "60s",
+          "target": 350
+        },
+        {
+          "duration": "60s",
+          "target": 400
+        }
+      ],
+      "test_duration": "480s",
+      "tool": "k6",
+      "vus": 25,
+      "warmup_duration": "120s",
+      "warmup_rate": 200
+    },
+    "runtime": {
+      "build_mode": "jvm",
+      "framework": "spring-boot",
+      "java_version": "25",
+      "language": "java",
+      "native_image": false,
+      "otel": false,
+      "spring_boot_version": "4.1.0",
+      "virtual_threads": false
+    },
+    "services": {
+      "kafka": false,
+      "mock_upstream": false,
+      "postgres": true,
+      "redis": false
+    },
+    "startup": {
+      "iterations": 1
+    },
+    "target": {
+      "base_url": "http://localhost:8080",
+      "endpoint": "/orders",
+      "startup_path": "/ping"
+    }
+  },
+  "manifest_digest": "105ef48b983f253c818aff20ea793e0c3b0d093c899c5a3c6ffeeaf33d3181e2",
+  "run_id": "2026-07-13T05-59-36_java_spring-boot_jvm-java25_transactional-command-api_run-set",
+  "schema_version": "1.0",
+  "selection": {
+    "build_profile": "local-gradle-docker",
+    "environment_profile": "home-k3s-v1",
+    "implementation": "java/spring-boot",
+    "load_profile": "capacity-ramp",
+    "measurement_protocol": "official-service-v1",
+    "scenario": "transactional-command-api",
+    "variant": "jvm-java25"
+  },
+  "source": {
+    "git_commit": "4fb4f943b82bc2ec1ca069847dc695afa71e2074",
+    "git_dirty": false,
+    "worktree_digest": "5eef4470393c90c2ea917e083d2f9eb457d7fe4ac1d85d0a1b88bf3be7d5be32"
+  }
+}
