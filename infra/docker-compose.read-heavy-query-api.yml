@@ -27,7 +27,10 @@ services:
     cpus: "1.0"
     mem_limit: "1g"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U hrw -d hrw"]
+      test:
+        - CMD-SHELL
+        - >-
+          test "$(psql -U hrw -d hrw -Atc "SELECT count(*), sum(id), sum(price_cents), sum(rating_basis_points), count(*) FILTER (WHERE active) FROM catalog_products")" = "100000|5000050000|5049950000|399997276|95000"
       interval: 1s
       timeout: 1s
       retries: 30

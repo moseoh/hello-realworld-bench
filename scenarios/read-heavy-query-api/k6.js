@@ -23,6 +23,7 @@ const priceWindows = [
   { minPriceCents: 75500, maxPriceCents: 100499 },
 ];
 const pageSizes = [20, 50];
+const priceInverse = 17679;
 
 function loadOptions() {
   const executor = __ENV.HRW_LOAD_EXECUTOR;
@@ -57,9 +58,16 @@ function loadOptions() {
 export const options = loadOptions();
 
 function buildRequest(iteration) {
-  const category = categories[iteration % categories.length];
-  const priceWindow = priceWindows[Math.floor(iteration / categories.length) % priceWindows.length];
-  const limit = pageSizes[Math.floor(iteration / (categories.length * priceWindows.length)) % pageSizes.length];
+  const tupleIndex = Math.floor(iteration / 4);
+  const category = categories[tupleIndex % categories.length];
+  const priceWindow = priceWindows[
+    Math.floor(tupleIndex / categories.length) % priceWindows.length
+  ];
+  const limit = pageSizes[
+    Math.floor(tupleIndex / (categories.length * priceWindows.length)) % pageSizes.length
+  ];
+  const continuation = iteration % 4 === 3;
+  const cursor = continuation ? firstPageCursor(category, priceWindow, limit) : null;
   const query = [
     `category=${category}`,
     `minPriceCents=${priceWindow.minPriceCents}`,
@@ -67,11 +75,41 @@ function buildRequest(iteration) {
     `limit=${limit}`,
   ];
 
-  if (iteration % 4 === 3) {
-    query.push(`afterPriceCents=${priceWindow.minPriceCents}`, 'afterId=1');
+  if (cursor) {
+    query.push(`afterPriceCents=${cursor.priceCents}`, `afterId=${cursor.id}`);
   }
 
-  return { limit, query: query.join('&') };
+  return {
+    category,
+    minPriceCents: priceWindow.minPriceCents,
+    maxPriceCents: priceWindow.maxPriceCents,
+    limit,
+    cursor,
+    query: query.join('&'),
+  };
+}
+
+function firstPageCursor(category, priceWindow, limit) {
+  let matched = 0;
+  for (
+    let priceCents = priceWindow.minPriceCents;
+    priceCents <= priceWindow.maxPriceCents;
+    priceCents += 1
+  ) {
+    const residue = priceCents - 500;
+    const id = (residue * priceInverse) % 100000 || 100000;
+    const categoryIndex = (
+      ((id - 1) * 17 + Math.floor((id - 1) / 8)) % categories.length
+    );
+    if (categories[categoryIndex] !== category || id % 20 === 0) {
+      continue;
+    }
+    matched += 1;
+    if (matched === limit) {
+      return { priceCents, id };
+    }
+  }
+  throw new Error('Query contract does not contain a full first page.');
 }
 
 export default function () {
@@ -87,6 +125,11 @@ export default function () {
       const body = r.json();
       return Array.isArray(body.items) && body.items.length <= request.limit;
     },
+    'items match the requested category and price range': (r) => r.json('items').every((item) => (
+      item.category === request.category
+      && item.priceCents >= request.minPriceCents
+      && item.priceCents <= request.maxPriceCents
+    )),
     'items have product fields': (r) => r.json('items').every((item) => (
       Number.isInteger(item.id)
       && typeof item.sku === 'string'
@@ -95,6 +138,26 @@ export default function () {
       && Number.isInteger(item.priceCents)
       && Number.isInteger(item.ratingBasisPoints)
     )),
+    'items are strictly ordered by price and id': (r) => r.json('items').every((item, index, items) => {
+      if (index === 0) {
+        return true;
+      }
+      const previous = items[index - 1];
+      return item.priceCents > previous.priceCents || (
+        item.priceCents === previous.priceCents && item.id > previous.id
+      );
+    }),
+    'continuation starts after its cursor': (r) => {
+      if (!request.cursor) {
+        return true;
+      }
+      return r.json('items').every((item) => (
+        item.priceCents > request.cursor.priceCents || (
+          item.priceCents === request.cursor.priceCents
+          && item.id > request.cursor.id
+        )
+      ));
+    },
     'cursor is null or matches final item': (r) => {
       const body = r.json();
       const lastItem = body.items[body.items.length - 1];

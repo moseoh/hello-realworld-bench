@@ -394,6 +394,12 @@ class ContractValidationTest(unittest.TestCase):
                 "active_count": 95000,
             },
         }
+        value["load"]["arrival_rate"] = {
+            "base_per_second": 100,
+            "pre_allocated_vus": 200,
+            "max_vus": 400,
+            "calibrated": False,
+        }
         value["query_contract"] = {
             "categories": [
                 "electronics",
@@ -429,6 +435,7 @@ class ContractValidationTest(unittest.TestCase):
         self.assertEqual(
             document.value["query_contract"]["cache_temperature"], "warm"
         )
+        self.assertIs(document.value["load"]["arrival_rate"]["calibrated"], False)
 
     def test_read_variant_accepts_runtime_without_implementation_identity(self):
         path = self.root_dir / "implementations/python/example/variants/default.yaml"
@@ -1577,6 +1584,71 @@ class ContractValidationTest(unittest.TestCase):
         errors = str(context.exception).splitlines()
         self.assertEqual(errors, sorted(errors))
         self.assertEqual(len(errors), 3)
+
+
+class ReadHeavyScenarioContractTest(unittest.TestCase):
+    def test_read_heavy_scenario_uses_the_frozen_pre_calibration_contract(self):
+        scenario = read_contract(
+            PROJECT_ROOT / "scenarios/read-heavy-query-api/scenario.yaml",
+            "scenario",
+            PROJECT_ROOT,
+        ).value
+
+        self.assertEqual(scenario["contract_version"], "0.1")
+        self.assertEqual(
+            scenario["dataset"],
+            {
+                "asset": "scenarios/read-heavy-query-api/postgres/init.sql",
+                "table": "catalog_products",
+                "row_count": 100000,
+                "immutable": True,
+                "fingerprint": {
+                    "id_sum": 5000050000,
+                    "price_cents_sum": 5049950000,
+                    "rating_basis_points_sum": 399997276,
+                    "active_count": 95000,
+                },
+            },
+        )
+        self.assertEqual(
+            scenario["query_contract"],
+            {
+                "categories": [
+                    "electronics",
+                    "home",
+                    "books",
+                    "sports",
+                    "beauty",
+                    "toys",
+                    "automotive",
+                    "garden",
+                ],
+                "price_windows": [
+                    {"min_price_cents": 500, "max_price_cents": 25499},
+                    {"min_price_cents": 25500, "max_price_cents": 50499},
+                    {"min_price_cents": 50500, "max_price_cents": 75499},
+                    {"min_price_cents": 75500, "max_price_cents": 100499},
+                ],
+                "page_sizes": [20, 50],
+                "first_page_weight": 3,
+                "continuation_page_weight": 1,
+                "sort": ["price_cents", "id"],
+                "index": "idx_catalog_products_filter",
+                "min_selected_rows": 2966,
+                "max_selected_rows": 2971,
+                "max_response_bytes": 16384,
+                "cache_temperature": "warm",
+            },
+        )
+        self.assertEqual(
+            scenario["load"]["arrival_rate"],
+            {
+                "base_per_second": 100,
+                "pre_allocated_vus": 200,
+                "max_vus": 400,
+                "calibrated": False,
+            },
+        )
 
 
 if __name__ == "__main__":

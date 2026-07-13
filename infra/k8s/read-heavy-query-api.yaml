@@ -77,11 +77,10 @@ spec:
       readinessProbe:
         exec:
           command:
-            - pg_isready
-            - -U
-            - hrw
-            - -d
-            - hrw
+            - sh
+            - -ec
+            - >-
+              test "$(psql -U hrw -d hrw -Atc 'SELECT count(*), sum(id), sum(price_cents), sum(rating_basis_points), count(*) FILTER (WHERE active) FROM catalog_products')" = "100000|5000050000|5049950000|399997276|95000"
         periodSeconds: 1
         timeoutSeconds: 1
         failureThreshold: 30
