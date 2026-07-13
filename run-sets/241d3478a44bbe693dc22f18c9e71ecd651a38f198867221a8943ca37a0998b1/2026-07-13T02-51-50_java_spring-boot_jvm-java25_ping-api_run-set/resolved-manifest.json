@@ -1,0 +1,174 @@
+{
+  "assets": [
+    {
+      "path": "scenarios/ping-api/k6.js",
+      "role": "scenario-file",
+      "sha256": "e0eb2e91c0f3e9f4a8a87b389edf07f38fec977c1d594a1c38311795eea08ced"
+    },
+    {
+      "path": "infra/k8s/ping-api.yaml",
+      "role": "kubernetes-template",
+      "sha256": "8c6527805e23a0af612ea62f1e2b8f408df653bc1837cbe83b3b3f85388d9a40"
+    }
+  ],
+  "cohort": {
+    "assets": [
+      {
+        "path": "scenarios/ping-api/k6.js",
+        "role": "scenario-file",
+        "sha256": "e0eb2e91c0f3e9f4a8a87b389edf07f38fec977c1d594a1c38311795eea08ced"
+      },
+      {
+        "path": "infra/k8s/ping-api.yaml",
+        "role": "kubernetes-template",
+        "sha256": "8c6527805e23a0af612ea62f1e2b8f408df653bc1837cbe83b3b3f85388d9a40"
+      }
+    ],
+    "contracts": {
+      "environment_profile": {
+        "contract_version": "1.0",
+        "digest": "a08aa6f48a0d5698c9e0d820ec8d45bdec833dbd5bcafabd06d056e22789bbac",
+        "id": "home-k3s-v1",
+        "kind": "environment-profile",
+        "path": "contracts/environment-profiles/home-k3s-v1.yaml",
+        "schema_version": "1.0"
+      },
+      "load_profile": {
+        "contract_version": "1.0",
+        "digest": "1ea9c2265b58f176e0a80aca69e14866e8e3935c544d98546b731e4bb8df2b69",
+        "id": "platform-qualification-v1",
+        "kind": "load-profile",
+        "path": "contracts/load-profiles/platform-qualification-v1.yaml",
+        "schema_version": "1.0"
+      },
+      "measurement_protocol": {
+        "contract_version": "1.0",
+        "digest": "72039cc6081a54027cf825c0e16311e7a56a2e3ecb935b61882fa1bf59a3dbe0",
+        "id": "official-service-v1",
+        "kind": "measurement-protocol",
+        "path": "contracts/measurement-protocols/official-service-v1.yaml",
+        "schema_version": "1.0"
+      },
+      "scenario": {
+        "contract_version": "1.0",
+        "digest": "74b270c7424f583655dff8a671fc01861f8b263f3803a9ec98b12c3781bb8739",
+        "id": "ping-api",
+        "kind": "scenario",
+        "path": "scenarios/ping-api/scenario.yaml",
+        "schema_version": "1.0"
+      }
+    },
+    "evidence_family": "service",
+    "fingerprint": "241d3478a44bbe693dc22f18c9e71ecd651a38f198867221a8943ca37a0998b1"
+  },
+  "contracts": {
+    "build_profile": {
+      "contract_version": "1.0",
+      "digest": "b849ffb37b07c0abb209e9ef78c9a49afdf3087901e986b14c0f9d5a5612d828",
+      "id": "local-gradle-docker",
+      "kind": "build-profile",
+      "path": "contracts/build-profiles/local-gradle-docker.yaml",
+      "schema_version": "1.0"
+    },
+    "environment_profile": {
+      "contract_version": "1.0",
+      "digest": "a08aa6f48a0d5698c9e0d820ec8d45bdec833dbd5bcafabd06d056e22789bbac",
+      "id": "home-k3s-v1",
+      "kind": "environment-profile",
+      "path": "contracts/environment-profiles/home-k3s-v1.yaml",
+      "schema_version": "1.0"
+    },
+    "implementation": {
+      "contract_version": "1.0",
+      "digest": "5c571e9427d22649aef135f53bb06099bf48e2f046a1866fd4fd65d22538c5ba",
+      "id": "java/spring-boot",
+      "kind": "implementation",
+      "path": "implementations/java/spring-boot/implementation.yaml",
+      "schema_version": "1.0"
+    },
+    "load_profile": {
+      "contract_version": "1.0",
+      "digest": "1ea9c2265b58f176e0a80aca69e14866e8e3935c544d98546b731e4bb8df2b69",
+      "id": "platform-qualification-v1",
+      "kind": "load-profile",
+      "path": "contracts/load-profiles/platform-qualification-v1.yaml",
+      "schema_version": "1.0"
+    },
+    "measurement_protocol": {
+      "contract_version": "1.0",
+      "digest": "72039cc6081a54027cf825c0e16311e7a56a2e3ecb935b61882fa1bf59a3dbe0",
+      "id": "official-service-v1",
+      "kind": "measurement-protocol",
+      "path": "contracts/measurement-protocols/official-service-v1.yaml",
+      "schema_version": "1.0"
+    },
+    "scenario": {
+      "contract_version": "1.0",
+      "digest": "74b270c7424f583655dff8a671fc01861f8b263f3803a9ec98b12c3781bb8739",
+      "id": "ping-api",
+      "kind": "scenario",
+      "path": "scenarios/ping-api/scenario.yaml",
+      "schema_version": "1.0"
+    },
+    "variant": {
+      "contract_version": "1.0",
+      "digest": "38702097ab0dd95f27400e48e79b48bf1c29b939f756f2682270b37da38ec6c7",
+      "id": "jvm-java25",
+      "kind": "variant",
+      "path": "implementations/java/spring-boot/variants/jvm-java25.yaml",
+      "schema_version": "1.0"
+    }
+  },
+  "execution": {
+    "compose_profile": "spring-boot",
+    "image_tag": "ghcr.io/moseoh/hello-realworld-bench/spring-boot@sha256:9e7e278ecf2985b274e5e476f805893ac82f65d132ca087c52b92af640f4f54d",
+    "load": {
+      "enabled": true,
+      "script": "scenarios/ping-api/k6.js",
+      "test_duration": "480s",
+      "tool": "k6",
+      "vus": 50,
+      "warmup_duration": "120s"
+    },
+    "runtime": {
+      "build_mode": "jvm",
+      "framework": "spring-boot",
+      "java_version": "25",
+      "language": "java",
+      "native_image": false,
+      "otel": false,
+      "spring_boot_version": "4.1.0",
+      "virtual_threads": false
+    },
+    "services": {
+      "kafka": false,
+      "mock_upstream": false,
+      "postgres": false,
+      "redis": false
+    },
+    "startup": {
+      "iterations": 1
+    },
+    "target": {
+      "base_url": "http://localhost:8080",
+      "endpoint": "/ping"
+    }
+  },
+  "manifest_digest": "d74f36390e62be6fc2d69560f8d7af0fb12f273b03d23b666573a84c860a9bd7",
+  "run_id": "2026-07-13T02-51-50_java_spring-boot_jvm-java25_ping-api_run-set",
+  "schema_version": "1.0",
+  "selection": {
+    "build_profile": "local-gradle-docker",
+    "environment_profile": "home-k3s-v1",
+    "implementation": "java/spring-boot",
+    "load_profile": "platform-qualification-v1",
+    "measurement_protocol": "official-service-v1",
+    "scenario": "ping-api",
+    "variant": "jvm-java25"
+  },
+  "source": {
+    "git_commit": "b546fc02ea0e7253210aed932b811d4661e035fe",
+    "git_dirty": false,
+    "worktree_digest": "3895797de8c2eeee6579179e110ea74a9eebdc0ed8df6b054e46b28410dfd6a4"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "image": "ghcr.io/moseoh/hello-realworld-bench/spring-boot@sha256:9e7e278ecf2985b274e5e476f805893ac82f65d132ca087c52b92af640f4f54d",
+  "digest": "sha256:9e7e278ecf2985b274e5e476f805893ac82f65d132ca087c52b92af640f4f54d",
+  "platform": "linux/amd64",
+  "distribution": "prebuilt-import",
+  "clean_build_ms": null,
+  "image_build_ms": null
+}

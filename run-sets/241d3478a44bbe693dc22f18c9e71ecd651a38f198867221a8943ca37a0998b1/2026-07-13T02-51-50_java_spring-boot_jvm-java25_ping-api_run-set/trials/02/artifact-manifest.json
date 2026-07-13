@@ -1,0 +1,61 @@
+{
+  "schema_version": "1.0",
+  "trial_id": "trial-02",
+  "artifacts": [
+    {
+      "path": "in-run-validity.json",
+      "size_bytes": 209,
+      "sha256": "ffd5b175ef4b631be392dd6258c551bf224865b49a3460d511c510629a92c5c5"
+    },
+    {
+      "path": "k6-summary.json",
+      "size_bytes": 4956,
+      "sha256": "ec6d36f5056e6a463dfad79d15250a58aa89e271ab19c1493c06968cef6c48d0"
+    },
+    {
+      "path": "k6-warmup-summary.json",
+      "size_bytes": 4887,
+      "sha256": "ae59b18a8e975f15eef5ee57d69390d8d6fde1f2fc6eb42d620f414182942665"
+    },
+    {
+      "path": "k6-warmup.log",
+      "size_bytes": 17689,
+      "sha256": "9ef97248cd2c8dfe95715bb03a81197a8815cf1ea1a88b9d81c6264ac94187cb"
+    },
+    {
+      "path": "k6.log",
+      "size_bytes": 60436,
+      "sha256": "c790f3fd53b3c47d8ccb74764a83096c6f873f80c60423fa0c3cff6bf66e987c"
+    },
+    {
+      "path": "kubelet-stats.json",
+      "size_bytes": 35385311,
+      "sha256": "cd882489c6cfe751aa2ae5b9853cfe83e6d823124bb7c2fcab3a58eb3e4c5600"
+    },
+    {
+      "path": "metadata.json",
+      "size_bytes": 1145,
+      "sha256": "bd8530326dbe8834ae038387a5053ebec2f5e941ec85ccebdf4f1d3a7c619084"
+    },
+    {
+      "path": "result.json",
+      "size_bytes": 1933,
+      "sha256": "ff3cf32fd3b01663f5a6599bcaabf384ef6628d87e32e715f68ccac02ddc526b"
+    },
+    {
+      "path": "startup.json",
+      "size_bytes": 98,
+      "sha256": "05744c4277cdc275ae3209de024be0052121261b359109dde966d8632e57fdf4"
+    },
+    {
+      "path": "target-pod.json",
+      "size_bytes": 7721,
+      "sha256": "fe6f090eee606ee61c5b2cf73405c7585d7da320404c2b100398a605a6fb9153"
+    },
+    {
+      "path": "target.log",
+      "size_bytes": 2409,
+      "sha256": "210e8a1693141c6329f1bc3a2a209c1c15daa7bb37dba0faf58b9523f870d6c7"
+    }
+  ]
+}

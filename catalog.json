@@ -1,0 +1,24 @@
+{
+  "entries": [
+    {
+      "cohort_fingerprint": "241d3478a44bbe693dc22f18c9e71ecd651a38f198867221a8943ca37a0998b1",
+      "finished_at": "2026-07-13T03:23:48.242674Z",
+      "image_digest": "sha256:9e7e278ecf2985b274e5e476f805893ac82f65d132ca087c52b92af640f4f54d",
+      "path": "run-sets/241d3478a44bbe693dc22f18c9e71ecd651a38f198867221a8943ca37a0998b1/2026-07-13T02-51-50_java_spring-boot_jvm-java25_ping-api_run-set",
+      "publication_sha256": "26895fd7eb262bf340296aaf5a859cf69d9f099e0d309c0e11516f7eed31c8f8",
+      "run_set_id": "2026-07-13T02-51-50_java_spring-boot_jvm-java25_ping-api_run-set",
+      "selection": {
+        "build_profile": "local-gradle-docker",
+        "environment_profile": "home-k3s-v1",
+        "implementation": "java/spring-boot",
+        "load_profile": "platform-qualification-v1",
+        "measurement_protocol": "official-service-v1",
+        "scenario": "ping-api",
+        "variant": "jvm-java25"
+      },
+      "source_commit": "b546fc02ea0e7253210aed932b811d4661e035fe",
+      "started_at": "2026-07-13T02:51:51.507895Z"
+    }
+  ],
+  "schema_version": "1.0"
+}
