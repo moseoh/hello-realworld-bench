@@ -1,0 +1,33 @@
+services:
+  target:
+    environment:
+      SPRING_PROFILES_ACTIVE: "read-heavy"
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/hrw"
+      SPRING_DATASOURCE_USERNAME: "hrw"
+      SPRING_DATASOURCE_PASSWORD: "hrw"
+      QUARKUS_PROFILE: "read-heavy"
+      QUARKUS_DATASOURCE_JDBC_URL: "jdbc:postgresql://postgres:5432/hrw"
+      QUARKUS_DATASOURCE_USERNAME: "hrw"
+      QUARKUS_DATASOURCE_PASSWORD: "hrw"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:18
+    container_name: hrw-postgres
+    environment:
+      POSTGRES_DB: "hrw"
+      POSTGRES_USER: "hrw"
+      POSTGRES_PASSWORD: "hrw"
+    ports:
+      - "5432:5432"
+    volumes:
+      - "../scenarios/read-heavy-query-api/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro"
+    cpus: "1.0"
+    mem_limit: "1g"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hrw -d hrw"]
+      interval: 1s
+      timeout: 1s
+      retries: 30

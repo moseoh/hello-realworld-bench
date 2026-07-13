@@ -9,6 +9,8 @@ MANIFEST = ROOT / "infra" / "k8s" / "ping-api.yaml"
 TRANSACTIONAL_MANIFEST = (
     ROOT / "infra" / "k8s" / "transactional-command-api.yaml"
 )
+READ_HEAVY_MANIFEST = ROOT / "infra" / "k8s" / "read-heavy-query-api.yaml"
+READ_HEAVY_COMPOSE = ROOT / "infra" / "docker-compose.read-heavy-query-api.yml"
 IO_AGGREGATION_MANIFEST = ROOT / "infra" / "k8s" / "io-aggregation-api.yaml"
 DOCKERFILE = ROOT / "implementations" / "java" / "spring-boot" / "Dockerfile"
 ENVIRONMENT = ROOT / "contracts" / "environment-profiles" / "home-k3s-v1.yaml"
@@ -177,6 +179,59 @@ class KubernetesManifestTest(unittest.TestCase):
             "__TARGET_ENV__",
         )
 
+        self._assert_scenario_workloads(manifests)
+
+    def test_read_heavy_manifests_mount_the_postgres_init_sql(self):
+        self.assertTrue(READ_HEAVY_COMPOSE.is_file())
+        self.assertTrue(READ_HEAVY_MANIFEST.is_file())
+        compose = yaml.safe_load(READ_HEAVY_COMPOSE.read_text())
+        manifests = list(yaml.safe_load_all(READ_HEAVY_MANIFEST.read_text()))
+
+        self.assertIn(
+            "../scenarios/read-heavy-query-api/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro",
+            compose["services"]["postgres"]["volumes"],
+        )
+        self.assertEqual(
+            [(item["kind"], item["metadata"]["name"]) for item in manifests],
+            [
+                ("Namespace", "__NAMESPACE__"),
+                ("ConfigMap", "postgres-init"),
+                ("Service", "postgres"),
+                ("Pod", "postgres"),
+                ("Service", "target"),
+                ("Pod", "target"),
+                ("ConfigMap", "k6-script"),
+                ("Job", "__K6_JOB_NAME__"),
+            ],
+        )
+
+        init = next(
+            item
+            for item in manifests
+            if item["kind"] == "ConfigMap"
+            and item["metadata"]["name"] == "postgres-init"
+        )
+        self.assertEqual(init["data"], {"init.sql": "__POSTGRES_INIT_SQL__"})
+
+        postgres = next(
+            item
+            for item in manifests
+            if item["kind"] == "Pod" and item["metadata"]["name"] == "postgres"
+        )
+        container = postgres["spec"]["containers"][0]
+        self.assertIn(
+            {
+                "name": "init",
+                "mountPath": "/docker-entrypoint-initdb.d/init.sql",
+                "subPath": "init.sql",
+                "readOnly": True,
+            },
+            container["volumeMounts"],
+        )
+        self.assertIn(
+            {"name": "init", "configMap": {"name": "postgres-init"}},
+            postgres["spec"]["volumes"],
+        )
         self._assert_scenario_workloads(manifests)
 
     def test_io_manifest_contains_wiremock_mappings_target_and_load_generator(self):

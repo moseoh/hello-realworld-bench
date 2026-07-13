@@ -1,0 +1,93 @@
+schema_version: "1.0"
+id: read-heavy-query-api
+contract_version: "1.0"
+description: "HTTP query API that reads a deterministic PostgreSQL product catalog through indexed filters and keyset pagination."
+kind: service
+question: "How does the target behave when serving bounded, indexed product queries from a warm PostgreSQL dataset?"
+measures:
+  - HTTP query parameter parsing and validation
+  - indexed PostgreSQL reads with category and price filters
+  - keyset pagination ordered by price and identifier
+  - bounded JSON response serialization
+  - latency and error rate under a read-heavy load profile
+does_not_measure:
+  - application cache behavior
+  - database write performance
+  - message broker throughput
+  - external service aggregation
+  - observability overhead
+dependencies:
+  - postgres
+variants:
+  - id: baseline
+    description: "Indexed PostgreSQL reads with no application cache."
+default_profiles:
+  environment_profile: local-docker-compose
+  measurement_protocol: development-service
+  load_profile: development-local
+
+target:
+  base_url: "http://localhost:8080"
+  startup_path: "/ping"
+  endpoint: "/products"
+
+services:
+  postgres: true
+  redis: false
+  kafka: false
+  mock_upstream: false
+
+dataset:
+  asset: "scenarios/read-heavy-query-api/postgres/init.sql"
+  table: catalog_products
+  row_count: 100000
+  immutable: true
+  fingerprint:
+    id_sum: 5000050000
+    price_cents_sum: 5049950000
+    rating_basis_points_sum: 399997276
+    active_count: 95000
+
+query_contract:
+  categories: [electronics, home, books, sports, beauty, toys, automotive, garden]
+  price_windows:
+    - { min_price_cents: 500, max_price_cents: 25499 }
+    - { min_price_cents: 25500, max_price_cents: 50499 }
+    - { min_price_cents: 50500, max_price_cents: 75499 }
+    - { min_price_cents: 75500, max_price_cents: 100499 }
+  page_sizes: [20, 50]
+  first_page_weight: 3
+  continuation_page_weight: 1
+  sort: [price_cents, id]
+  index: idx_catalog_products_filter
+  min_selected_rows: 2966
+  max_selected_rows: 2971
+  max_response_bytes: 16384
+  cache_temperature: warm
+
+load:
+  enabled: true
+  tool: k6
+  script: "scenarios/read-heavy-query-api/k6.js"
+  warmup_duration: "15s"
+  test_duration: "45s"
+  vus: 25
+  arrival_rate:
+    base_per_second: 200
+    pre_allocated_vus: 200
+    max_vus: 400
+
+metrics:
+  collect:
+    - build_time
+    - docker_image_build_time
+    - startup_ready_time
+    - first_request_latency
+    - rps
+    - p50_latency
+    - p95_latency
+    - p99_latency
+    - error_rate
+    - cpu_percent
+    - memory_usage
+    - memory_percent

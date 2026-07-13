@@ -379,6 +379,57 @@ class ContractValidationTest(unittest.TestCase):
         self.assertIn("build_profile", str(context.exception))
         self.assertIn("was unexpected", str(context.exception))
 
+    def test_read_scenario_accepts_read_heavy_dataset_and_query_contract(self):
+        path = self.root_dir / "scenarios/example-scenario/scenario.yaml"
+        value = self.read_yaml("scenarios/example-scenario/scenario.yaml")
+        value["dataset"] = {
+            "asset": "scenarios/read-heavy-query-api/postgres/init.sql",
+            "table": "catalog_products",
+            "row_count": 100000,
+            "immutable": True,
+            "fingerprint": {
+                "id_sum": 5000050000,
+                "price_cents_sum": 5049950000,
+                "rating_basis_points_sum": 399997276,
+                "active_count": 95000,
+            },
+        }
+        value["query_contract"] = {
+            "categories": [
+                "electronics",
+                "home",
+                "books",
+                "sports",
+                "beauty",
+                "toys",
+                "automotive",
+                "garden",
+            ],
+            "price_windows": [
+                {"min_price_cents": 500, "max_price_cents": 25499},
+                {"min_price_cents": 25500, "max_price_cents": 50499},
+                {"min_price_cents": 50500, "max_price_cents": 75499},
+                {"min_price_cents": 75500, "max_price_cents": 100499},
+            ],
+            "page_sizes": [20, 50],
+            "first_page_weight": 3,
+            "continuation_page_weight": 1,
+            "sort": ["price_cents", "id"],
+            "index": "idx_catalog_products_filter",
+            "min_selected_rows": 2966,
+            "max_selected_rows": 2971,
+            "max_response_bytes": 16384,
+            "cache_temperature": "warm",
+        }
+        self.write_yaml("scenarios/example-scenario/scenario.yaml", value)
+
+        document = read_contract(path, "scenario", self.root_dir)
+
+        self.assertEqual(document.value["dataset"]["row_count"], 100000)
+        self.assertEqual(
+            document.value["query_contract"]["cache_temperature"], "warm"
+        )
+
     def test_read_variant_accepts_runtime_without_implementation_identity(self):
         path = self.root_dir / "implementations/python/example/variants/default.yaml"
 
