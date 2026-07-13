@@ -1,13 +1,37 @@
 import unittest
 from pathlib import Path
 
-from hrw_runner.kubernetes_render import render_ping_documents
+from hrw_runner.kubernetes_render import render_ping_documents, render_scenario_documents
 
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 class KubernetesRenderTest(unittest.TestCase):
+    def test_renders_postgres_init_asset_for_read_heavy_scenario(self):
+        init_sql = "create table catalog_products (id bigint primary key);\n"
+
+        documents = render_scenario_documents(
+            ROOT / "infra/k8s/read-heavy-query-api.yaml",
+            namespace="hrw-test",
+            run_set_id="run-set-id",
+            target_image="target@sha256:" + "a" * 64,
+            k6_image="k6@sha256:" + "b" * 64,
+            java_tool_options="-Xmx512m",
+            duration="30s",
+            vus=50,
+            job_name="k6-measured",
+            script="export default function () {}\n",
+            postgres_init_sql=init_sql,
+            target_environment={},
+        )
+
+        config_map = next(
+            item for item in documents if item["metadata"]["name"] == "postgres-init"
+        )
+        self.assertEqual(config_map["data"]["init.sql"], init_sql)
+        self.assertNotIn("__POSTGRES_INIT_SQL__", repr(documents))
+
     def test_structurally_renders_runner_values_and_scenario_script(self):
         documents = render_ping_documents(
             ROOT / "infra/k8s/ping-api.yaml",

@@ -8,6 +8,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,10 +28,41 @@ class OrderResourceTest {
     AgroalDataSource dataSource;
 
     @BeforeEach
-    void clearTables() throws SQLException {
+    void prepareTables() throws SQLException {
         try (Connection connection = dataSource.getConnection();
                 Statement statement = connection.createStatement()) {
-            statement.execute("truncate table order_items, outbox_events, orders");
+            statement.execute("drop table if exists order_items");
+            statement.execute("drop table if exists outbox_events");
+            statement.execute("drop table if exists orders");
+            statement.execute("""
+                    create table orders (
+                      id varchar primary key,
+                      customer_id varchar not null,
+                      status varchar not null,
+                      total_cents integer not null,
+                      created_at timestamp with time zone not null
+                    )
+                    """);
+            statement.execute("""
+                    create table order_items (
+                      id varchar primary key,
+                      order_id varchar not null references orders(id),
+                      sku varchar not null,
+                      quantity integer not null,
+                      unit_price_cents integer not null
+                    )
+                    """);
+            statement.execute("""
+                    create table outbox_events (
+                      id varchar primary key,
+                      aggregate_type varchar not null,
+                      aggregate_id varchar not null,
+                      event_type varchar not null,
+                      payload_json varchar not null,
+                      created_at timestamp with time zone not null,
+                      published_at timestamp with time zone null
+                    )
+                    """);
         }
     }
 
@@ -88,6 +120,18 @@ class OrderResourceTest {
         @Override
         public String getConfigProfile() {
             return "transactional";
+        }
+
+        @Override
+        public Map<String, String> getConfigOverrides() {
+            return Map.of(
+                    "quarkus.datasource.db-kind", "h2",
+                    "quarkus.datasource.jdbc.url", "jdbc:h2:mem:orders;DB_CLOSE_DELAY=-1",
+                    "quarkus.datasource.devservices.enabled", "false",
+                    "quarkus.hibernate-orm.\"transactional\".schema-management.strategy", "none",
+                    "quarkus.flyway.active", "false",
+                    "quarkus.flyway.migrate-at-start", "false"
+            );
         }
     }
 }

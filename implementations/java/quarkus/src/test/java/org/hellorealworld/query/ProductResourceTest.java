@@ -162,6 +162,9 @@ class ProductResourceTest {
         @Override
         public Map<String, String> getConfigOverrides() {
             return Map.of(
+                    "quarkus.datasource.db-kind", "h2",
+                    "quarkus.datasource.jdbc.url", "jdbc:h2:mem:products;DB_CLOSE_DELAY=-1",
+                    "quarkus.datasource.devservices.enabled", "false",
                     "quarkus.hibernate-orm.\"read-heavy\".schema-management.strategy", "none"
             );
         }

@@ -156,6 +156,68 @@ class K3sImageConfigurationTest(unittest.TestCase):
 
 
 class ScenarioLifecycleTest(unittest.TestCase):
+    def test_read_heavy_correctness_matches_dataset_fingerprint_and_index(self):
+        client = Mock()
+        client.command.return_value = (
+            "100000,5000050000,5049950000,399997276,95000,1\n"
+        )
+        scenario_config = {
+            "dataset": {
+                "row_count": 100000,
+                "fingerprint": {
+                    "id_sum": 5000050000,
+                    "price_cents_sum": 5049950000,
+                    "rating_basis_points_sum": 399997276,
+                    "active_count": 95000,
+                },
+            },
+            "query_contract": {"index": "idx_catalog_products_filter"},
+        }
+
+        correctness = _scenario_correctness(
+            client,
+            "hrw-run",
+            "read-heavy-query-api",
+            {},
+            scenario_config,
+        )
+
+        self.assertEqual(correctness["status"], "valid")
+        self.assertEqual(correctness["oracle"], "read-heavy-dataset-fingerprint")
+        self.assertEqual(correctness["observed"]["index_count"], 1)
+        command = client.command.call_args.args[0]
+        self.assertIn("idx_catalog_products_filter", command[-1])
+
+    def test_read_heavy_correctness_rejects_dataset_drift(self):
+        client = Mock()
+        client.command.return_value = (
+            "99999,5000050000,5049950000,399997276,95000,0\n"
+        )
+        scenario_config = {
+            "dataset": {
+                "row_count": 100000,
+                "fingerprint": {
+                    "id_sum": 5000050000,
+                    "price_cents_sum": 5049950000,
+                    "rating_basis_points_sum": 399997276,
+                    "active_count": 95000,
+                },
+            },
+            "query_contract": {"index": "idx_catalog_products_filter"},
+        }
+
+        correctness = _scenario_correctness(
+            client,
+            "hrw-run",
+            "read-heavy-query-api",
+            {},
+            scenario_config,
+        )
+
+        self.assertEqual(correctness["status"], "invalid")
+        self.assertTrue(any("row_count" in reason for reason in correctness["reasons"]))
+        self.assertTrue(any("index_count" in reason for reason in correctness["reasons"]))
+
     def test_resets_transactional_tables_after_warmup(self):
         client = Mock()
 

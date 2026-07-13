@@ -29,6 +29,7 @@ def render_scenario_documents(
     stages: str = "[]",
     pre_allocated_vus: int = 1,
     max_vus: int = 1,
+    postgres_init_sql: str | None = None,
     target_environment: Mapping[str, str],
 ) -> list[dict[str, Any]]:
     for name, value in (("namespace", namespace), ("run_set_id", run_set_id), ("job_name", job_name)):
@@ -80,6 +81,10 @@ def render_scenario_documents(
         "__K6_JOB_NAME__": job_name,
         "__K6_SCRIPT__": script,
     }
+    if postgres_init_sql is not None:
+        if not postgres_init_sql.strip():
+            raise ValueError("PostgreSQL init SQL must not be empty")
+        replacements["__POSTGRES_INIT_SQL__"] = postgres_init_sql
     documents = [
         _replace(document, replacements)
         for document in yaml.safe_load_all(template_path.read_text())
