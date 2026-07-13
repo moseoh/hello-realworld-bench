@@ -51,6 +51,7 @@ def run_k3s_benchmark_set(config: RunConfig, root_dir: Path) -> Path:
 
     distribution = os.environ.get("HRW_IMAGE_DISTRIBUTION", "push")
     prebuilt_image = os.environ.get("HRW_TARGET_IMAGE")
+    prebuilt_archive = os.environ.get("HRW_TARGET_IMAGE_ARCHIVE")
     image_archive = paths.result_dir / "target-image.oci.tar"
     image_arguments = (
         config.app_dir,
@@ -63,12 +64,18 @@ def run_k3s_benchmark_set(config: RunConfig, root_dir: Path) -> Path:
         digest = prebuilt_image.removeprefix(prefix)
         if not prebuilt_image.startswith(prefix) or len(digest) != 64:
             raise ValueError("HRW_TARGET_IMAGE must use the official immutable repository")
-        distribution = "prebuilt"
+        if prebuilt_archive:
+            image_archive = Path(prebuilt_archive).resolve()
+            if not image_archive.is_file():
+                raise ValueError("HRW_TARGET_IMAGE_ARCHIVE does not exist")
+            distribution = "prebuilt-import"
+        else:
+            distribution = "prebuilt"
         image = {
             "image": prebuilt_image,
             "digest": f"sha256:{digest}",
             "platform": "linux/amd64",
-            "distribution": "prebuilt",
+            "distribution": distribution,
             "clean_build_ms": None,
             "image_build_ms": None,
         }
@@ -121,9 +128,10 @@ def run_k3s_benchmark_set(config: RunConfig, root_dir: Path) -> Path:
             str(config.load["test_duration"]),
         )
         client.apply([_kind(setup, "Namespace")])
-        if distribution == "import":
+        if distribution in {"import", "prebuilt-import"}:
             _import_image(client, namespace, image_archive)
-            image_archive.unlink()
+            if distribution == "import":
+                image_archive.unlink()
         client.apply([_kind(setup, "Service"), _kind(setup, "ConfigMap")])
         _prepull_target(client, _kind(setup, "Pod"), namespace)
 

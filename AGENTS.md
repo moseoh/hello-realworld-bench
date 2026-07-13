@@ -40,4 +40,9 @@ Scenario names must describe service patterns, not technologies. For example, pr
 - Do not add infrastructure that is outside the current phase.
 - Record benchmark outputs as machine-readable files where practical.
 - Treat results as trade-offs under specific conditions.
+- Never register a self-hosted runner directly to this public repository. Trusted
+  home-k3s scheduling and runner registration belong to the private
+  `hello-realworld-bench-ops` control repository.
+- Keep publication credentials out of benchmark jobs and workloads. They may be
+  used only by the GitHub-hosted publication job after measurement succeeds.
 - When opening a pull request, use `.github/pull_request_template.md` and keep the description concise.

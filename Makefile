@@ -7,14 +7,25 @@ MEASUREMENT_PROTOCOL ?=
 BUILD_PROFILE ?=
 IMAGE_DISTRIBUTION ?= push
 TARGET_IMAGE ?=
+TARGET_IMAGE_ARCHIVE ?=
+RUN_SET_DIR ?=
+DATASET_DIR ?=
+SOURCE_COMMIT ?=
+WORKFLOW_URL ?=
+RAW_ARTIFACT_URL ?=
+RAW_ARTIFACT_SHA256 ?=
 
-.PHONY: run run-set summarize summarize-json summarize-latest summarize-latest-json validate-contracts test-runner test-spring check
+.PHONY: run run-set publish summarize summarize-json summarize-latest summarize-latest-json validate-contracts test-runner test-spring check
 
 run:
 	PYTHONPATH=runner uv run --project runner python -m hrw_runner $(IMPLEMENTATION) $(SCENARIO) $(if $(strip $(VARIANT)),$(VARIANT)) $(if $(strip $(LOAD_PROFILE)),--load-profile $(LOAD_PROFILE)) $(if $(strip $(ENVIRONMENT_PROFILE)),--environment-profile $(ENVIRONMENT_PROFILE)) $(if $(strip $(MEASUREMENT_PROTOCOL)),--measurement-protocol $(MEASUREMENT_PROTOCOL)) $(if $(strip $(BUILD_PROFILE)),--build-profile $(BUILD_PROFILE))
 
 run-set:
-	HRW_IMAGE_DISTRIBUTION=$(IMAGE_DISTRIBUTION) HRW_TARGET_IMAGE=$(TARGET_IMAGE) PYTHONPATH=runner uv run --project runner python -m hrw_runner run-set $(IMPLEMENTATION) $(SCENARIO) $(if $(strip $(VARIANT)),$(VARIANT)) $(if $(strip $(LOAD_PROFILE)),--load-profile $(LOAD_PROFILE)) $(if $(strip $(ENVIRONMENT_PROFILE)),--environment-profile $(ENVIRONMENT_PROFILE)) $(if $(strip $(MEASUREMENT_PROTOCOL)),--measurement-protocol $(MEASUREMENT_PROTOCOL)) $(if $(strip $(BUILD_PROFILE)),--build-profile $(BUILD_PROFILE))
+	HRW_IMAGE_DISTRIBUTION=$(IMAGE_DISTRIBUTION) HRW_TARGET_IMAGE=$(TARGET_IMAGE) HRW_TARGET_IMAGE_ARCHIVE=$(TARGET_IMAGE_ARCHIVE) PYTHONPATH=runner uv run --project runner python -m hrw_runner run-set $(IMPLEMENTATION) $(SCENARIO) $(if $(strip $(VARIANT)),$(VARIANT)) $(if $(strip $(LOAD_PROFILE)),--load-profile $(LOAD_PROFILE)) $(if $(strip $(ENVIRONMENT_PROFILE)),--environment-profile $(ENVIRONMENT_PROFILE)) $(if $(strip $(MEASUREMENT_PROTOCOL)),--measurement-protocol $(MEASUREMENT_PROTOCOL)) $(if $(strip $(BUILD_PROFILE)),--build-profile $(BUILD_PROFILE))
+
+publish:
+	@test -n "$(RUN_SET_DIR)" -a -n "$(DATASET_DIR)" -a -n "$(SOURCE_COMMIT)"
+	PYTHONPATH=runner uv run --project runner python -m hrw_runner publish $(RUN_SET_DIR) $(DATASET_DIR) --source-commit $(SOURCE_COMMIT) $(if $(strip $(WORKFLOW_URL)),--workflow-url $(WORKFLOW_URL)) $(if $(strip $(RAW_ARTIFACT_URL)),--raw-artifact-url $(RAW_ARTIFACT_URL) --raw-artifact-sha256 $(RAW_ARTIFACT_SHA256))
 
 summarize:
 	@PYTHONPATH=runner uv run --project runner python -m hrw_runner summarize

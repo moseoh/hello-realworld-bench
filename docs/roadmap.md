@@ -27,8 +27,15 @@ It already provides:
 - `ping-api`, `cold-start-api`, `transactional-command-api`, `io-aggregation-api`, and `io-aggregation-timeout-api`;
 - build, startup, k6, and Docker resource measurements; and
 - normalized local result JSON.
+- a frozen home k3s platform with three-trial and time-series evidence;
+- trusted-main GitHub Actions automation; and
+- append-only compact dataset and checksummed raw-evidence publication.
 
 `ping-api` remains a runner smoke test. Existing local results remain development evidence and must not be promoted as official benchmark data.
+
+The automated `ping-api` qualification campaign validates the official platform
+and publication path. Core scenario campaigns remain unfinished, so the project
+does not yet have a comparative public dataset.
 
 ## Benchmark Model
 

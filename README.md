@@ -47,6 +47,12 @@ The `cold-start-api` scenario measures repeated time to first successful `/ping`
 
 The current profile catalog supports local development runs. Draft load profiles are definitions for future work; they are not executable official profiles, and current local outputs are not official benchmark results. See [Benchmark Contracts](docs/benchmark-contracts.md) for contract ownership and catalog status.
 
+The private trusted controller polls `main` and can run the three-trial platform
+qualification campaign on its home k3s runner. Complete valid evidence is published to the
+append-only `benchmark-data` branch, with full raw evidence stored as a
+checksummed GitHub Release asset. See [Continuous Benchmark
+Automation](docs/automation.md) for the trust boundary and publication model.
+
 ## Requirements
 
 - Docker
@@ -234,6 +240,19 @@ results/<language>/<framework>/<variant>/<scenario>/<run_set_id>/
 
 The evidence document relationships and cross-file checksum rules are documented
 in [docs/evidence-model.md](docs/evidence-model.md).
+
+Validate and publish a completed official run set into a local dataset checkout:
+
+```bash
+make publish \
+  RUN_SET_DIR=results/.../<run-set-id> \
+  DATASET_DIR=../benchmark-data \
+  SOURCE_COMMIT=<full-git-sha>
+```
+
+Automated publication additionally supplies the workflow URL and the raw
+evidence archive URL and SHA-256. The publisher rejects local, partial, dirty, or
+otherwise non-official evidence.
 
 Some schema fields may be `null` during the MVP. The important contract is that result files are stable, timestamped, and machine-readable where practical.
 
