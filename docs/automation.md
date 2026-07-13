@@ -115,3 +115,11 @@ performance conclusion.
 worker, but it is not part of the private campaign matrix while its scenario
 contract is marked uncalibrated. Promotion requires a home-k3s calibration run,
 a frozen arrival rate, and a scenario contract version change.
+
+The same reusable worker has a non-publishing calibration mode. It accepts only
+`calibration-service` with `publish_results: false`, retains the raw workflow
+artifact for inspection, and shares the `official-home-k3s` concurrency group so
+calibration cannot overlap an official campaign. The provisional read-heavy
+base rate is 300 requests per second; calibration exercises both a steady 300
+requests per second load and deterministic bursts up to 1,500 requests per
+second against both implementations.

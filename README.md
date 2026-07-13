@@ -169,7 +169,7 @@ make run SCENARIO=read-heavy-query-api
 ```
 
 Its deterministic 100,000-row PostgreSQL dataset is initialized before the
-target starts. The current `0.1` contract is available for local validation but
+target starts. The current `0.2` contract is available for local validation but
 remains excluded from frozen official open-model runs until its home-k3s arrival
 rate is calibrated and versioned.
 

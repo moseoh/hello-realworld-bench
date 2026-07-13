@@ -199,7 +199,7 @@ Core service scenarios:
 `read-heavy-query-api` excludes application caching in v1. Its dataset, schema, indexes, selectivity, pagination, response size, and cache-temperature policy must be fixed by the scenario contract.
 
 The implementation and local runner path are complete. The remaining work is
-home-k3s arrival-rate calibration, contract promotion from `0.1`, and inclusion
+home-k3s arrival-rate calibration, contract promotion from `0.2`, and inclusion
 in the trusted 54-trial campaign.
 
 Exit criteria:

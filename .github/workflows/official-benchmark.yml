@@ -12,6 +12,16 @@ on:
         required: false
         type: string
         default: '[{"scenario":"ping-api","load_profile":"platform-qualification-v1"}]'
+      measurement_protocol:
+        description: Allowlisted measurement protocol for every matrix cell
+        required: false
+        type: string
+        default: official-service-v1
+      publish_results:
+        description: Publish validated official evidence to the public dataset
+        required: false
+        type: boolean
+        default: true
     secrets:
       PUBLIC_REPO_TOKEN:
         description: Token used only by the GitHub-hosted publication job
@@ -27,6 +37,18 @@ jobs:
     timeout-minutes: 2
     permissions: {}
     steps:
+      - name: Validate execution mode
+        env:
+          MEASUREMENT_PROTOCOL: ${{ inputs.measurement_protocol }}
+          PUBLISH_RESULTS: ${{ inputs.publish_results }}
+        run: |
+          case "$MEASUREMENT_PROTOCOL:$PUBLISH_RESULTS" in
+            official-service-v1:true | calibration-service:false)
+              ;;
+            *)
+              exit 1
+              ;;
+          esac
       - name: Validate benchmark matrix
         env:
           MATRIX_JSON: ${{ inputs.matrix_json }}
@@ -155,12 +177,16 @@ jobs:
           MATRIX_IMAGE_KEY: ${{ matrix.image_key }}
           MATRIX_SCENARIO: ${{ matrix.scenario }}
           MATRIX_LOAD_PROFILE: ${{ matrix.load_profile }}
+          MEASUREMENT_PROTOCOL: ${{ inputs.measurement_protocol }}
+          PUBLISH_RESULTS: ${{ inputs.publish_results }}
         run: |
           implementation="${MATRIX_IMPLEMENTATION:-java/spring-boot}"
           variant="${MATRIX_VARIANT:-jvm-java25}"
           image_key="${MATRIX_IMAGE_KEY:-spring-boot}"
           scenario="$MATRIX_SCENARIO"
           load_profile="$MATRIX_LOAD_PROFILE"
+          measurement_protocol="$MEASUREMENT_PROTOCOL"
+          publish_results="$PUBLISH_RESULTS"
 
           case "$implementation:$variant:$image_key" in
             java/spring-boot:jvm-java25:spring-boot | \
@@ -170,17 +196,19 @@ jobs:
               exit 1
               ;;
           esac
-          case "$scenario:$load_profile" in
-            ping-api:platform-qualification-v1 | \
-            transactional-command-api:steady | \
-            transactional-command-api:capacity-ramp | \
-            transactional-command-api:burst-recovery | \
-            io-aggregation-api:steady | \
-            io-aggregation-api:capacity-ramp | \
-            io-aggregation-api:burst-recovery | \
-            read-heavy-query-api:steady | \
-            read-heavy-query-api:capacity-ramp | \
-            read-heavy-query-api:burst-recovery)
+          case "$scenario:$load_profile:$measurement_protocol:$publish_results" in
+            ping-api:platform-qualification-v1:official-service-v1:true | \
+            transactional-command-api:steady:official-service-v1:true | \
+            transactional-command-api:capacity-ramp:official-service-v1:true | \
+            transactional-command-api:burst-recovery:official-service-v1:true | \
+            io-aggregation-api:steady:official-service-v1:true | \
+            io-aggregation-api:capacity-ramp:official-service-v1:true | \
+            io-aggregation-api:burst-recovery:official-service-v1:true | \
+            read-heavy-query-api:steady:official-service-v1:true | \
+            read-heavy-query-api:capacity-ramp:official-service-v1:true | \
+            read-heavy-query-api:burst-recovery:official-service-v1:true | \
+            read-heavy-query-api:calibration-steady:calibration-service:false | \
+            read-heavy-query-api:calibration-burst:calibration-service:false)
               ;;
             *)
               exit 1
@@ -193,6 +221,7 @@ jobs:
             printf 'image_key=%s\n' "$image_key"
             printf 'scenario=%s\n' "$scenario"
             printf 'load_profile=%s\n' "$load_profile"
+            printf 'measurement_protocol=%s\n' "$measurement_protocol"
           } >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v4
         with:
@@ -249,6 +278,7 @@ jobs:
           IMAGE_KEY: ${{ steps.allowlist.outputs.image_key }}
           SCENARIO: ${{ steps.allowlist.outputs.scenario }}
           LOAD_PROFILE: ${{ steps.allowlist.outputs.load_profile }}
+          MEASUREMENT_PROTOCOL: ${{ steps.allowlist.outputs.measurement_protocol }}
           HRW_IMAGE_DISTRIBUTION: push
           HRW_TARGET_IMAGE: ${{ steps.image_ref.outputs.target_image }}
           HRW_TARGET_IMAGE_ARCHIVE: ${{ github.workspace }}/target-image/target-image.oci.tar
@@ -258,7 +288,7 @@ jobs:
           PYTHONPATH=runner uv run --project runner python -m hrw_runner run-set \
             "$IMPLEMENTATION" "$SCENARIO" "$VARIANT" \
             --environment-profile home-k3s-v1 \
-            --measurement-protocol official-service-v1 \
+            --measurement-protocol "$MEASUREMENT_PROTOCOL" \
             --load-profile "$LOAD_PROFILE" \
             | tee "$log_path"
           result_dir="$(sed -n 's/^Run set directory: //p' "$log_path" | tail -1)"
@@ -276,6 +306,7 @@ jobs:
 
   publish:
     needs: [validate-matrix, benchmark]
+    if: ${{ inputs.publish_results }}
     strategy:
       fail-fast: false
       max-parallel: 1

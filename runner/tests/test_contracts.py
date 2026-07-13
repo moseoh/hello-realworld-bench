@@ -1594,7 +1594,7 @@ class ReadHeavyScenarioContractTest(unittest.TestCase):
             PROJECT_ROOT,
         ).value
 
-        self.assertEqual(scenario["contract_version"], "0.1")
+        self.assertEqual(scenario["contract_version"], "0.2")
         self.assertEqual(
             scenario["dataset"],
             {
@@ -1643,7 +1643,7 @@ class ReadHeavyScenarioContractTest(unittest.TestCase):
         self.assertEqual(
             scenario["load"]["arrival_rate"],
             {
-                "base_per_second": 100,
+                "base_per_second": 300,
                 "pre_allocated_vus": 200,
                 "max_vus": 400,
                 "calibrated": False,

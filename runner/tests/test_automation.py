@@ -12,6 +12,22 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class WorkflowTrustBoundaryTest(unittest.TestCase):
+    def test_worker_separates_official_publication_from_calibration(self):
+        workflow = self._load("official-benchmark.yml")
+        inputs = workflow["on"]["workflow_call"]["inputs"]
+
+        self.assertEqual(inputs["measurement_protocol"]["default"], "official-service-v1")
+        self.assertEqual(inputs["publish_results"]["default"], "true")
+        self.assertEqual(workflow["jobs"]["publish"]["if"], "${{ inputs.publish_results }}")
+
+        validation = next(
+            step
+            for step in workflow["jobs"]["validate-matrix"]["steps"]
+            if step.get("name") == "Validate execution mode"
+        )
+        self.assertIn("official-service-v1:true", validation["run"])
+        self.assertIn("calibration-service:false", validation["run"])
+
     def test_official_benchmark_never_runs_for_pull_requests(self):
         workflow = self._load("official-benchmark.yml")
 
@@ -161,6 +177,8 @@ class WorkflowTrustBoundaryTest(unittest.TestCase):
                 "MATRIX_IMAGE_KEY": "${{ matrix.image_key }}",
                 "MATRIX_SCENARIO": "${{ matrix.scenario }}",
                 "MATRIX_LOAD_PROFILE": "${{ matrix.load_profile }}",
+                "MEASUREMENT_PROTOCOL": "${{ inputs.measurement_protocol }}",
+                "PUBLISH_RESULTS": "${{ inputs.publish_results }}",
             },
         )
         script = allowlist["run"]
@@ -180,6 +198,8 @@ class WorkflowTrustBoundaryTest(unittest.TestCase):
             "read-heavy-query-api:steady",
             "read-heavy-query-api:capacity-ramp",
             "read-heavy-query-api:burst-recovery",
+            "read-heavy-query-api:calibration-steady:calibration-service",
+            "read-heavy-query-api:calibration-burst:calibration-service",
         ):
             self.assertIn(allowed_cell, script)
 
@@ -255,6 +275,28 @@ class WorkflowTrustBoundaryTest(unittest.TestCase):
         )
         self.assertNotEqual(unknown_cell.returncode, 0)
 
+        calibration = self._run_allowlist(
+            script,
+            implementation="java/quarkus",
+            variant="jvm-java25",
+            image_key="quarkus",
+            scenario="read-heavy-query-api",
+            load_profile="calibration-burst",
+            measurement_protocol="calibration-service",
+            publish_results="false",
+        )
+        self.assertEqual(calibration.returncode, 0, calibration.stderr)
+        self.assertIn("measurement_protocol=calibration-service", calibration.stdout)
+
+        published_calibration = self._run_allowlist(
+            script,
+            scenario="read-heavy-query-api",
+            load_profile="calibration-steady",
+            measurement_protocol="calibration-service",
+            publish_results="true",
+        )
+        self.assertNotEqual(published_calibration.returncode, 0)
+
     def test_publish_downloads_the_matching_implementation_artifact(self):
         workflow = self._load("official-benchmark.yml")
         publish = workflow["jobs"]["publish"]
@@ -311,6 +353,8 @@ class WorkflowTrustBoundaryTest(unittest.TestCase):
         image_key: str = "",
         scenario: str,
         load_profile: str,
+        measurement_protocol: str = "official-service-v1",
+        publish_results: str = "true",
     ) -> subprocess.CompletedProcess[str]:
         with tempfile.NamedTemporaryFile() as output:
             env = {
@@ -321,6 +365,8 @@ class WorkflowTrustBoundaryTest(unittest.TestCase):
                 "MATRIX_IMAGE_KEY": image_key,
                 "MATRIX_SCENARIO": scenario,
                 "MATRIX_LOAD_PROFILE": load_profile,
+                "MEASUREMENT_PROTOCOL": measurement_protocol,
+                "PUBLISH_RESULTS": publish_results,
             }
             completed = subprocess.run(
                 ["bash", "-e", "-o", "pipefail", "-c", script],
