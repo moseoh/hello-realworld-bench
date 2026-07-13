@@ -101,8 +101,9 @@ copy.
 
 ## Current Campaign
 
-The trusted worker builds one immutable target image and reuses it across a
-serial home-runner matrix. The first core campaign contains
+The trusted worker currently builds one immutable target image for every
+supported implementation, then each cell selects its implementation-keyed
+artifact for the serial home-runner matrix. The first core campaign contains
 `transactional-command-api` and `io-aggregation-api`, each under `steady`,
 `capacity-ramp`, and `burst-recovery`. Every cell contains three trials. Publish
 jobs are also serialized so append-only catalog updates cannot race.

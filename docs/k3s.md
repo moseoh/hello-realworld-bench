@@ -56,8 +56,10 @@ remain in the run set but do not contribute to promoted summaries.
 
 ## Images
 
-The target image must be
-`ghcr.io/moseoh/hello-realworld-bench/spring-boot@sha256:<digest>` for
+The target image repository comes from the selected implementation contract.
+Spring Boot uses
+`ghcr.io/moseoh/hello-realworld-bench/spring-boot@sha256:<digest>` and Quarkus
+uses `ghcr.io/moseoh/hello-realworld-bench/quarkus@sha256:<digest>`, both for
 `linux/amd64`. k6 is pinned to its architecture-specific manifest digest.
 
 The default image mode pushes to GHCR. `TARGET_IMAGE` reuses an immutable image

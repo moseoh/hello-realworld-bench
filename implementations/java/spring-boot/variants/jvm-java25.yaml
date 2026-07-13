@@ -1,6 +1,6 @@
 schema_version: "1.0"
 id: jvm-java25
-contract_version: "1.0"
+contract_version: "1.1"
 description: "Spring Boot JVM variant using Java 25."
 implementation: java/spring-boot
 
@@ -14,3 +14,8 @@ runtime:
 
 docker:
   image_tag: "hello-realworld/java-spring-boot-jvm-java25:local"
+
+kubernetes:
+  target_environment:
+    SPRING_THREADS_VIRTUAL_ENABLED: "false"
+    SPRING_MAIN_KEEP_ALIVE: "false"

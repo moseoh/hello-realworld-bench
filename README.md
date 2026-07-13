@@ -4,7 +4,8 @@ Backend runtime benchmarks beyond Hello World.
 
 Hello Real World Bench compares backend runtimes and frameworks using practical service patterns such as transactional APIs, I/O aggregation, cold starts, and build/startup metrics.
 
-The project starts small: one implementation, one scenario, and one repeatable benchmark runner.
+The project stays small: two Java implementations, a focused scenario catalog,
+and one repeatable benchmark runner.
 
 ## What This Is
 
@@ -29,9 +30,11 @@ Early results should be read only as trade-offs under the exact scenario, host, 
 
 Experimental MVP.
 
-Supported implementation:
+Supported implementations:
 
 - `java/spring-boot` with the `jvm-java25` and `jvm-java25-virtual-threads` variants
+- `java/quarkus` with the `jvm-java25` variant, using Quarkus `3.33.2.1` LTS
+  and Java 25
 
 Supported scenarios:
 
@@ -65,7 +68,11 @@ Automation](docs/automation.md) for the trust boundary and publication model.
 - Java 25 for local development
 - kubectl access to context `homelab` for the official k3s profile
 
-The Spring Boot implementation is generated from Spring Initializr and includes the Gradle wrapper. The runner prefers local k6. If local k6 is unavailable, it can fall back to the `grafana/k6` Docker image.
+The Spring Boot implementation is generated from Spring Initializr. The Quarkus
+implementation is generated from the official Quarkus generator and uses the
+`3.33.2.1` LTS stream. Both include a Gradle wrapper and require Java 25. The
+runner prefers local k6. If local k6 is unavailable, it can fall back to the
+`grafana/k6` Docker image.
 
 ## Run
 
@@ -109,6 +116,15 @@ With explicit values:
 
 ```bash
 make run IMPLEMENTATION=java/spring-boot SCENARIO=ping-api VARIANT=jvm-java25
+```
+
+Run a Quarkus core scenario with the same service contract:
+
+```bash
+make run \
+  IMPLEMENTATION=java/quarkus \
+  SCENARIO=transactional-command-api \
+  VARIANT=jvm-java25
 ```
 
 With explicit profile selections:
@@ -183,6 +199,8 @@ measurement protocol. The runner reads these contracts from:
 implementations/java/spring-boot/implementation.yaml
 implementations/java/spring-boot/variants/jvm-java25.yaml
 implementations/java/spring-boot/variants/jvm-java25-virtual-threads.yaml
+implementations/java/quarkus/implementation.yaml
+implementations/java/quarkus/variants/jvm-java25.yaml
 scenarios/ping-api/scenario.yaml
 scenarios/cold-start-api/scenario.yaml
 scenarios/transactional-command-api/scenario.yaml
@@ -202,6 +220,13 @@ timing and VU values from each scenario's `load` section through the
 documented in [docs/benchmark-contracts.md](docs/benchmark-contracts.md).
 The resolved selections, effective execution configuration, input assets, and Git
 provenance are documented in [docs/resolved-run-manifest.md](docs/resolved-run-manifest.md).
+
+Spring Boot and Quarkus implement the same request, response, transactional, and
+outbound-client behavior for `transactional-command-api` and
+`io-aggregation-api`. Moving the official target image repository from the
+Spring-specific environment profile to each implementation contract changed
+`home-k3s-v1` to contract version `1.2`; results under that version form a new
+comparison cohort and must not be merged with earlier environment versions.
 
 Scenario details for humans live in each scenario directory:
 
@@ -324,4 +349,6 @@ Run the complete project checks:
 make check
 ```
 
-This validates the benchmark contracts, then runs the Python runner tests and the Spring Boot tests in a Java 25 Docker image.
+This validates the benchmark contracts, then runs the Python runner tests, the
+Spring Boot tests in a Java 25 Docker image, and the Quarkus tests with the local
+Java 25 runtime.

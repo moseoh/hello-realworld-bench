@@ -1,8 +1,10 @@
 import json
+import os
 import unittest
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 from hrw_runner.config import resolve_run_config
 from hrw_runner.k3s_runner import (
@@ -13,6 +15,7 @@ from hrw_runner.k3s_runner import (
     _scenario_correctness,
     _wait_job,
     _write_failed_trial,
+    run_k3s_benchmark_set,
 )
 from hrw_runner.kubernetes import evaluate_preflight
 
@@ -33,6 +36,123 @@ PROFILE = {
         "min_sample_coverage_ratio": 0.9,
     },
 }
+
+
+class StopAfterImageResolution(Exception):
+    pass
+
+
+class K3sImageConfigurationTest(unittest.TestCase):
+    def test_build_uses_the_implementation_official_repository(self):
+        config = self._config()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            paths = SimpleNamespace(
+                result_dir=Path(temp_dir) / "result",
+                run_id="run-id",
+            )
+            with (
+                patch.dict(os.environ, {"HRW_IMAGE_DISTRIBUTION": "push"}, clear=True),
+                patch("hrw_runner.k3s_runner._run_set_paths", return_value=paths),
+                patch(
+                    "hrw_runner.k3s_runner.read_git_provenance",
+                    return_value={"git_commit": "a" * 40},
+                ),
+                patch(
+                    "hrw_runner.k3s_runner.evaluate_preflight",
+                    return_value={"status": "valid", "reasons": []},
+                ),
+                patch("hrw_runner.k3s_runner.Kubectl"),
+                patch(
+                    "hrw_runner.k3s_runner.build_and_push_image",
+                    side_effect=StopAfterImageResolution,
+                ) as build,
+            ):
+                with self.assertRaises(StopAfterImageResolution):
+                    run_k3s_benchmark_set(config, Path(temp_dir))
+
+        build.assert_called_once_with(
+            config.app_dir,
+            config.official_image_repository,
+            "a" * 40,
+            "25",
+        )
+
+    def test_prebuilt_validation_uses_the_implementation_official_repository(self):
+        config = self._config()
+        image = config.official_image_repository + "@sha256:" + "b" * 64
+        with tempfile.TemporaryDirectory() as temp_dir:
+            paths = SimpleNamespace(
+                result_dir=Path(temp_dir) / "result",
+                run_id="run-id",
+            )
+            with (
+                patch.dict(os.environ, {"HRW_TARGET_IMAGE": image}, clear=True),
+                patch("hrw_runner.k3s_runner._run_set_paths", return_value=paths),
+                patch(
+                    "hrw_runner.k3s_runner.read_git_provenance",
+                    return_value={"git_commit": "a" * 40},
+                ),
+                patch(
+                    "hrw_runner.k3s_runner.evaluate_preflight",
+                    return_value={"status": "valid", "reasons": []},
+                ),
+                patch("hrw_runner.k3s_runner.Kubectl"),
+                patch("hrw_runner.k3s_runner.replace", return_value=config),
+                patch(
+                    "hrw_runner.k3s_runner.build_resolved_manifest",
+                    side_effect=StopAfterImageResolution,
+                ),
+            ):
+                with self.assertRaises(StopAfterImageResolution):
+                    run_k3s_benchmark_set(config, Path(temp_dir))
+
+    def test_prebuilt_rejects_digest_unless_exactly_64_lowercase_hex(self):
+        config = self._config()
+        for digest in ("a" * 63, "a" * 65, "A" * 64, "g" * 64):
+            with self.subTest(digest=digest), tempfile.TemporaryDirectory() as temp_dir:
+                paths = SimpleNamespace(
+                    result_dir=Path(temp_dir) / "result",
+                    run_id="run-id",
+                )
+                image = config.official_image_repository + "@sha256:" + digest
+                with (
+                    patch.dict(os.environ, {"HRW_TARGET_IMAGE": image}, clear=True),
+                    patch("hrw_runner.k3s_runner._run_set_paths", return_value=paths),
+                    patch(
+                        "hrw_runner.k3s_runner.read_git_provenance",
+                        return_value={"git_commit": "a" * 40},
+                    ),
+                    patch(
+                        "hrw_runner.k3s_runner.evaluate_preflight",
+                        return_value={"status": "valid", "reasons": []},
+                    ),
+                    patch("hrw_runner.k3s_runner.Kubectl"),
+                    patch("hrw_runner.k3s_runner.replace", return_value=config),
+                    patch(
+                        "hrw_runner.k3s_runner.build_resolved_manifest",
+                        side_effect=StopAfterImageResolution,
+                    ),
+                ):
+                    try:
+                        with self.assertRaisesRegex(
+                            ValueError,
+                            "official immutable repository",
+                        ):
+                            run_k3s_benchmark_set(config, Path(temp_dir))
+                    except StopAfterImageResolution:
+                        self.fail("invalid prebuilt digest was accepted")
+
+    def _config(self):
+        config = Mock()
+        config.scenario = "ping-api"
+        config.app_dir = Path("/tmp/example-app")
+        config.official_image_repository = "ghcr.io/example/implementation"
+        config.environment_profile_config = {
+            "cluster": {"context": "homelab"},
+            "images": {"k6": "k6@sha256:" + "c" * 64},
+        }
+        config.runtime = {"java_version": "25"}
+        return config
 
 
 class ScenarioLifecycleTest(unittest.TestCase):

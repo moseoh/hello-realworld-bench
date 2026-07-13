@@ -21,6 +21,8 @@ class RunConfig:
     variant_file: Path
     compose_profile: str
     image_tag: str
+    official_image_repository: str
+    target_environment: dict[str, str]
     target: dict[str, object]
     load: dict[str, object]
     startup: dict[str, object]
@@ -160,6 +162,31 @@ def resolve_run_config(
         docker.get("image_tag")
         or f"hello-realworld/{language}-{framework}-{resolved_variant}:local"
     )
+    official_image_repository = str(
+        implementation_config["official_image_repository"]
+    )
+    variant_kubernetes = _optional_dict_value(variant_config, "kubernetes")
+    target_environment = {
+        str(name): str(value)
+        for name, value in _optional_dict_value(
+            variant_kubernetes,
+            "target_environment",
+        ).items()
+    }
+    implementation_kubernetes = _dict_value(implementation_config, "kubernetes")
+    scenario_environments = _dict_value(
+        implementation_kubernetes,
+        "target_environment",
+    )
+    target_environment.update(
+        {
+            str(name): str(value)
+            for name, value in _optional_dict_value(
+                scenario_environments,
+                resolved_scenario,
+            ).items()
+        }
+    )
 
     return RunConfig(
         root_dir=root,
@@ -174,6 +201,8 @@ def resolve_run_config(
         variant_file=variant_file,
         compose_profile=framework,
         image_tag=image_tag,
+        official_image_repository=official_image_repository,
+        target_environment=target_environment,
         target=target,
         load=load,
         startup=startup,

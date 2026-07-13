@@ -36,7 +36,7 @@ class ResolveRunConfigTest(unittest.TestCase):
                 for rate in (50, 100, 150, 200, 250, 300, 350, 400)
             ],
         )
-        self.assertEqual(config.load["pre_allocated_vus"], 100)
+        self.assertEqual(config.load["pre_allocated_vus"], 200)
         self.assertEqual(config.load["max_vus"], 400)
 
     def test_official_environment_accepts_only_frozen_official_load_suite(self):
@@ -463,6 +463,15 @@ class ResolveRunConfigTest(unittest.TestCase):
                 "programming_model": "synchronous",
                 "default_variant": "jvm-java25",
                 "default_build_profile": "local-gradle-docker",
+                "official_image_repository": "ghcr.io/example/other",
+                "kubernetes": {
+                    "target_environment": {
+                        "ping-api": {
+                            "OTHER_SCENARIO": "ping",
+                            "SHARED_SETTING": "scenario",
+                        }
+                    }
+                },
             },
         )
         self._write_yaml(
@@ -478,6 +487,12 @@ class ResolveRunConfigTest(unittest.TestCase):
                     "build_mode": "jvm",
                 },
                 "docker": {"image_tag": "hello-realworld/java-other:local"},
+                "kubernetes": {
+                    "target_environment": {
+                        "OTHER_COMMON": "variant",
+                        "SHARED_SETTING": "variant",
+                    }
+                },
             },
         )
 
@@ -496,6 +511,21 @@ class ResolveRunConfigTest(unittest.TestCase):
         self.assertEqual(
             config.result_prefix,
             ("java", "other", "jvm-java25", "ping-api"),
+        )
+        self.assertEqual(config.official_image_repository, "ghcr.io/example/other")
+        self.assertEqual(
+            config.target_environment,
+            {
+                "OTHER_COMMON": "variant",
+                "OTHER_SCENARIO": "ping",
+                "SHARED_SETTING": "scenario",
+            },
+        )
+
+        spring = resolve_run_config("java/spring-boot", "ping-api", None, root_dir)
+        self.assertNotEqual(
+            spring.official_image_repository,
+            config.official_image_repository,
         )
 
     def test_rejects_any_selected_draft_profile(self):
@@ -587,6 +617,65 @@ class ResolveRunConfigTest(unittest.TestCase):
             config.image_tag,
             "hello-realworld/java-spring-boot-jvm-java25-virtual-threads:local",
         )
+        self.assertEqual(
+            config.target_environment,
+            {
+                "AGGREGATION_HTTP_CONNECTION_REQUEST_TIMEOUT_MS": "500",
+                "AGGREGATION_HTTP_CONNECT_TIMEOUT_MS": "500",
+                "AGGREGATION_HTTP_MAX_CONNECTIONS": "128",
+                "AGGREGATION_HTTP_MAX_CONNECTIONS_PER_ROUTE": "128",
+                "AGGREGATION_HTTP_RESPONSE_TIMEOUT_MS": "1000",
+                "AGGREGATION_MAX_CONCURRENT_UPSTREAM_REQUESTS": "128",
+                "AGGREGATION_MAX_PENDING_UPSTREAM_REQUESTS": "128",
+                "MOCK_UPSTREAM_BASE_URL": "http://mock-upstream:8080",
+                "SPRING_MAIN_KEEP_ALIVE": "true",
+                "SPRING_THREADS_VIRTUAL_ENABLED": "true",
+            },
+        )
+
+    def test_spring_and_quarkus_resolve_distinct_kubernetes_configuration(self):
+        spring = resolve_run_config(
+            "java/spring-boot",
+            "transactional-command-api",
+            "jvm-java25",
+            PROJECT_ROOT,
+        )
+        quarkus = resolve_run_config(
+            "java/quarkus",
+            "transactional-command-api",
+            "jvm-java25",
+            PROJECT_ROOT,
+        )
+
+        self.assertEqual(
+            spring.official_image_repository,
+            "ghcr.io/moseoh/hello-realworld-bench/spring-boot",
+        )
+        self.assertEqual(
+            quarkus.official_image_repository,
+            "ghcr.io/moseoh/hello-realworld-bench/quarkus",
+        )
+        self.assertEqual(
+            spring.target_environment,
+            {
+                "SPRING_DATASOURCE_PASSWORD": "hrw",
+                "SPRING_DATASOURCE_URL": "jdbc:postgresql://postgres:5432/hrw",
+                "SPRING_DATASOURCE_USERNAME": "hrw",
+                "SPRING_MAIN_KEEP_ALIVE": "false",
+                "SPRING_PROFILES_ACTIVE": "transactional",
+                "SPRING_THREADS_VIRTUAL_ENABLED": "false",
+            },
+        )
+        self.assertEqual(
+            quarkus.target_environment,
+            {
+                "QUARKUS_DATASOURCE_JDBC_URL": "jdbc:postgresql://postgres:5432/hrw",
+                "QUARKUS_DATASOURCE_PASSWORD": "hrw",
+                "QUARKUS_DATASOURCE_USERNAME": "hrw",
+                "QUARKUS_PROFILE": "transactional",
+            },
+        )
+        self.assertNotEqual(spring.target_environment, quarkus.target_environment)
 
     def test_reads_cold_start_configuration(self):
         root_dir = PROJECT_ROOT
@@ -620,6 +709,17 @@ class ResolveRunConfigTest(unittest.TestCase):
         self.assertEqual(config.target["endpoint"], "/orders")
         self.assertTrue(config.scenario_config["services"]["postgres"])
         self.assertEqual(config.load["vus"], 25)
+        self.assertEqual(
+            config.target_environment,
+            {
+                "SPRING_DATASOURCE_PASSWORD": "hrw",
+                "SPRING_DATASOURCE_URL": "jdbc:postgresql://postgres:5432/hrw",
+                "SPRING_DATASOURCE_USERNAME": "hrw",
+                "SPRING_MAIN_KEEP_ALIVE": "false",
+                "SPRING_PROFILES_ACTIVE": "transactional",
+                "SPRING_THREADS_VIRTUAL_ENABLED": "false",
+            },
+        )
 
     def test_reads_io_aggregation_configuration(self):
         root_dir = PROJECT_ROOT
@@ -660,7 +760,11 @@ class ResolveRunConfigTest(unittest.TestCase):
         source_app = PROJECT_ROOT / "implementations/java/spring-boot"
         app_dir = root_dir / "implementations/java/spring-boot"
         app_dir.mkdir(parents=True)
-        shutil.copy2(source_app / "implementation.yaml", app_dir / "implementation.yaml")
+        implementation_path = app_dir / "implementation.yaml"
+        shutil.copy2(source_app / "implementation.yaml", implementation_path)
+        implementation = yaml.safe_load(implementation_path.read_text())
+        implementation["kubernetes"]["target_environment"] = {}
+        implementation_path.write_text(yaml.safe_dump(implementation, sort_keys=False))
         shutil.copytree(source_app / "variants", app_dir / "variants")
 
         self._copy_scenario(root_dir, "ping-api")

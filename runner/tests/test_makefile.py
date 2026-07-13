@@ -63,6 +63,28 @@ class MakefileRunTest(unittest.TestCase):
             ],
         )
 
+    def test_quarkus_tests_run_directly_from_the_quarkus_directory(self):
+        completed = subprocess.run(
+            ["make", "--no-print-directory", "-n", "test-quarkus"],
+            cwd=PROJECT_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(
+            completed.stdout.strip(),
+            "cd implementations/java/quarkus && ./gradlew test --no-daemon",
+        )
+
+    def test_check_runs_both_implementation_test_targets(self):
+        makefile = (PROJECT_ROOT / "Makefile").read_text()
+
+        self.assertIn(
+            "check: validate-contracts test-runner test-spring test-quarkus",
+            makefile,
+        )
+
     def _dry_run(self, *variables: str) -> list[str]:
         completed = subprocess.run(
             ["make", "--no-print-directory", "-n", "run", *variables],

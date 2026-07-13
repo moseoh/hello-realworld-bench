@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import json
 import os
+import re
 import threading
 import time
 from dataclasses import replace
@@ -60,14 +61,16 @@ def run_k3s_benchmark_set(config: RunConfig, root_dir: Path) -> Path:
     image_archive = paths.result_dir / "target-image.oci.tar"
     image_arguments = (
         config.app_dir,
-        str(environment["images"]["target_repository"]),
+        config.official_image_repository,
         str(source["git_commit"]),
     )
     if prebuilt_image:
-        repository = str(environment["images"]["target_repository"])
+        repository = config.official_image_repository
         prefix = f"{repository}@sha256:"
         digest = prebuilt_image.removeprefix(prefix)
-        if not prebuilt_image.startswith(prefix) or len(digest) != 64:
+        if not prebuilt_image.startswith(prefix) or re.fullmatch(
+            r"[0-9a-f]{64}", digest
+        ) is None:
             raise ValueError("HRW_TARGET_IMAGE must use the official immutable repository")
         if prebuilt_archive:
             image_archive = Path(prebuilt_archive).resolve()
@@ -538,7 +541,7 @@ export function handleSummary(data) {
         stages=json.dumps(config.load.get("stages", []), separators=(",", ":")),
         pre_allocated_vus=int(config.load.get("pre_allocated_vus", 1)),
         max_vus=int(config.load.get("max_vus", 1)),
-        virtual_threads=bool(config.runtime.get("virtual_threads", False)),
+        target_environment=config.target_environment,
     )
 
 

@@ -1,9 +1,26 @@
 schema_version: "1.0"
 id: java/spring-boot
-contract_version: "1.1"
+contract_version: "1.2"
 description: "Spring Boot reference implementation using Spring Web MVC."
 language: java
 framework: spring-boot
 programming_model: spring-web-mvc
 default_variant: jvm-java25
 default_build_profile: local-gradle-docker
+official_image_repository: ghcr.io/moseoh/hello-realworld-bench/spring-boot
+kubernetes:
+  target_environment:
+    transactional-command-api:
+      SPRING_PROFILES_ACTIVE: transactional
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/hrw
+      SPRING_DATASOURCE_USERNAME: hrw
+      SPRING_DATASOURCE_PASSWORD: hrw
+    io-aggregation-api:
+      MOCK_UPSTREAM_BASE_URL: http://mock-upstream:8080
+      AGGREGATION_HTTP_CONNECT_TIMEOUT_MS: "500"
+      AGGREGATION_HTTP_RESPONSE_TIMEOUT_MS: "1000"
+      AGGREGATION_HTTP_CONNECTION_REQUEST_TIMEOUT_MS: "500"
+      AGGREGATION_HTTP_MAX_CONNECTIONS: "128"
+      AGGREGATION_HTTP_MAX_CONNECTIONS_PER_ROUTE: "128"
+      AGGREGATION_MAX_CONCURRENT_UPSTREAM_REQUESTS: "128"
+      AGGREGATION_MAX_PENDING_UPSTREAM_REQUESTS: "128"

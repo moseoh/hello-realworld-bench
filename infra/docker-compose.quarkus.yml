@@ -1,0 +1,10 @@
+services:
+  target:
+    image: hello-realworld/java-quarkus-jvm-java25:local
+    container_name: hrw-target
+    ports:
+      - "8080:8080"
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=75"
+    cpus: "2.0"
+    mem_limit: "1g"

@@ -45,6 +45,7 @@ class AggregationHttpClientConfig {
 		return HttpClients.custom()
 				.setConnectionManager(connectionManager)
 				.setDefaultRequestConfig(requestConfig)
+				.disableAutomaticRetries()
 				.evictExpiredConnections()
 				.evictIdleConnections(TimeValue.ofSeconds(30))
 				.build();

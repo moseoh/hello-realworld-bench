@@ -1,0 +1,16 @@
+schema_version: "1.0"
+id: jvm-java25
+contract_version: "1.0"
+description: "Quarkus JVM variant using Java 25."
+implementation: java/quarkus
+
+runtime:
+  java_version: "25"
+  framework_version: "3.33.2.1"
+  build_mode: jvm
+  native_image: false
+  virtual_threads: false
+  otel: false
+
+docker:
+  image_tag: "hello-realworld/java-quarkus-jvm-java25:local"

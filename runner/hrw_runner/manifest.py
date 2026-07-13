@@ -315,9 +315,7 @@ def validate_resolved_manifest(manifest: object, root: Path) -> None:
         execution = manifest["execution"]
         assert isinstance(execution, dict)
         image = execution["image_tag"]
-        repository = str(
-            config.environment_profile_config["images"]["target_repository"]
-        )
+        repository = config.official_image_repository
         if not isinstance(image, str) or not _is_repository_digest(image, repository):
             raise ManifestValidationError(
                 [

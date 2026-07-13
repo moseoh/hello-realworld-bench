@@ -28,11 +28,24 @@ Baseline settings:
 | Circuit breaker | disabled unless a scenario explicitly measures circuit breakers |
 
 The Spring Boot implementation uses Apache HttpClient 5 through Spring
-`RestClient` and a dedicated fixed-size executor for its blocking upstream
-operations. The executor limit matches the connection limit so a framework
-default task pool cannot become an undocumented bottleneck.
+`RestClient`, with automatic retries explicitly disabled, and a dedicated
+bounded executor for its blocking upstream operations. The executor admits 128
+active and 128 pending operations, rejects overflow without a synchronous
+submission exception, expires queued operations after 500 ms, and removes
+cancelled operations from the queue immediately.
 
-Equivalent settings for future implementations do not need identical configuration names, but they must preserve the same behavior: pooled connections, the same effective timeout values, no retry behavior, and no circuit breaker behavior.
+The Quarkus `3.33.2.1` LTS implementation uses Quarkus REST Client with the
+Vert.x HTTP client and Mutiny to issue the three upstream requests concurrently.
+Its HTTP pool and request limiter preserve the same 128 active and pending
+operation bounds, 500 ms connect and queued-operation acquisition timeouts,
+immediate overflow rejection and cancellation release, 1000 ms response
+timeout, disabled retries and circuit breakers, and inventory-only fallback.
+For both implementations, profile or recommendation acquisition failure fails
+the aggregate request; only inventory failure is converted to the unavailable
+inventory response.
+
+Equivalent settings do not need identical configuration names, but they must
+preserve the same effective client behavior.
 
 ## Mock Upstream
 
