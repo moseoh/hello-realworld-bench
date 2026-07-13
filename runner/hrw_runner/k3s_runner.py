@@ -42,6 +42,7 @@ _TIMELINE_SCENARIOS = {
     "io-aggregation-api",
     "read-heavy-query-api",
 }
+_TIMELINE_BUCKET_SECONDS = 10
 
 
 def run_k3s_benchmark_set(config: RunConfig, root_dir: Path) -> Path:
@@ -432,16 +433,23 @@ def _run_trial(
     client.command(["delete", "job", measured_name, "-n", namespace, "--wait=true"])
     client.command(["delete", "pod", "target", "-n", namespace, "--wait=true"])
 
+    timeline_required = config.scenario in _TIMELINE_SCENARIOS
+    sample_interval_seconds = (
+        _TIMELINE_BUCKET_SECONDS
+        if timeline_required
+        else int(environment["validity"]["stats_sample_interval_seconds"])
+    )
     time_series = {
         "schema_version": "1.0",
         "trial_id": trial_id,
-        "sample_interval_ms": int(environment["validity"]["stats_sample_interval_seconds"]) * 1000,
+        "sample_interval_ms": sample_interval_seconds * 1000,
         "samples": _build_runtime_timeline(
             samples,
             k6_summary,
             _duration_seconds(str(config.load["test_duration"])),
             config.load,
-            required=config.scenario in _TIMELINE_SCENARIOS,
+            bucket_seconds=_TIMELINE_BUCKET_SECONDS,
+            required=timeline_required,
         ),
     }
     validate_evidence_document(time_series, "time-series", config.root_dir)
@@ -847,7 +855,7 @@ def _build_runtime_timeline(
     k6_summary: dict[str, Any],
     measured_seconds: int,
     load: dict[str, Any],
-    bucket_seconds: int = 10,
+    bucket_seconds: int = _TIMELINE_BUCKET_SECONDS,
     *,
     required: bool = False,
 ) -> list[dict[str, Any]]:
