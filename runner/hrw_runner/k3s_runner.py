@@ -546,11 +546,7 @@ export function handleSummary(data) {
         executor = "constant-arrival-rate"
     postgres_init_sql = None
     if config.scenario == "read-heavy-query-api":
-        dataset = config.scenario_config.get("dataset", {})
-        asset = dataset.get("asset") if isinstance(dataset, dict) else None
-        if not isinstance(asset, str):
-            raise ValueError("read-heavy-query-api requires dataset.asset")
-        postgres_init_sql = (config.root_dir / asset).read_text()
+        postgres_init_sql = _read_dataset_init_sql(config)
     return render_scenario_documents(
         template,
         namespace=namespace,
@@ -573,6 +569,19 @@ export function handleSummary(data) {
         postgres_init_sql=postgres_init_sql,
         target_environment=config.target_environment,
     )
+
+
+def _read_dataset_init_sql(config: RunConfig) -> str:
+    dataset = config.scenario_config.get("dataset", {})
+    asset = dataset.get("asset") if isinstance(dataset, dict) else None
+    if not isinstance(asset, str) or not asset:
+        raise ValueError("read-heavy-query-api requires dataset.asset")
+    root = Path(config.root_dir).resolve()
+    scenario_dir = Path(config.scenario_dir).resolve()
+    path = (root / asset).resolve()
+    if not path.is_relative_to(scenario_dir) or not path.is_file():
+        raise ValueError("read-heavy dataset.asset must be a scenario file")
+    return path.read_text()
 
 
 def _kind(documents: list[dict[str, Any]], kind: str) -> dict[str, Any]:

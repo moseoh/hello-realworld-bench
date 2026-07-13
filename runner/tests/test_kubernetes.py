@@ -10,6 +10,7 @@ from hrw_runner.config import resolve_run_config
 from hrw_runner.k3s_runner import (
     _collect_dependency_evidence,
     _pod_failure_reasons,
+    _read_dataset_init_sql,
     _summary_from_k6_log,
     _reset_scenario_state,
     _scenario_correctness,
@@ -156,6 +157,41 @@ class K3sImageConfigurationTest(unittest.TestCase):
 
 
 class ScenarioLifecycleTest(unittest.TestCase):
+    def test_dataset_init_asset_must_stay_inside_scenario_directory(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            scenario_dir = root / "scenarios/read-heavy-query-api"
+            scenario_dir.mkdir(parents=True)
+            outside = root / "outside.sql"
+            outside.write_text("select 1;\n")
+            config = SimpleNamespace(
+                root_dir=root,
+                scenario_dir=scenario_dir,
+                scenario_config={"dataset": {"asset": "outside.sql"}},
+            )
+
+            with self.assertRaisesRegex(ValueError, "scenario file"):
+                _read_dataset_init_sql(config)
+
+    def test_reads_dataset_init_asset_from_scenario_directory(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            scenario_dir = root / "scenarios/read-heavy-query-api/postgres"
+            scenario_dir.mkdir(parents=True)
+            asset = scenario_dir / "init.sql"
+            asset.write_text("select 1;\n")
+            config = SimpleNamespace(
+                root_dir=root,
+                scenario_dir=scenario_dir.parent,
+                scenario_config={
+                    "dataset": {
+                        "asset": "scenarios/read-heavy-query-api/postgres/init.sql"
+                    }
+                },
+            )
+
+            self.assertEqual(_read_dataset_init_sql(config), "select 1;\n")
+
     def test_read_heavy_correctness_matches_dataset_fingerprint_and_index(self):
         client = Mock()
         client.command.return_value = (

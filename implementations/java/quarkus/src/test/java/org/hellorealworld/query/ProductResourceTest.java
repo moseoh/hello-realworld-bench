@@ -67,6 +67,12 @@ class ProductResourceTest {
     void rejectsInvalidQueryParameters() {
         given()
                 .queryParam("category", "electronics")
+                .queryParam("limit", 20)
+                .when().get("/products")
+                .then().statusCode(400);
+
+        given()
+                .queryParam("category", "electronics")
                 .queryParam("minPriceCents", 1000)
                 .queryParam("maxPriceCents", 2000)
                 .queryParam("limit", 20)

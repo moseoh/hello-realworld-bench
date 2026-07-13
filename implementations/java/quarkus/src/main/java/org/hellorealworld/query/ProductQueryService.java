@@ -25,8 +25,8 @@ class ProductQueryService {
     InjectableInstance<Session> sessions;
 
     @Transactional
-    ProductPageResponse findProducts(String category, int minPriceCents, int maxPriceCents,
-            int limit, Integer afterPriceCents, Long afterId) {
+    ProductPageResponse findProducts(String category, Integer minPriceCents, Integer maxPriceCents,
+            Integer limit, Integer afterPriceCents, Long afterId) {
         validate(category, minPriceCents, maxPriceCents, limit, afterPriceCents, afterId);
         String cursorPredicate = afterPriceCents == null ? "" : """
                 and (product.priceCents > :afterPriceCents
@@ -63,10 +63,11 @@ class ProductQueryService {
         return new ProductPageResponse(items, cursor);
     }
 
-    private static void validate(String category, int minPriceCents, int maxPriceCents, int limit,
+    private static void validate(String category, Integer minPriceCents, Integer maxPriceCents, Integer limit,
             Integer afterPriceCents, Long afterId) {
         boolean cursorPaired = (afterPriceCents == null) == (afterId == null);
-        if (!CATEGORIES.contains(category) || minPriceCents < 0 || maxPriceCents < minPriceCents
+        if (!CATEGORIES.contains(category) || minPriceCents == null || maxPriceCents == null
+                || limit == null || minPriceCents < 0 || maxPriceCents < minPriceCents
                 || (limit != 20 && limit != 50) || !cursorPaired
                 || (afterPriceCents != null && (afterPriceCents < 0 || afterId <= 0))) {
             throw new BadRequestException("invalid product query");

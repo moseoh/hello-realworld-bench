@@ -19,9 +19,9 @@ public class ProductResource {
     @GET
     public ProductPageResponse products(
             @QueryParam("category") String category,
-            @QueryParam("minPriceCents") int minPriceCents,
-            @QueryParam("maxPriceCents") int maxPriceCents,
-            @QueryParam("limit") int limit,
+            @QueryParam("minPriceCents") Integer minPriceCents,
+            @QueryParam("maxPriceCents") Integer maxPriceCents,
+            @QueryParam("limit") Integer limit,
             @QueryParam("afterPriceCents") Integer afterPriceCents,
             @QueryParam("afterId") Long afterId) {
         return service.findProducts(category, minPriceCents, maxPriceCents, limit,
