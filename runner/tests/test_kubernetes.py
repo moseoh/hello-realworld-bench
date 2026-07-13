@@ -18,6 +18,8 @@ from hrw_runner.k3s_runner import (
     _scenario_correctness,
     _wait_job,
     _write_failed_trial,
+    _clear_namespace_record,
+    _record_namespace,
     run_k3s_benchmark_set,
 )
 from hrw_runner.kubernetes import evaluate_preflight
@@ -376,7 +378,6 @@ class RuntimeTimelineTest(unittest.TestCase):
             "target_memory_bytes": 100,
             "target_memory_percent": 1.0,
         }
-
     def test_resets_transactional_tables_after_warmup(self):
         client = Mock()
 
@@ -413,6 +414,22 @@ class RuntimeTimelineTest(unittest.TestCase):
 
         self.assertEqual(correctness["status"], "invalid")
         self.assertIn("outbox_events", correctness["reasons"][0])
+
+
+class NamespaceRecordTest(unittest.TestCase):
+    def test_records_and_clears_only_the_matching_namespace(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "namespace.txt"
+            with patch.dict(os.environ, {"HRW_NAMESPACE_RECORD": str(path)}):
+                recorded = _record_namespace("hrw-run-abcdef0")
+
+            self.assertEqual(recorded, path)
+            self.assertEqual(path.read_text(), "hrw-run-abcdef0\n")
+
+            _clear_namespace_record(path, "hrw-other-abcdef0")
+            self.assertTrue(path.exists())
+            _clear_namespace_record(path, "hrw-run-abcdef0")
+            self.assertFalse(path.exists())
 
 
 class KubernetesPreflightTest(unittest.TestCase):

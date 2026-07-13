@@ -48,11 +48,13 @@ an application cache.
 ## Current Status
 
 Spring Boot and Quarkus implement this contract, and the local Compose runner is
-verified end to end. The provisional `0.3` contract deliberately sets
-`arrival_rate.calibrated: false`; frozen official open-model profiles reject it
-until the rate is calibrated on the home k3s environment.
+verified end to end. Contract `1.0` freezes a base rate of 300 requests per
+second for the official open-model profiles.
 
-The provisional base rate is 300 requests per second. Calibration runs the
-short `calibration-steady` and `calibration-burst` profiles against both
-implementations; the burst reaches five times the base rate. Calibration
-evidence is retained for review but is never published as an official result.
+The 2026-07-13 calibration used source commit
+`17eba6259fd072e42b28259afce41e12b52f28aa`. Both implementations completed
+18,001 steady requests at 300 requests per second and 35,999 burst requests at
+up to 1,500 requests per second. All four trials had zero dropped iterations,
+zero semantic failures, and zero HTTP errors. The observed p99 range was
+1.13-1.29 ms for steady load and 1.59-1.70 ms for burst load. Calibration
+evidence is development evidence and is not an official performance result.

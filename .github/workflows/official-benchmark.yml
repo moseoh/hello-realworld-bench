@@ -295,6 +295,7 @@ jobs:
           HRW_IMAGE_DISTRIBUTION: push
           HRW_TARGET_IMAGE: ${{ steps.image_ref.outputs.target_image }}
           HRW_TARGET_IMAGE_ARCHIVE: ${{ github.workspace }}/target-image/target-image.oci.tar
+          HRW_NAMESPACE_RECORD: ${{ runner.temp }}/hrw-${{ github.run_id }}-${{ steps.allowlist.outputs.image_key }}-${{ steps.allowlist.outputs.scenario }}-${{ steps.allowlist.outputs.load_profile }}.namespace
         run: |
           set -o pipefail
           log_path="../official-${IMAGE_KEY}-${SCENARIO}-${LOAD_PROFILE}.log"
@@ -308,6 +309,27 @@ jobs:
           test -n "$result_dir"
           test -f "$result_dir/run-set.json"
           printf 'result_dir=%s\n' "$result_dir" >> "$GITHUB_OUTPUT"
+      - name: Cleanup canceled benchmark namespace
+        if: ${{ always() }}
+        env:
+          HRW_NAMESPACE_RECORD: ${{ runner.temp }}/hrw-${{ github.run_id }}-${{ steps.allowlist.outputs.image_key }}-${{ steps.allowlist.outputs.scenario }}-${{ steps.allowlist.outputs.load_profile }}.namespace
+        run: |
+          if [ ! -f "$HRW_NAMESPACE_RECORD" ]; then
+            exit 0
+          fi
+          namespace="$(tr -d '[:space:]' < "$HRW_NAMESPACE_RECORD")"
+          printf '%s\n' "$namespace" | grep -Eq '^hrw-[a-z0-9]+-[0-9a-f]{7}$'
+          part_of="$(kubectl --context homelab get namespace "$namespace" \
+            --ignore-not-found \
+            -o 'go-template={{index .metadata.labels "app.kubernetes.io/part-of"}}')"
+          if [ -z "$part_of" ]; then
+            rm -f "$HRW_NAMESPACE_RECORD"
+            exit 0
+          fi
+          test "$part_of" = hello-realworld-bench
+          kubectl --context homelab delete namespace "$namespace" \
+            --wait=true --timeout=120s
+          rm -f "$HRW_NAMESPACE_RECORD"
       - name: Transfer raw evidence
         uses: actions/upload-artifact@v4
         with:

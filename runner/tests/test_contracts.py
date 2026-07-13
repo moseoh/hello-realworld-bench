@@ -1587,14 +1587,15 @@ class ContractValidationTest(unittest.TestCase):
 
 
 class ReadHeavyScenarioContractTest(unittest.TestCase):
-    def test_read_heavy_scenario_uses_the_frozen_pre_calibration_contract(self):
+    def test_read_heavy_scenario_uses_the_frozen_v1_contract(self):
         scenario = read_contract(
             PROJECT_ROOT / "scenarios/read-heavy-query-api/scenario.yaml",
             "scenario",
             PROJECT_ROOT,
         ).value
 
-        self.assertEqual(scenario["contract_version"], "0.3")
+        self.assertEqual(scenario["contract_version"], "1.0")
+        self.assertIs(scenario["load"]["arrival_rate"]["calibrated"], True)
         self.assertEqual(
             scenario["dataset"],
             {
@@ -1646,7 +1647,7 @@ class ReadHeavyScenarioContractTest(unittest.TestCase):
                 "base_per_second": 300,
                 "pre_allocated_vus": 200,
                 "max_vus": 400,
-                "calibrated": False,
+                "calibrated": True,
             },
         )
 

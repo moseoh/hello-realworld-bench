@@ -79,6 +79,15 @@ class WorkflowTrustBoundaryTest(unittest.TestCase):
         self.assertEqual(
             workflow["jobs"]["publish"]["strategy"]["max-parallel"], "1"
         )
+        self.assertIn("HRW_NAMESPACE_RECORD", benchmark_step["env"])
+        cleanup = next(
+            step
+            for step in benchmark["steps"]
+            if step.get("name") == "Cleanup canceled benchmark namespace"
+        )
+        self.assertEqual(cleanup["if"], "${{ always() }}")
+        self.assertIn("app.kubernetes.io/part-of", cleanup["run"])
+        self.assertIn('delete namespace "$namespace"', cleanup["run"])
 
     def test_official_build_matrix_is_static_and_builds_both_implementations(self):
         workflow = self._load("official-benchmark.yml")

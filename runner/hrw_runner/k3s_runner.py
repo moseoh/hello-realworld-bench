@@ -129,6 +129,7 @@ def run_k3s_benchmark_set(config: RunConfig, root_dir: Path) -> Path:
     write_json(paths.result_dir / "metadata.json", metadata)
 
     namespace = _namespace(paths.run_id, str(source["git_commit"]))
+    namespace_record = _record_namespace(namespace)
     trial_count = int(config.measurement_protocol_config["trials"])
     trial_documents: list[dict[str, Any]] = []
     trial_references = []
@@ -259,6 +260,7 @@ def run_k3s_benchmark_set(config: RunConfig, root_dir: Path) -> Path:
                 "--timeout=120s",
             ]
         )
+        _clear_namespace_record(namespace_record, namespace)
 
     postflight = _wait_for_quiet_postflight(client, environment)
     write_json(paths.result_dir / "postflight.json", postflight)
@@ -1332,6 +1334,21 @@ def _write_failed_trial(
 def _namespace(run_set_id: str, git_commit: str) -> str:
     timestamp = run_set_id.split("_", 1)[0].replace("-", "").lower()
     return f"hrw-{timestamp}-{git_commit[:7]}"
+
+
+def _record_namespace(namespace: str) -> Path | None:
+    value = os.environ.get("HRW_NAMESPACE_RECORD")
+    if not value:
+        return None
+    path = Path(value)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f"{namespace}\n")
+    return path
+
+
+def _clear_namespace_record(path: Path | None, namespace: str) -> None:
+    if path is not None and path.is_file() and path.read_text().strip() == namespace:
+        path.unlink()
 
 
 def _wait_for_quiet_postflight(

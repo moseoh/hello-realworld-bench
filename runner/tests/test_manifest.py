@@ -63,7 +63,7 @@ class ResolvedManifestTest(unittest.TestCase):
 
         manifest = build_resolved_manifest(config, "run-001", self.source)
 
-        self.assertIs(manifest["execution"]["load"]["arrival_rate"]["calibrated"], False)
+        self.assertIs(manifest["execution"]["load"]["arrival_rate"]["calibrated"], True)
         validate_resolved_manifest(manifest, PROJECT_ROOT)
 
     def test_k3s_manifest_uses_the_scenario_kubernetes_template_without_compose(self):
