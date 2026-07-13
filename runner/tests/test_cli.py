@@ -14,6 +14,50 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 class CliTest(unittest.TestCase):
+    def test_publish_passes_trusted_provenance_to_dataset_publisher(self):
+        output = io.StringIO()
+        with (
+            patch("pathlib.Path.cwd", return_value=PROJECT_ROOT),
+            patch("hrw_runner.__main__.publish_run_set") as publish,
+            redirect_stdout(output),
+        ):
+            publish.return_value = PROJECT_ROOT / "dataset/run-sets/cohort/run-001"
+            exit_code = main(
+                [
+                    "publish",
+                    "results/run-001",
+                    "dataset",
+                    "--source-commit",
+                    "c" * 40,
+                    "--workflow-url",
+                    "https://github.com/example/actions/runs/1",
+                    "--raw-artifact-url",
+                    "https://github.com/example/actions/runs/1#artifacts",
+                    "--raw-artifact-sha256",
+                    "a" * 64,
+                ]
+            )
+
+        self.assertEqual(exit_code, 0)
+        publish.assert_called_once_with(
+            PROJECT_ROOT / "results/run-001",
+            PROJECT_ROOT / "dataset",
+            PROJECT_ROOT,
+            source_commit="c" * 40,
+            workflow_url="https://github.com/example/actions/runs/1",
+            raw_artifact_url="https://github.com/example/actions/runs/1#artifacts",
+            raw_artifact_sha256="a" * 64,
+        )
+        self.assertIn("Published dataset entry:", output.getvalue())
+
+    def test_publish_rejects_missing_required_arguments(self):
+        errors = io.StringIO()
+        with redirect_stderr(errors):
+            exit_code = main(["publish", "results/run-001", "dataset"])
+
+        self.assertEqual(exit_code, 2)
+        self.assertIn("Usage: python -m hrw_runner publish", errors.getvalue())
+
     def test_validate_prints_validated_contract_file_count(self):
         output = io.StringIO()
         with patch("pathlib.Path.cwd", return_value=PROJECT_ROOT), redirect_stdout(output):

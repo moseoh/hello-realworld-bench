@@ -58,6 +58,11 @@ qualification fallback: a temporary privileged loader imports an OCI archive int
 k3s containerd, is deleted before target startup, and is never part of a measured
 trial.
 
+Continuous automation passes both `HRW_TARGET_IMAGE` and
+`HRW_TARGET_IMAGE_ARCHIVE`. The runner verifies the official digest reference
+and imports the prebuilt OCI archive without rebuilding it or exposing registry
+credentials to the home host. The same imported digest is reused for all trials.
+
 ## Protocol
 
 `official-service-v1` fixes three trials, a 120-second warmup, and a 480-second

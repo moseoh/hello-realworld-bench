@@ -1,0 +1,208 @@
+name: Official benchmark worker
+
+on:
+  workflow_call:
+    inputs:
+      source_sha:
+        description: Trusted full commit from the public main branch
+        required: true
+        type: string
+    secrets:
+      PUBLIC_REPO_TOKEN:
+        description: Token used only by the GitHub-hosted publication job
+        required: true
+
+concurrency:
+  group: official-home-k3s
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      target_image: ghcr.io/moseoh/hello-realworld-bench/spring-boot@${{ steps.image.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: moseoh/hello-realworld-bench
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: gradle
+      - name: Build target application
+        working-directory: implementations/java/spring-boot
+        run: ./gradlew clean bootJar --no-daemon
+      - uses: docker/setup-buildx-action@v3
+      - name: Build immutable target image archive
+        id: image
+        uses: docker/build-push-action@v6
+        with:
+          context: implementations/java/spring-boot
+          platforms: linux/amd64
+          outputs: type=oci,dest=/tmp/target-image.oci.tar
+          tags: ghcr.io/moseoh/hello-realworld-bench/spring-boot:${{ inputs.source_sha }}
+          provenance: false
+      - name: Transfer target image archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: target-image-${{ inputs.source_sha }}-${{ github.run_id }}
+          path: /tmp/target-image.oci.tar
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+  benchmark:
+    needs: build
+    runs-on: [self-hosted, linux, x64, hrw-home-k3s]
+    timeout-minutes: 60
+    env:
+      KUBECONFIG: /home/moseoh/.kube/config
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: moseoh/hello-realworld-bench
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+          path: source
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: source/runner/uv.lock
+      - uses: actions/download-artifact@v4
+        with:
+          name: target-image-${{ inputs.source_sha }}-${{ github.run_id }}
+          path: target-image
+      - name: Verify trusted source
+        working-directory: source
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test -z "$(git status --porcelain)"
+          test -f ../target-image/target-image.oci.tar
+      - name: Run official qualification set
+        id: benchmark
+        working-directory: source
+        env:
+          HRW_IMAGE_DISTRIBUTION: push
+          HRW_TARGET_IMAGE: ${{ needs.build.outputs.target_image }}
+          HRW_TARGET_IMAGE_ARCHIVE: ${{ github.workspace }}/target-image/target-image.oci.tar
+        run: |
+          set -o pipefail
+          PYTHONPATH=runner uv run --project runner python -m hrw_runner run-set \
+            java/spring-boot ping-api jvm-java25 \
+            --environment-profile home-k3s-v1 \
+            --measurement-protocol official-service-v1 \
+            --load-profile platform-qualification-v1 | tee official-benchmark.log
+          result_dir="$(sed -n 's/^Run set directory: //p' official-benchmark.log | tail -1)"
+          test -n "$result_dir"
+          test -f "$result_dir/run-set.json"
+          printf 'result_dir=%s\n' "$result_dir" >> "$GITHUB_OUTPUT"
+      - name: Transfer raw evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: official-${{ inputs.source_sha }}-${{ github.run_id }}
+          path: ${{ steps.benchmark.outputs.result_dir }}
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 6
+
+  publish:
+    needs: benchmark
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: moseoh/hello-realworld-bench
+          ref: ${{ inputs.source_sha }}
+          token: ${{ secrets.PUBLIC_REPO_TOKEN }}
+          path: source
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: source/runner/uv.lock
+      - uses: actions/download-artifact@v4
+        with:
+          name: official-${{ inputs.source_sha }}-${{ github.run_id }}
+          path: raw-run-set
+      - name: Prepare append-only data branch
+        working-directory: source
+        run: |
+          if git fetch origin benchmark-data; then
+            git worktree add ../dataset FETCH_HEAD
+          else
+            git worktree add --detach ../dataset HEAD
+            git -C ../dataset switch --orphan benchmark-data
+            git -C ../dataset rm -rf .
+          fi
+      - name: Prepare raw evidence release
+        env:
+          REPOSITORY: moseoh/hello-realworld-bench
+        run: |
+          run_set_id="$(jq -r .run_set_id raw-run-set/run-set.json)"
+          test -n "$run_set_id"
+          tar -C raw-run-set -czf raw-evidence.tar.gz .
+          raw_sha="$(sha256sum raw-evidence.tar.gz | cut -d' ' -f1)"
+          printf '%s  raw-evidence.tar.gz\n' "$raw_sha" > raw-evidence.tar.gz.sha256
+          release_tag="benchmark-evidence-${run_set_id}"
+          printf 'RAW_ARTIFACT_SHA256=%s\n' "$raw_sha" >> "$GITHUB_ENV"
+          printf 'RAW_ARTIFACT_URL=https://github.com/%s/releases/download/%s/raw-evidence.tar.gz\n' \
+            "$REPOSITORY" "$release_tag" >> "$GITHUB_ENV"
+          printf 'RELEASE_TAG=%s\n' "$release_tag" >> "$GITHUB_ENV"
+      - name: Publish validated compact evidence
+        working-directory: source
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          WORKFLOW_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          PYTHONPATH=runner uv run --project runner python -m hrw_runner publish \
+            ../raw-run-set ../dataset \
+            --source-commit "$SOURCE_SHA" \
+            --workflow-url "$WORKFLOW_URL" \
+            --raw-artifact-url "$RAW_ARTIFACT_URL" \
+            --raw-artifact-sha256 "$RAW_ARTIFACT_SHA256"
+      - name: Publish idempotent raw evidence release
+        env:
+          GH_TOKEN: ${{ secrets.PUBLIC_REPO_TOKEN }}
+          GH_REPO: moseoh/hello-realworld-bench
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            mkdir existing-release
+            gh release download "$RELEASE_TAG" --dir existing-release \
+              --pattern raw-evidence.tar.gz \
+              --pattern raw-evidence.tar.gz.sha256
+            cmp raw-evidence.tar.gz existing-release/raw-evidence.tar.gz
+            cmp raw-evidence.tar.gz.sha256 existing-release/raw-evidence.tar.gz.sha256
+          else
+            gh release create "$RELEASE_TAG" \
+              raw-evidence.tar.gz \
+              raw-evidence.tar.gz.sha256 \
+              --target "$SOURCE_SHA" \
+              --title "Benchmark evidence ${RELEASE_TAG#benchmark-evidence-}" \
+              --notes "Raw evidence for trusted workflow run ${{ github.run_id }}."
+          fi
+      - name: Commit canonical dataset
+        working-directory: dataset
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add catalog.json run-sets
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "Publish benchmark ${SOURCE_SHA}"
+          git push origin HEAD:benchmark-data
