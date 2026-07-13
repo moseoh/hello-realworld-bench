@@ -22,8 +22,8 @@ It already provides:
 
 - a uv-managed Python runner;
 - Docker Compose execution;
-- a Spring Boot 4 and Java 25 reference implementation;
-- JVM and virtual-thread variants;
+- Spring Boot 4 and Quarkus `3.33.2.1` LTS reference implementations on Java 25;
+- JVM and Spring virtual-thread variants;
 - `ping-api`, `cold-start-api`, `transactional-command-api`, `io-aggregation-api`, and `io-aggregation-timeout-api`;
 - build, startup, k6, and Docker resource measurements; and
 - normalized local result JSON.
@@ -36,6 +36,12 @@ It already provides:
 The automated `ping-api` qualification campaign validates the official platform
 and publication path. Core scenario campaigns remain unfinished, so the project
 does not yet have a comparative public dataset.
+
+Environment contract version `1.2` starts a new comparison cohort because target
+image repository ownership moved from the Spring-specific environment profile to
+each implementation contract. Transactional scenario version `1.2` also raises
+pre-allocated VUs from 100 to 200 after a 1,000 requests/second burst showed a
+113 ms tail and four dropped iterations while dynamic allocation caught up.
 
 ## Benchmark Model
 
@@ -176,6 +182,10 @@ Exit criteria:
 - each comparison uses equivalent work, dependency behavior, resources, and measurement rules; and
 - framework-specific optimizations appear only as documented variants.
 
+The Quarkus implementation and two-implementation workflow are present, but the
+36-trial qualification campaign has not been completed. This milestone remains
+open until every required trial is valid.
+
 ## Milestone 6: Core Scenario Suite v1
 
 Complete the smallest representative service-pattern set after the second implementation has challenged the contracts.
@@ -222,7 +232,7 @@ Expand one comparison axis at a time after the v1 product is complete.
 Candidate extensions:
 
 - JVM, native image, garbage collector, and virtual-thread variants;
-- additional implementations such as Quarkus or Go;
+- additional implementations such as Go;
 - timeout and degraded-dependency scenarios;
 - soak profiles;
 - observability overhead as paired uninstrumented and instrumented runs;

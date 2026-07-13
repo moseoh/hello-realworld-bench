@@ -17,6 +17,11 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: gradle
       - uses: grafana/setup-k6-action@v1
         with:
           k6-version: "2.1.0"
@@ -24,5 +29,5 @@ jobs:
         run: make validate-contracts test-runner
       - name: Validate GitHub Actions workflows
         run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
-      - name: Test Spring Boot
-        run: make test-spring
+      - name: Test implementations
+        run: make test-spring test-quarkus

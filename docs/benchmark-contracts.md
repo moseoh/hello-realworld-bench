@@ -14,11 +14,11 @@ performance conclusion.
 
 | Contract | Location | Owns |
 | --- | --- | --- |
-| Implementation | `implementations/<language>/<framework>/implementation.yaml` | Language, framework, programming model, default variant, and default build profile. |
-| Variant | `implementations/<language>/<framework>/variants/<variant>.yaml` | A runtime and container configuration for one implementation. |
+| Implementation | `implementations/<language>/<framework>/implementation.yaml` | Language, framework, programming model, default variant and build profile, official image repository, and scenario-specific target environment. |
+| Variant | `implementations/<language>/<framework>/variants/<variant>.yaml` | Runtime and container configuration plus a variant-specific target environment overlay for one implementation. |
 | Service scenario | `scenarios/<scenario>/scenario.yaml` | Technology-neutral service behavior, dependencies, target endpoint, measured and excluded concerns, service conditions, metrics, and default load, environment, and measurement profiles. |
 | Load profile | `contracts/load-profiles/<profile>.yaml` | Load model, executor, timing source, and load phases. |
-| Environment profile | `contracts/environment-profiles/<profile>.yaml` | Orchestrator, load-generator placement, and whether the environment is official. |
+| Environment profile | `contracts/environment-profiles/<profile>.yaml` | Orchestrator, load-generator placement, platform resource policy, and whether the environment is official. |
 | Measurement protocol | `contracts/measurement-protocols/<protocol>.yaml` | Evidence family, trial count, warmup, and measured duration. |
 | Build profile | `contracts/build-profiles/<profile>.yaml` | Build tool, dependency-cache state, image-cache state, and image input. |
 

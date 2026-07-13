@@ -19,6 +19,11 @@ Hello Real World Bench compares implementations through shared scenario contract
 
 For a scenario to be comparable, each implementation must do the same work and return the same shape of response.
 
+The Spring Boot 4 and Quarkus `3.33.2.1` LTS Java 25 implementations share the
+same `transactional-command-api` and `io-aggregation-api` request, response,
+transaction, outbox, and fallback contracts. Their framework code is independent;
+only the observable work and dependencies are shared.
+
 Cold-start scenarios should use the scenario business endpoint as the readiness signal. Framework health endpoints should not be used for cold-start measurement because they can warm different parts of different runtimes before the first business request.
 
 Docker Compose health checks should not call benchmarked endpoints during startup measurement. The runner should perform endpoint polling from the host.
@@ -30,6 +35,22 @@ The MVP uses Docker Compose resource constraints. Later profiles may add stricte
 ## HTTP Baseline
 
 HTTP scenarios must keep target HTTP client behavior and mock upstream settings comparable across implementations. The current baseline is documented in [http-baseline.md](http-baseline.md).
+
+Spring Boot and Quarkus use their idiomatic HTTP clients, but both preserve the
+documented pool bounds, concurrency and pending-operation limits, timeout values,
+disabled retries and circuit breakers, and inventory-only fallback.
+
+## Comparison Cohorts
+
+Environment contract version `1.2` moves the target image repository from the
+Spring-specific environment profile to each implementation contract. This is a
+new comparison cohort: evidence produced under earlier environment contract
+versions must not be compared directly with v1.2 evidence.
+
+Transactional scenario contract version `1.2` also raises pre-allocated k6 VUs
+from 100 to 200 after a 1,000 requests/second calibration burst showed a 113 ms
+tail and four dropped iterations during dynamic allocation. This changes the
+load-generator condition and therefore cannot be mixed with scenario v1.1.
 
 ## Build Conditions
 

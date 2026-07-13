@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 import yaml
 
@@ -29,7 +29,7 @@ def render_scenario_documents(
     stages: str = "[]",
     pre_allocated_vus: int = 1,
     max_vus: int = 1,
-    virtual_threads: bool = False,
+    target_environment: Mapping[str, str],
 ) -> list[dict[str, Any]]:
     for name, value in (("namespace", namespace), ("run_set_id", run_set_id), ("job_name", job_name)):
         if not _DNS_LABEL.fullmatch(value):
@@ -55,13 +55,21 @@ def render_scenario_documents(
     ):
         raise ValueError("Invalid k6 arrival-rate capacity")
 
+    target_env = [
+        {"name": "JAVA_TOOL_OPTIONS", "value": java_tool_options},
+        *(
+            {"name": name, "value": value}
+            for name, value in sorted(target_environment.items())
+        ),
+    ]
+
     replacements: dict[str, object] = {
         "__NAMESPACE__": namespace,
         "__RUN_SET_ID__": run_set_id,
         "__SCENARIO_ID__": scenario_id,
         "__TARGET_IMAGE__": target_image,
         "__K6_IMAGE__": k6_image,
-        "__JAVA_TOOL_OPTIONS__": java_tool_options,
+        "__TARGET_ENV__": target_env,
         "__K6_DURATION__": duration,
         "__K6_VUS__": str(vus),
         "__HRW_LOAD_EXECUTOR__": executor,
@@ -71,8 +79,6 @@ def render_scenario_documents(
         "__HRW_LOAD_MAX_VUS__": str(max_vus),
         "__K6_JOB_NAME__": job_name,
         "__K6_SCRIPT__": script,
-        "__VIRTUAL_THREADS__": "true" if virtual_threads else "false",
-        "__KEEP_ALIVE__": "true" if virtual_threads else "false",
     }
     documents = [
         _replace(document, replacements)

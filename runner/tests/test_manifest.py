@@ -641,7 +641,7 @@ class ResolvedManifestTest(unittest.TestCase):
             PROJECT_ROOT / "implementations/java/spring-boot/variants",
             app_dir / "variants",
         )
-        shutil.copytree(PROJECT_ROOT / "scenarios/ping-api", root / "scenarios/ping-api")
+        shutil.copytree(PROJECT_ROOT / "scenarios", root / "scenarios")
         shutil.copytree(PROJECT_ROOT / "infra", root / "infra")
         return root
 

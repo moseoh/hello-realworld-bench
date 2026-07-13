@@ -1,6 +1,6 @@
 schema_version: "1.0"
 id: jvm-java25-virtual-threads
-contract_version: "1.0"
+contract_version: "1.1"
 description: "Spring Boot JVM variant using Java 25 with virtual threads enabled."
 implementation: java/spring-boot
 
@@ -14,3 +14,8 @@ runtime:
 
 docker:
   image_tag: "hello-realworld/java-spring-boot-jvm-java25-virtual-threads:local"
+
+kubernetes:
+  target_environment:
+    SPRING_THREADS_VIRTUAL_ENABLED: "true"
+    SPRING_MAIN_KEEP_ALIVE: "true"

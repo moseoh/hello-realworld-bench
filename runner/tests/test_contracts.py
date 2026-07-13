@@ -46,6 +46,12 @@ class ContractValidationTest(unittest.TestCase):
                 "programming_model": "sync",
                 "default_variant": "default",
                 "default_build_profile": "build",
+                "official_image_repository": "ghcr.io/example/python-example",
+                "kubernetes": {
+                    "target_environment": {
+                        "example-scenario": {"EXAMPLE_MODE": "benchmark"}
+                    }
+                },
             },
         )
         self.write_yaml(
@@ -60,6 +66,9 @@ class ContractValidationTest(unittest.TestCase):
                     "build_mode": "interpreted",
                 },
                 "docker": {"image_tag": "example:local"},
+                "kubernetes": {
+                    "target_environment": {"EXAMPLE_VARIANT": "default"}
+                },
             },
         )
         self.write_yaml(
@@ -213,6 +222,150 @@ class ContractValidationTest(unittest.TestCase):
             read_contract(path, "implementation", self.root_dir)
 
         self.assertIn("default_build_profile", str(context.exception))
+
+    def test_read_implementation_accepts_official_repository_and_scenario_environment(self):
+        path = self.root_dir / "implementations/python/example/implementation.yaml"
+
+        document = read_contract(path, "implementation", self.root_dir)
+
+        self.assertEqual(
+            document.value["official_image_repository"],
+            "ghcr.io/example/python-example",
+        )
+        self.assertEqual(
+            document.value["kubernetes"]["target_environment"],
+            {"example-scenario": {"EXAMPLE_MODE": "benchmark"}},
+        )
+
+    def test_read_implementation_rejects_tagged_or_digested_official_repository(self):
+        path = self.root_dir / "implementations/python/example/implementation.yaml"
+        original = self.read_yaml("implementations/python/example/implementation.yaml")
+
+        for repository in (
+            "ghcr.io/example/python-example:latest",
+            "ghcr.io/example/python-example@sha256:" + "a" * 64,
+        ):
+            with self.subTest(repository=repository):
+                value = copy.deepcopy(original)
+                value["official_image_repository"] = repository
+                self.write_yaml(
+                    "implementations/python/example/implementation.yaml",
+                    value,
+                )
+
+                with self.assertRaises(ContractValidationError) as context:
+                    read_contract(path, "implementation", self.root_dir)
+
+                self.assertIn("$.official_image_repository", str(context.exception))
+
+    def test_read_contract_rejects_invalid_target_environment_entries(self):
+        cases = (
+            (
+                "implementation",
+                "implementations/python/example/implementation.yaml",
+                ("kubernetes", "target_environment", "example-scenario"),
+            ),
+            (
+                "variant",
+                "implementations/python/example/variants/default.yaml",
+                ("kubernetes", "target_environment"),
+            ),
+        )
+
+        for kind, relative_path, keys in cases:
+            for invalid_environment in (
+                {"": "value"},
+                {"VALID_NAME": ""},
+                {"JAVA_TOOL_OPTIONS": "-Xmx512m"},
+            ):
+                with self.subTest(
+                    kind=kind,
+                    invalid_environment=invalid_environment,
+                ):
+                    value = self.read_yaml(relative_path)
+                    target = value
+                    for key in keys[:-1]:
+                        target = target[key]
+                    target[keys[-1]] = invalid_environment
+                    self.write_yaml(relative_path, value)
+
+                    with self.assertRaises(ContractValidationError):
+                        read_contract(self.root_dir / relative_path, kind, self.root_dir)
+
+                    self.create_repository()
+
+    def test_contract_environment_names_require_portable_posix_style(self):
+        cases = (
+            (
+                "implementation",
+                "implementations/python/example/implementation.yaml",
+                ("kubernetes", "target_environment", "example-scenario"),
+            ),
+            (
+                "variant",
+                "implementations/python/example/variants/default.yaml",
+                ("kubernetes", "target_environment"),
+            ),
+        )
+
+        for kind, relative_path, keys in cases:
+            for invalid_name in ("HAS SPACE", "HAS=EQUALS", "1LEADING"):
+                with self.subTest(kind=kind, invalid_name=invalid_name):
+                    value = self.read_yaml(relative_path)
+                    target = value
+                    for key in keys:
+                        target = target[key]
+                    target[invalid_name] = "value"
+                    self.write_yaml(relative_path, value)
+
+                    with self.assertRaises(ContractValidationError):
+                        read_contract(self.root_dir / relative_path, kind, self.root_dir)
+
+                    self.create_repository()
+
+    def test_contract_environment_names_reject_trailing_line_endings(self):
+        cases = (
+            (
+                "implementation",
+                "implementations/python/example/implementation.yaml",
+                ("kubernetes", "target_environment", "example-scenario"),
+            ),
+            (
+                "variant",
+                "implementations/python/example/variants/default.yaml",
+                ("kubernetes", "target_environment"),
+            ),
+        )
+
+        for kind, relative_path, keys in cases:
+            for invalid_name in ("VALID_NAME\n", "VALID_NAME\r\n"):
+                with self.subTest(kind=kind, invalid_name=repr(invalid_name)):
+                    value = self.read_yaml(relative_path)
+                    target = value
+                    for key in keys:
+                        target = target[key]
+                    target[invalid_name] = "value"
+                    self.write_yaml(relative_path, value)
+
+                    with self.assertRaises(ContractValidationError):
+                        read_contract(self.root_dir / relative_path, kind, self.root_dir)
+
+                    self.create_repository()
+
+    def test_official_repository_rejects_trailing_line_endings(self):
+        path = self.root_dir / "implementations/python/example/implementation.yaml"
+
+        for line_ending in ("\n", "\r\n"):
+            with self.subTest(line_ending=repr(line_ending)):
+                value = self.read_yaml("implementations/python/example/implementation.yaml")
+                value["official_image_repository"] += line_ending
+                self.write_yaml("implementations/python/example/implementation.yaml", value)
+
+                with self.assertRaises(ContractValidationError) as context:
+                    read_contract(path, "implementation", self.root_dir)
+
+                self.assertIn("$.official_image_repository", str(context.exception))
+                self.create_repository()
 
     def test_read_scenario_rejects_a_build_profile_default(self):
         path = self.root_dir / "scenarios/example-scenario/scenario.yaml"
@@ -607,7 +760,7 @@ class ContractValidationTest(unittest.TestCase):
             {
                 "schema_version": "1.0",
                 "id": "home-k3s-v1",
-                "contract_version": "1.1",
+                "contract_version": "1.2",
                 "status": "frozen",
                 "description": "Official single-node home k3s benchmark environment.",
                 "orchestrator": "k3s",
@@ -630,7 +783,6 @@ class ContractValidationTest(unittest.TestCase):
                     "load_generator": {"cpu": "4", "memory": "3Gi"},
                 },
                 "images": {
-                    "target_repository": "ghcr.io/moseoh/hello-realworld-bench/spring-boot",
                     "target_platform": "linux/amd64",
                     "target_digest_required": True,
                     "k6": "grafana/k6@sha256:68e78d94140704ec4ee0cb7c5cf6cd12a32b7d310a6f98d94931ee9b0b9dc629",
@@ -936,6 +1088,32 @@ class ContractValidationTest(unittest.TestCase):
             ],
         )
 
+    def test_validate_repository_rejects_unknown_target_environment_scenario(self):
+        relative_path = "implementations/python/example/implementation.yaml"
+        value = self.read_yaml(relative_path)
+        value["kubernetes"]["target_environment"]["unknown-scenario"] = {
+            "EXAMPLE_MODE": "benchmark"
+        }
+        self.write_yaml(relative_path, value)
+
+        with self.assertRaises(ContractValidationError) as context:
+            validate_repository_contracts(self.root_dir)
+
+        self.assertEqual(
+            str(context.exception),
+            "implementations/python/example/implementation.yaml: "
+            "$.kubernetes.target_environment.unknown-scenario: missing scenario "
+            "'unknown-scenario'",
+        )
+
+    def test_validate_repository_allows_missing_target_environment_scenarios(self):
+        relative_path = "implementations/python/example/implementation.yaml"
+        value = self.read_yaml(relative_path)
+        value["kubernetes"]["target_environment"] = {}
+        self.write_yaml(relative_path, value)
+
+        validate_repository_contracts(self.root_dir)
+
     def test_validate_repository_requires_scenario_contract_in_each_directory(self):
         scenario_path = self.root_dir / "scenarios/example-scenario/scenario.yaml"
         scenario_path.rename(scenario_path.with_name("renamed.yaml"))
@@ -945,6 +1123,9 @@ class ContractValidationTest(unittest.TestCase):
 
         self.assertEqual(
             str(context.exception),
+            "implementations/python/example/implementation.yaml: "
+            "$.kubernetes.target_environment.example-scenario: missing scenario "
+            "'example-scenario'\n"
             "scenarios/example-scenario/scenario.yaml: $: missing required scenario "
             "contract",
         )
@@ -1279,6 +1460,9 @@ class ContractValidationTest(unittest.TestCase):
             [
                 "contracts/load-profiles/duplicate.yaml: $: invalid YAML at line 2, "
                 "column 1: found duplicate key 'id'",
+                "implementations/python/example/implementation.yaml: "
+                "$.kubernetes.target_environment.example-scenario: missing scenario "
+                "'example-scenario'",
                 "scenarios/example-scenario/scenario.yaml: $: 'default_profiles' is "
                 "a required property",
             ],
@@ -1315,6 +1499,9 @@ class ContractValidationTest(unittest.TestCase):
                 "column 1: expected the node content, but found '<stream end>'",
                 "implementations/python/example/implementation.yaml: "
                 "$.default_build_profile: missing build-profile 'missing'",
+                "implementations/python/example/implementation.yaml: "
+                "$.kubernetes.target_environment.example-scenario: missing scenario "
+                "'example-scenario'",
                 "scenarios/example-scenario/scenario.yaml: $: missing required "
                 "scenario contract",
                 "scenarios/invalid-scenario/scenario.yaml: $: 'default_profiles' is "

@@ -1,9 +1,13 @@
+import hashlib
 import json
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
+from hrw_runner.config import resolve_run_config
+from hrw_runner.manifest import build_resolved_manifest
 from hrw_runner.publication import PublicationError, publish_run_set
 
 
@@ -19,7 +23,12 @@ class DatasetPublicationTest(unittest.TestCase):
             run_set_dir = self._write_run_set(root / "source", "run-001")
             dataset_dir = root / "dataset"
 
-            with patch("hrw_runner.publication.validate_run_set_evidence") as validate:
+            with (
+                patch("hrw_runner.publication.validate_run_set_evidence") as validate,
+                patch(
+                    "hrw_runner.publication.validate_resolved_manifest",
+                ) as validate_manifest,
+            ):
                 entry_dir = publish_run_set(
                     run_set_dir,
                     dataset_dir,
@@ -31,6 +40,8 @@ class DatasetPublicationTest(unittest.TestCase):
                 )
 
             validate.assert_called_once_with(run_set_dir.resolve(), PROJECT_ROOT)
+            validate_manifest.assert_called_once()
+            self.assertEqual(validate_manifest.call_args.args[1], PROJECT_ROOT)
             self.assertTrue((entry_dir / "run-set.json").is_file())
             self.assertTrue((entry_dir / "trials/01/result.json").is_file())
             self.assertTrue((entry_dir / "trials/01/time-series.json").is_file())
@@ -46,7 +57,12 @@ class DatasetPublicationTest(unittest.TestCase):
             run_set_dir = self._write_run_set(root / "source", "run-001")
             dataset_dir = root / "dataset"
 
-            with patch("hrw_runner.publication.validate_run_set_evidence"):
+            with (
+                patch("hrw_runner.publication.validate_run_set_evidence"),
+                patch(
+                    "hrw_runner.publication.validate_resolved_manifest",
+                ),
+            ):
                 first = publish_run_set(
                     run_set_dir, dataset_dir, PROJECT_ROOT, source_commit="c" * 40
                 )
@@ -64,7 +80,12 @@ class DatasetPublicationTest(unittest.TestCase):
             run_set_dir = self._write_run_set(root / "source", "run-001")
             dataset_dir = root / "dataset"
 
-            with patch("hrw_runner.publication.validate_run_set_evidence"):
+            with (
+                patch("hrw_runner.publication.validate_run_set_evidence"),
+                patch(
+                    "hrw_runner.publication.validate_resolved_manifest",
+                ),
+            ):
                 entry_dir = publish_run_set(
                     run_set_dir, dataset_dir, PROJECT_ROOT, source_commit="c" * 40
                 )
@@ -81,7 +102,12 @@ class DatasetPublicationTest(unittest.TestCase):
             second = self._write_run_set(root / "second", "run-002")
             dataset_dir = root / "dataset"
 
-            with patch("hrw_runner.publication.validate_run_set_evidence"):
+            with (
+                patch("hrw_runner.publication.validate_run_set_evidence"),
+                patch(
+                    "hrw_runner.publication.validate_resolved_manifest",
+                ),
+            ):
                 first_entry = publish_run_set(
                     first, dataset_dir, PROJECT_ROOT, source_commit="c" * 40
                 )
@@ -118,6 +144,9 @@ class DatasetPublicationTest(unittest.TestCase):
 
                 with (
                     patch("hrw_runner.publication.validate_run_set_evidence"),
+                    patch(
+                        "hrw_runner.publication.validate_resolved_manifest",
+                    ),
                     self.assertRaises(PublicationError),
                 ):
                     publish_run_set(
@@ -126,6 +155,82 @@ class DatasetPublicationTest(unittest.TestCase):
                         PROJECT_ROOT,
                         source_commit=source_commit,
                     )
+
+    def test_rejects_manifest_body_and_recorded_digest_tampering(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            run_set_dir = self._write_run_set(root / "source", "run-001")
+            source = {
+                "git_commit": "c" * 40,
+                "git_dirty": False,
+                "worktree_digest": "d" * 64,
+            }
+            config = resolve_run_config(
+                "java/spring-boot",
+                "ping-api",
+                "jvm-java25",
+                PROJECT_ROOT,
+                load_profile="platform-qualification-v1",
+                environment_profile="home-k3s-v1",
+                measurement_protocol="official-service-v1",
+            )
+            config = replace(
+                config,
+                image_tag=(
+                    "ghcr.io/moseoh/hello-realworld-bench/spring-boot@sha256:"
+                    + "e" * 64
+                ),
+            )
+            manifest = build_resolved_manifest(config, "run-001", source)
+            manifest["execution"]["target"]["endpoint"] = "/tampered"
+            self._rehash_manifest(manifest)
+            (run_set_dir / "resolved-manifest.json").write_text(json.dumps(manifest))
+
+            run_set = json.loads((run_set_dir / "run-set.json").read_text())
+            run_set["manifest_digest"] = manifest["manifest_digest"]
+            run_set["cohort_fingerprint"] = manifest["cohort"]["fingerprint"]
+            (run_set_dir / "run-set.json").write_text(json.dumps(run_set))
+            trial_path = run_set_dir / "trials/01/trial.json"
+            trial = json.loads(trial_path.read_text())
+            trial["manifest_digest"] = manifest["manifest_digest"]
+            trial["cohort_fingerprint"] = manifest["cohort"]["fingerprint"]
+            trial_path.write_text(json.dumps(trial))
+
+            with (
+                patch("hrw_runner.publication.validate_run_set_evidence"),
+                patch("hrw_runner.manifest.read_git_provenance", return_value=source),
+                self.assertRaisesRegex(ValueError, "execution.target.endpoint"),
+            ):
+                publish_run_set(
+                    run_set_dir,
+                    root / "dataset",
+                    PROJECT_ROOT,
+                    source_commit="c" * 40,
+                )
+
+    def _rehash_manifest(self, manifest):
+        cohort_payload = {
+            key: value
+            for key, value in manifest["cohort"].items()
+            if key != "fingerprint"
+        }
+        manifest["cohort"]["fingerprint"] = self._digest(cohort_payload)
+        manifest_payload = {
+            key: value
+            for key, value in manifest.items()
+            if key != "manifest_digest"
+        }
+        manifest["manifest_digest"] = self._digest(manifest_payload)
+
+    def _digest(self, value):
+        payload = json.dumps(
+            value,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+            allow_nan=False,
+        )
+        return hashlib.sha256(payload.encode()).hexdigest()
 
     def _write_run_set(self, directory: Path, run_set_id: str) -> Path:
         trial_dir = directory / "trials/01"

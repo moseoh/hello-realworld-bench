@@ -183,29 +183,7 @@ spec:
     - name: target
       image: __TARGET_IMAGE__
       imagePullPolicy: IfNotPresent
-      env:
-        - name: JAVA_TOOL_OPTIONS
-          value: __JAVA_TOOL_OPTIONS__
-        - name: SPRING_THREADS_VIRTUAL_ENABLED
-          value: __VIRTUAL_THREADS__
-        - name: SPRING_MAIN_KEEP_ALIVE
-          value: __KEEP_ALIVE__
-        - name: MOCK_UPSTREAM_BASE_URL
-          value: http://mock-upstream:8080
-        - name: AGGREGATION_HTTP_CONNECT_TIMEOUT_MS
-          value: "500"
-        - name: AGGREGATION_HTTP_RESPONSE_TIMEOUT_MS
-          value: "1000"
-        - name: AGGREGATION_HTTP_CONNECTION_REQUEST_TIMEOUT_MS
-          value: "500"
-        - name: AGGREGATION_HTTP_MAX_CONNECTIONS
-          value: "128"
-        - name: AGGREGATION_HTTP_MAX_CONNECTIONS_PER_ROUTE
-          value: "128"
-        - name: AGGREGATION_MAX_CONCURRENT_UPSTREAM_REQUESTS
-          value: "128"
-        - name: AGGREGATION_MAX_PENDING_UPSTREAM_REQUESTS
-          value: "128"
+      env: __TARGET_ENV__
       ports:
         - name: http
           containerPort: 8080

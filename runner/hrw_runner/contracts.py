@@ -315,6 +315,11 @@ def _validate_references(
         kind: {str(document.value["id"]): document for document in documents if document.kind == kind}
         for kind in _PROFILE_KINDS
     }
+    scenario_ids = {
+        str(document.value["id"])
+        for document in documents
+        if document.kind == "scenario"
+    }
     implementations_by_path = {
         document.path.parent: document
         for document in documents
@@ -346,6 +351,17 @@ def _validate_references(
 
     for document in documents:
         if document.kind == "implementation":
+            kubernetes = document.value["kubernetes"]
+            assert isinstance(kubernetes, dict)
+            target_environment = kubernetes["target_environment"]
+            assert isinstance(target_environment, dict)
+            for scenario_id in target_environment:
+                if scenario_id not in scenario_ids:
+                    errors.append(
+                        f"{_display_path(document.path, root_dir)}: "
+                        f"{_json_location(('kubernetes', 'target_environment', scenario_id))}: "
+                        f"missing scenario '{scenario_id}'"
+                    )
             default_variant = str(document.value["default_variant"])
             variant_ids = variants_by_implementation_path.get(document.path.parent, set())
             if default_variant not in variant_ids:

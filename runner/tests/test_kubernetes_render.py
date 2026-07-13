@@ -20,7 +20,10 @@ class KubernetesRenderTest(unittest.TestCase):
             vus=50,
             job_name="k6-measured-01",
             script="export default function () { /* pong */ }\n",
-            virtual_threads=True,
+            target_environment={
+                "Z_FRAMEWORK_SETTING": "last",
+                "A_FRAMEWORK_SETTING": "first",
+            },
         )
 
         by_kind = {document["kind"]: document for document in documents}
@@ -31,12 +34,14 @@ class KubernetesRenderTest(unittest.TestCase):
         )
         self.assertEqual(by_kind["ConfigMap"]["data"]["k6.js"], "export default function () { /* pong */ }\n")
         self.assertEqual(by_kind["Job"]["metadata"]["name"], "k6-measured-01")
-        target_env = {
-            item["name"]: item["value"]
-            for item in by_kind["Pod"]["spec"]["containers"][0]["env"]
-        }
-        self.assertEqual(target_env["SPRING_THREADS_VIRTUAL_ENABLED"], "true")
-        self.assertEqual(target_env["SPRING_MAIN_KEEP_ALIVE"], "true")
+        self.assertEqual(
+            by_kind["Pod"]["spec"]["containers"][0]["env"],
+            [
+                {"name": "JAVA_TOOL_OPTIONS", "value": "-XX:MaxRAMPercentage=75"},
+                {"name": "A_FRAMEWORK_SETTING", "value": "first"},
+                {"name": "Z_FRAMEWORK_SETTING", "value": "last"},
+            ],
+        )
         self.assertNotIn("__", repr(documents))
 
     def test_allows_k6_standard_env_identifier_inside_the_script(self):
@@ -51,6 +56,7 @@ class KubernetesRenderTest(unittest.TestCase):
             vus=50,
             job_name="k6-measured",
             script="const baseUrl = __ENV.BASE_URL;\n",
+            target_environment={},
         )
 
         config_map = next(item for item in documents if item["kind"] == "ConfigMap")
@@ -73,6 +79,7 @@ class KubernetesRenderTest(unittest.TestCase):
             "vus": 50,
             "job_name": "k6-measured",
             "script": "export default function () {}\n",
+            "target_environment": {},
         }
         for changes in cases:
             with self.subTest(changes=changes):

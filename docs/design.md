@@ -62,6 +62,12 @@ dependency, and in-cluster k6 workloads.
 
 The target service is always named `target` so scenarios can interact with a stable contract.
 
+The official environment contract no longer owns a framework-specific image
+repository. Each implementation contract owns its repository, while
+`home-k3s-v1` defines the shared host and resource conditions. This ownership
+change produced environment contract version `1.2` and starts a new comparison
+cohort.
+
 ## Target Implementation
 
 Implementation source is organized by language and framework:
@@ -70,13 +76,19 @@ Implementation source is organized by language and framework:
 implementations/
   java/
     spring-boot/
+    quarkus/
 ```
 
-The first implementation is Spring Boot 4 with Java 25. It implements:
+The baseline implementations are Spring Boot 4 with Java 25 and Quarkus
+`3.33.2.1` LTS with Java 25. Spring Boot comes from Spring Initializr; Quarkus
+comes from the official Quarkus generator. Both implement:
 
 - `GET /ping`
 - transactional command handling with PostgreSQL
 - parallel upstream HTTP aggregation
+
+They preserve the same request and response contracts, PostgreSQL transaction
+and outbox behavior, and effective outbound HTTP client limits and timeouts.
 
 Redis, message brokers, tracing stacks, and service meshes are not part of the
 current core benchmark.
@@ -100,6 +112,11 @@ service qualification uses `transactional-command-api` and
 `io-aggregation-api` under frozen steady, capacity-ramp, and burst-recovery load
 profiles.
 
+Transactional scenario contract version `1.2` raises immediately available k6
+VUs from 100 to 200. Calibration at the 1,000 requests/second burst observed a
+113 ms tail and four dropped iterations while dynamic VU allocation caught up;
+the higher reservation removes that load-generator artifact from future cohorts.
+
 ## Result Output
 
 Each run writes a timestamped directory under `results/`. Outputs are intended to be machine-readable where practical, with raw logs retained for debugging.
@@ -108,6 +125,7 @@ Results mirror the implementation layout:
 
 ```text
 results/java/spring-boot/jvm-java25/ping-api/<run_id>/
+results/java/quarkus/jvm-java25/ping-api/<run_id>/
 ```
 
 The normalized `result.json` contract is documented in [results-schema.md](results-schema.md). `resolved-manifest.json` records exact inputs and comparison-cohort identity. Scenario-specific raw details remain in files such as `startup.json` and `k6-summary.json`.

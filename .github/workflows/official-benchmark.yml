@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       matrix_json:
-        description: JSON array of trusted scenario and load-profile cells
+        description: JSON array of trusted implementation and scenario cells
         required: false
         type: string
         default: '[{"scenario":"ping-api","load_profile":"platform-qualification-v1"}]'
@@ -22,14 +22,73 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  validate-matrix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions: {}
+    steps:
+      - name: Validate benchmark matrix
+        env:
+          MATRIX_JSON: ${{ inputs.matrix_json }}
+        run: |
+          jq -e '
+            def default_if_empty($default):
+              if . == null or . == "" then $default else . end;
+            def canonical:
+              {
+                implementation: (.implementation | default_if_empty("java/spring-boot")),
+                variant: (.variant | default_if_empty("jvm-java25")),
+                image_key: (.image_key | default_if_empty("spring-boot")),
+                scenario: (.scenario // ""),
+                load_profile: (.load_profile // "")
+              };
+            if type != "array" or length == 0 or any(.[]; type != "object") then
+              error("matrix_json must be a non-empty array of objects")
+            else
+              map(canonical)
+              | map([.implementation, .variant, .image_key, .scenario, .load_profile]) as $keys
+              | if ($keys | length) != ($keys | unique | length) then
+                  error("matrix_json contains duplicate benchmark cells")
+                else
+                  true
+                end
+            end
+          ' <<< "$MATRIX_JSON"
+
   build:
+    needs: [validate-matrix]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - implementation: java/spring-boot
+            app_dir: implementations/java/spring-boot
+            repository: ghcr.io/moseoh/hello-realworld-bench/spring-boot
+            image_key: spring-boot
+          - implementation: java/quarkus
+            app_dir: implementations/java/quarkus
+            repository: ghcr.io/moseoh/hello-realworld-bench/quarkus
+            image_key: quarkus
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
-    outputs:
-      target_image: ghcr.io/moseoh/hello-realworld-bench/spring-boot@${{ steps.image.outputs.digest }}
     steps:
+      - name: Verify static build cell
+        env:
+          IMPLEMENTATION: ${{ matrix.implementation }}
+          APP_DIR: ${{ matrix.app_dir }}
+          REPOSITORY: ${{ matrix.repository }}
+          IMAGE_KEY: ${{ matrix.image_key }}
+        run: |
+          case "$IMPLEMENTATION:$APP_DIR:$REPOSITORY:$IMAGE_KEY" in
+            java/spring-boot:implementations/java/spring-boot:ghcr.io/moseoh/hello-realworld-bench/spring-boot:spring-boot | \
+            java/quarkus:implementations/java/quarkus:ghcr.io/moseoh/hello-realworld-bench/quarkus:quarkus)
+              ;;
+            *)
+              exit 1
+              ;;
+          esac
       - uses: actions/checkout@v4
         with:
           repository: moseoh/hello-realworld-bench
@@ -41,29 +100,41 @@ jobs:
           java-version: "25"
           cache: gradle
       - name: Build target application
-        working-directory: implementations/java/spring-boot
-        run: ./gradlew clean bootJar --no-daemon
+        working-directory: ${{ matrix.app_dir }}
+        run: ./gradlew clean build --no-daemon
       - uses: docker/setup-buildx-action@v3
       - name: Build immutable target image archive
         id: image
         uses: docker/build-push-action@v6
         with:
-          context: implementations/java/spring-boot
+          context: ${{ matrix.app_dir }}
           platforms: linux/amd64
           outputs: type=oci,dest=/tmp/target-image.oci.tar
-          tags: ghcr.io/moseoh/hello-realworld-bench/spring-boot:${{ inputs.source_sha }}
+          tags: ${{ matrix.repository }}:${{ inputs.source_sha }}
           provenance: false
+      - name: Record immutable image reference
+        env:
+          REPOSITORY: ${{ matrix.repository }}
+          DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          case "$DIGEST" in
+            sha256:*) ;;
+            *) exit 1 ;;
+          esac
+          printf '%s@%s\n' "$REPOSITORY" "$DIGEST" > /tmp/image-ref.txt
       - name: Transfer target image archive
         uses: actions/upload-artifact@v4
         with:
-          name: target-image-${{ inputs.source_sha }}-${{ github.run_id }}
-          path: /tmp/target-image.oci.tar
+          name: target-image-${{ matrix.image_key }}-${{ inputs.source_sha }}-${{ github.run_id }}
+          path: |
+            /tmp/target-image.oci.tar
+            /tmp/image-ref.txt
           if-no-files-found: error
           retention-days: 1
           compression-level: 0
 
   benchmark:
-    needs: build
+    needs: [validate-matrix, build]
     strategy:
       fail-fast: false
       max-parallel: 1
@@ -76,6 +147,50 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: Allowlist benchmark cell
+        id: allowlist
+        env:
+          MATRIX_IMPLEMENTATION: ${{ matrix.implementation }}
+          MATRIX_VARIANT: ${{ matrix.variant }}
+          MATRIX_IMAGE_KEY: ${{ matrix.image_key }}
+          MATRIX_SCENARIO: ${{ matrix.scenario }}
+          MATRIX_LOAD_PROFILE: ${{ matrix.load_profile }}
+        run: |
+          implementation="${MATRIX_IMPLEMENTATION:-java/spring-boot}"
+          variant="${MATRIX_VARIANT:-jvm-java25}"
+          image_key="${MATRIX_IMAGE_KEY:-spring-boot}"
+          scenario="$MATRIX_SCENARIO"
+          load_profile="$MATRIX_LOAD_PROFILE"
+
+          case "$implementation:$variant:$image_key" in
+            java/spring-boot:jvm-java25:spring-boot | \
+            java/quarkus:jvm-java25:quarkus)
+              ;;
+            *)
+              exit 1
+              ;;
+          esac
+          case "$scenario:$load_profile" in
+            ping-api:platform-qualification-v1 | \
+            transactional-command-api:steady | \
+            transactional-command-api:capacity-ramp | \
+            transactional-command-api:burst-recovery | \
+            io-aggregation-api:steady | \
+            io-aggregation-api:capacity-ramp | \
+            io-aggregation-api:burst-recovery)
+              ;;
+            *)
+              exit 1
+              ;;
+          esac
+
+          {
+            printf 'implementation=%s\n' "$implementation"
+            printf 'variant=%s\n' "$variant"
+            printf 'image_key=%s\n' "$image_key"
+            printf 'scenario=%s\n' "$scenario"
+            printf 'load_profile=%s\n' "$load_profile"
+          } >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v4
         with:
           repository: moseoh/hello-realworld-bench
@@ -88,8 +203,32 @@ jobs:
           cache-dependency-glob: source/runner/uv.lock
       - uses: actions/download-artifact@v4
         with:
-          name: target-image-${{ inputs.source_sha }}-${{ github.run_id }}
+          name: target-image-${{ steps.allowlist.outputs.image_key }}-${{ inputs.source_sha }}-${{ github.run_id }}
           path: target-image
+      - name: Read immutable image reference
+        id: image_ref
+        env:
+          IMAGE_KEY: ${{ steps.allowlist.outputs.image_key }}
+        run: |
+          case "$IMAGE_KEY" in
+            spring-boot)
+              expected_repository=ghcr.io/moseoh/hello-realworld-bench/spring-boot
+              ;;
+            quarkus)
+              expected_repository=ghcr.io/moseoh/hello-realworld-bench/quarkus
+              ;;
+            *)
+              exit 1
+              ;;
+          esac
+          image_ref="$(cat target-image/image-ref.txt)"
+          case "$image_ref" in
+            "$expected_repository"@sha256:*) ;;
+            *) exit 1 ;;
+          esac
+          digest="${image_ref#"$expected_repository"@}"
+          printf '%s\n' "$digest" | grep -Eq '^sha256:[0-9a-f]{64}$'
+          printf 'target_image=%s\n' "$image_ref" >> "$GITHUB_OUTPUT"
       - name: Verify trusted source
         working-directory: source
         env:
@@ -102,33 +241,38 @@ jobs:
         id: benchmark
         working-directory: source
         env:
+          IMPLEMENTATION: ${{ steps.allowlist.outputs.implementation }}
+          VARIANT: ${{ steps.allowlist.outputs.variant }}
+          IMAGE_KEY: ${{ steps.allowlist.outputs.image_key }}
+          SCENARIO: ${{ steps.allowlist.outputs.scenario }}
+          LOAD_PROFILE: ${{ steps.allowlist.outputs.load_profile }}
           HRW_IMAGE_DISTRIBUTION: push
-          HRW_TARGET_IMAGE: ${{ needs.build.outputs.target_image }}
+          HRW_TARGET_IMAGE: ${{ steps.image_ref.outputs.target_image }}
           HRW_TARGET_IMAGE_ARCHIVE: ${{ github.workspace }}/target-image/target-image.oci.tar
         run: |
           set -o pipefail
+          log_path="../official-${IMAGE_KEY}-${SCENARIO}-${LOAD_PROFILE}.log"
           PYTHONPATH=runner uv run --project runner python -m hrw_runner run-set \
-            java/spring-boot ${{ matrix.scenario }} jvm-java25 \
+            "$IMPLEMENTATION" "$SCENARIO" "$VARIANT" \
             --environment-profile home-k3s-v1 \
             --measurement-protocol official-service-v1 \
-            --load-profile ${{ matrix.load_profile }} \
-            | tee ../official-${{ matrix.scenario }}-${{ matrix.load_profile }}.log
-          result_dir="$(sed -n 's/^Run set directory: //p' \
-            ../official-${{ matrix.scenario }}-${{ matrix.load_profile }}.log | tail -1)"
+            --load-profile "$LOAD_PROFILE" \
+            | tee "$log_path"
+          result_dir="$(sed -n 's/^Run set directory: //p' "$log_path" | tail -1)"
           test -n "$result_dir"
           test -f "$result_dir/run-set.json"
           printf 'result_dir=%s\n' "$result_dir" >> "$GITHUB_OUTPUT"
       - name: Transfer raw evidence
         uses: actions/upload-artifact@v4
         with:
-          name: official-${{ matrix.scenario }}-${{ matrix.load_profile }}-${{ inputs.source_sha }}-${{ github.run_id }}
+          name: official-${{ steps.allowlist.outputs.image_key }}-${{ steps.allowlist.outputs.scenario }}-${{ steps.allowlist.outputs.load_profile }}-${{ inputs.source_sha }}-${{ github.run_id }}
           path: ${{ steps.benchmark.outputs.result_dir }}
           if-no-files-found: error
           retention-days: 90
           compression-level: 6
 
   publish:
-    needs: benchmark
+    needs: [validate-matrix, benchmark]
     strategy:
       fail-fast: false
       max-parallel: 1
@@ -139,6 +283,48 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: Allowlist publish cell
+        id: allowlist
+        env:
+          MATRIX_IMPLEMENTATION: ${{ matrix.implementation }}
+          MATRIX_VARIANT: ${{ matrix.variant }}
+          MATRIX_IMAGE_KEY: ${{ matrix.image_key }}
+          MATRIX_SCENARIO: ${{ matrix.scenario }}
+          MATRIX_LOAD_PROFILE: ${{ matrix.load_profile }}
+        run: |
+          implementation="${MATRIX_IMPLEMENTATION:-java/spring-boot}"
+          variant="${MATRIX_VARIANT:-jvm-java25}"
+          image_key="${MATRIX_IMAGE_KEY:-spring-boot}"
+          scenario="$MATRIX_SCENARIO"
+          load_profile="$MATRIX_LOAD_PROFILE"
+
+          case "$implementation:$variant:$image_key" in
+            java/spring-boot:jvm-java25:spring-boot | \
+            java/quarkus:jvm-java25:quarkus)
+              ;;
+            *)
+              exit 1
+              ;;
+          esac
+          case "$scenario:$load_profile" in
+            ping-api:platform-qualification-v1 | \
+            transactional-command-api:steady | \
+            transactional-command-api:capacity-ramp | \
+            transactional-command-api:burst-recovery | \
+            io-aggregation-api:steady | \
+            io-aggregation-api:capacity-ramp | \
+            io-aggregation-api:burst-recovery)
+              ;;
+            *)
+              exit 1
+              ;;
+          esac
+
+          {
+            printf 'image_key=%s\n' "$image_key"
+            printf 'scenario=%s\n' "$scenario"
+            printf 'load_profile=%s\n' "$load_profile"
+          } >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v4
         with:
           repository: moseoh/hello-realworld-bench
@@ -151,7 +337,7 @@ jobs:
           cache-dependency-glob: source/runner/uv.lock
       - uses: actions/download-artifact@v4
         with:
-          name: official-${{ matrix.scenario }}-${{ matrix.load_profile }}-${{ inputs.source_sha }}-${{ github.run_id }}
+          name: official-${{ steps.allowlist.outputs.image_key }}-${{ steps.allowlist.outputs.scenario }}-${{ steps.allowlist.outputs.load_profile }}-${{ inputs.source_sha }}-${{ github.run_id }}
           path: raw-run-set
       - name: Prepare append-only data branch
         working-directory: source

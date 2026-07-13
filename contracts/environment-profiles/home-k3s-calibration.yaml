@@ -1,6 +1,6 @@
 schema_version: "1.0"
 id: home-k3s-calibration
-contract_version: "0.1"
+contract_version: "0.2"
 status: development
 description: "Short non-publishable calibration profile on the frozen home k3s host."
 orchestrator: k3s
@@ -27,7 +27,6 @@ resources:
     cpu: "4"
     memory: 3Gi
 images:
-  target_repository: ghcr.io/moseoh/hello-realworld-bench/spring-boot
   target_platform: linux/amd64
   target_digest_required: true
   k6: grafana/k6@sha256:68e78d94140704ec4ee0cb7c5cf6cd12a32b7d310a6f98d94931ee9b0b9dc629

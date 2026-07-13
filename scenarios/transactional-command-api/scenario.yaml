@@ -1,6 +1,6 @@
 schema_version: "1.0"
 id: transactional-command-api
-contract_version: "1.1"
+contract_version: "1.2"
 description: "HTTP command API that validates an order, writes it in one PostgreSQL transaction, and inserts an outbox event."
 kind: service
 question: "How does the target behave when handling a command request with validation, domain logic, one database transaction, and an outbox insert?"
@@ -49,7 +49,7 @@ load:
   vus: 25
   arrival_rate:
     base_per_second: 200
-    pre_allocated_vus: 100
+    pre_allocated_vus: 200
     max_vus: 400
 
 metrics:

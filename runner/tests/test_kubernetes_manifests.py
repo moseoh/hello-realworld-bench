@@ -31,14 +31,12 @@ class KubernetesManifestTest(unittest.TestCase):
                 "__NAMESPACE__",
                 "__RUN_SET_ID__",
                 "__TARGET_IMAGE__",
-                "__JAVA_TOOL_OPTIONS__",
+                "__TARGET_ENV__",
                 "__K6_IMAGE__",
                 "__K6_DURATION__",
                 "__K6_VUS__",
                 "__K6_JOB_NAME__",
                 "__K6_SCRIPT__",
-                "__VIRTUAL_THREADS__",
-                "__KEEP_ALIVE__",
             }.issubset(self.rendered.split())
         )
         for manifest in self.manifests:
@@ -174,17 +172,10 @@ class KubernetesManifestTest(unittest.TestCase):
             for item in manifests
             if item["kind"] == "Pod" and item["metadata"]["name"] == "target"
         )
-        target_env = {
-            item["name"]: item["value"]
-            for item in target["spec"]["containers"][0]["env"]
-        }
-        self.assertEqual(target_env["SPRING_PROFILES_ACTIVE"], "transactional")
         self.assertEqual(
-            target_env["SPRING_DATASOURCE_URL"],
-            "jdbc:postgresql://postgres:5432/hrw",
+            target["spec"]["containers"][0]["env"],
+            "__TARGET_ENV__",
         )
-        self.assertEqual(target_env["SPRING_DATASOURCE_USERNAME"], "hrw")
-        self.assertEqual(target_env["SPRING_DATASOURCE_PASSWORD"], "hrw")
 
         self._assert_scenario_workloads(manifests)
 
@@ -261,25 +252,9 @@ class KubernetesManifestTest(unittest.TestCase):
             for item in manifests
             if item["kind"] == "Pod" and item["metadata"]["name"] == "target"
         )
-        target_env = {
-            item["name"]: item["value"]
-            for item in target["spec"]["containers"][0]["env"]
-        }
         self.assertEqual(
-            target_env,
-            {
-                "JAVA_TOOL_OPTIONS": "__JAVA_TOOL_OPTIONS__",
-                "SPRING_THREADS_VIRTUAL_ENABLED": "__VIRTUAL_THREADS__",
-                "SPRING_MAIN_KEEP_ALIVE": "__KEEP_ALIVE__",
-                "MOCK_UPSTREAM_BASE_URL": "http://mock-upstream:8080",
-                "AGGREGATION_HTTP_CONNECT_TIMEOUT_MS": "500",
-                "AGGREGATION_HTTP_RESPONSE_TIMEOUT_MS": "1000",
-                "AGGREGATION_HTTP_CONNECTION_REQUEST_TIMEOUT_MS": "500",
-                "AGGREGATION_HTTP_MAX_CONNECTIONS": "128",
-                "AGGREGATION_HTTP_MAX_CONNECTIONS_PER_ROUTE": "128",
-                "AGGREGATION_MAX_CONCURRENT_UPSTREAM_REQUESTS": "128",
-                "AGGREGATION_MAX_PENDING_UPSTREAM_REQUESTS": "128",
-            },
+            target["spec"]["containers"][0]["env"],
+            "__TARGET_ENV__",
         )
 
         self._assert_scenario_workloads(manifests)

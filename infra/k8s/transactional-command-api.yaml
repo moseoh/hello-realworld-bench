@@ -143,21 +143,7 @@ spec:
     - name: target
       image: __TARGET_IMAGE__
       imagePullPolicy: IfNotPresent
-      env:
-        - name: JAVA_TOOL_OPTIONS
-          value: __JAVA_TOOL_OPTIONS__
-        - name: SPRING_THREADS_VIRTUAL_ENABLED
-          value: __VIRTUAL_THREADS__
-        - name: SPRING_MAIN_KEEP_ALIVE
-          value: __KEEP_ALIVE__
-        - name: SPRING_PROFILES_ACTIVE
-          value: transactional
-        - name: SPRING_DATASOURCE_URL
-          value: jdbc:postgresql://postgres:5432/hrw
-        - name: SPRING_DATASOURCE_USERNAME
-          value: hrw
-        - name: SPRING_DATASOURCE_PASSWORD
-          value: hrw
+      env: __TARGET_ENV__
       ports:
         - name: http
           containerPort: 8080

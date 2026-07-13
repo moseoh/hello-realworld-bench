@@ -1,0 +1,4 @@
+*
+!build/
+!build/quarkus-app/
+!build/quarkus-app/**

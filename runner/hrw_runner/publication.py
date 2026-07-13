@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from .evidence import sha256_file, validate_run_set_evidence
+from .manifest import validate_resolved_manifest
 
 
 _COMMIT_PATTERN = re.compile(r"[0-9a-f]{40}")
@@ -33,9 +34,10 @@ def publish_run_set(
 ) -> Path:
     run_set_dir = run_set_dir.resolve()
     dataset_dir.parent.mkdir(parents=True, exist_ok=True)
+    manifest = _read_object(run_set_dir / "resolved-manifest.json")
+    validate_resolved_manifest(manifest, root_dir)
     validate_run_set_evidence(run_set_dir, root_dir)
     run_set = _read_object(run_set_dir / "run-set.json")
-    manifest = _read_object(run_set_dir / "resolved-manifest.json")
     _validate_promotion(run_set, manifest, source_commit)
     if bool(raw_artifact_url) != bool(raw_artifact_sha256):
         raise PublicationError(
