@@ -11,7 +11,7 @@ _DNS_LABEL = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
 _IMMUTABLE_IMAGE = re.compile(r"^\S+@sha256:[0-9a-f]{64}$")
 
 
-def render_ping_documents(
+def render_scenario_documents(
     template_path: Path,
     *,
     namespace: str,
@@ -23,6 +23,12 @@ def render_ping_documents(
     vus: int,
     job_name: str,
     script: str,
+    scenario_id: str = "ping-api",
+    executor: str = "constant-vus",
+    rate: int = 1,
+    stages: str = "[]",
+    pre_allocated_vus: int = 1,
+    max_vus: int = 1,
     virtual_threads: bool = False,
 ) -> list[dict[str, Any]]:
     for name, value in (("namespace", namespace), ("run_set_id", run_set_id), ("job_name", job_name)):
@@ -37,15 +43,32 @@ def render_ping_documents(
         raise ValueError(f"Invalid k6 VUs: {vus}")
     if not script.strip():
         raise ValueError("k6 script must not be empty")
+    if executor not in {
+        "constant-vus",
+        "constant-arrival-rate",
+        "ramping-arrival-rate",
+    }:
+        raise ValueError(f"Invalid k6 executor: {executor}")
+    if any(
+        not isinstance(value, int) or value < 1
+        for value in (rate, pre_allocated_vus, max_vus)
+    ):
+        raise ValueError("Invalid k6 arrival-rate capacity")
 
     replacements: dict[str, object] = {
         "__NAMESPACE__": namespace,
         "__RUN_SET_ID__": run_set_id,
+        "__SCENARIO_ID__": scenario_id,
         "__TARGET_IMAGE__": target_image,
         "__K6_IMAGE__": k6_image,
         "__JAVA_TOOL_OPTIONS__": java_tool_options,
         "__K6_DURATION__": duration,
         "__K6_VUS__": str(vus),
+        "__HRW_LOAD_EXECUTOR__": executor,
+        "__HRW_LOAD_RATE__": str(rate),
+        "__HRW_LOAD_STAGES__": stages,
+        "__HRW_LOAD_PRE_ALLOCATED_VUS__": str(pre_allocated_vus),
+        "__HRW_LOAD_MAX_VUS__": str(max_vus),
         "__K6_JOB_NAME__": job_name,
         "__K6_SCRIPT__": script,
         "__VIRTUAL_THREADS__": "true" if virtual_threads else "false",
@@ -59,6 +82,9 @@ def render_ping_documents(
     if any(_contains_placeholder(document) for document in documents):
         raise ValueError("Unresolved Kubernetes template placeholder")
     return documents
+
+
+render_ping_documents = render_scenario_documents
 
 
 def _replace(value: Any, replacements: dict[str, object]) -> Any:

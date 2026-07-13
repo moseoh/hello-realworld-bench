@@ -17,6 +17,9 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
+      - uses: grafana/setup-k6-action@v1
+        with:
+          k6-version: "2.1.0"
       - name: Validate contracts and runner
         run: make validate-contracts test-runner
       - name: Validate GitHub Actions workflows

@@ -45,10 +45,14 @@ The `ping-api` scenario exists to validate benchmark runner automation. It is no
 
 The `cold-start-api` scenario measures repeated time to first successful `/ping` response after the application starts. It does not model serverless platform cold starts.
 
-The current profile catalog supports local development runs. Draft load profiles are definitions for future work; they are not executable official profiles, and current local outputs are not official benchmark results. See [Benchmark Contracts](docs/benchmark-contracts.md) for contract ownership and catalog status.
+The profile catalog supports local development, short home-k3s calibration, and
+frozen official service runs. Official open-model profiles are `steady`,
+`capacity-ramp`, and `burst-recovery`. Local and calibration outputs are not
+official benchmark results. See [Benchmark Contracts](docs/benchmark-contracts.md)
+for contract ownership and catalog status.
 
-The private trusted controller polls `main` and can run the three-trial platform
-qualification campaign on its home k3s runner. Complete valid evidence is published to the
+The private trusted controller polls `main` and dispatches serial benchmark
+campaigns to its home k3s runner. Complete valid evidence is published to the
 append-only `benchmark-data` branch, with full raw evidence stored as a
 checksummed GitHub Release asset. See [Continuous Benchmark
 Automation](docs/automation.md) for the trust boundary and publication model.
@@ -83,6 +87,16 @@ make run-set \
   ENVIRONMENT_PROFILE=home-k3s-v1 \
   MEASUREMENT_PROTOCOL=official-service-v1 \
   LOAD_PROFILE=platform-qualification-v1
+```
+
+Run one official core service cell:
+
+```bash
+make run-set \
+  SCENARIO=transactional-command-api \
+  ENVIRONMENT_PROFILE=home-k3s-v1 \
+  MEASUREMENT_PROTOCOL=official-service-v1 \
+  LOAD_PROFILE=steady
 ```
 
 The k3s runner builds and pushes one `linux/amd64` image by default. A trusted

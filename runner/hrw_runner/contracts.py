@@ -483,10 +483,12 @@ def _validate_load_profile_semantics(value: dict[str, object]) -> list[str]:
                 "must not be defined when $.model is 'open'",
             )
         duration = phase.get("duration_seconds")
-        if not isinstance(duration, int) or duration <= 0:
+        minimum_duration = 0 if executor == "ramping-arrival-rate" else 1
+        if not isinstance(duration, int) or duration < minimum_duration:
             add_error(
                 ("phases", index, "duration_seconds"),
-                "must be greater than 0 when $.model is 'open'",
+                "must be non-negative for ramping arrival rate and positive "
+                "for constant arrival rate",
             )
         multiplier = phase.get("multiplier")
         if not isinstance(multiplier, (int, float)) or multiplier <= 0:

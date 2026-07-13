@@ -1,29 +1,29 @@
 schema_version: "1.0"
-id: burst-recovery
-contract_version: "1.0"
-status: frozen
-description: "Deterministic arrival-rate bursts followed by recovery windows."
+id: calibration-burst
+contract_version: "0.1"
+status: development
+description: "Short deterministic burst sequence used only for calibration."
 model: open
 executor: ramping-arrival-rate
 timing:
-  warmup_seconds: 120
-  measured_seconds: 480
+  warmup_seconds: 10
+  measured_seconds: 60
 phases:
-  - duration_seconds: 120
+  - duration_seconds: 20
     multiplier: 1.0
   - duration_seconds: 0
     multiplier: 3.0
-  - duration_seconds: 30
+  - duration_seconds: 10
     multiplier: 3.0
   - duration_seconds: 0
     multiplier: 1.0
-  - duration_seconds: 120
+  - duration_seconds: 10
     multiplier: 1.0
   - duration_seconds: 0
     multiplier: 5.0
-  - duration_seconds: 30
+  - duration_seconds: 10
     multiplier: 5.0
   - duration_seconds: 0
     multiplier: 1.0
-  - duration_seconds: 180
+  - duration_seconds: 10
     multiplier: 1.0

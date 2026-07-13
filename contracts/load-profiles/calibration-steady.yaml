@@ -1,0 +1,13 @@
+schema_version: "1.0"
+id: calibration-steady
+contract_version: "0.1"
+status: development
+description: "Short constant arrival-rate profile used only for calibration."
+model: open
+executor: constant-arrival-rate
+timing:
+  warmup_seconds: 10
+  measured_seconds: 60
+phases:
+  - duration_seconds: 60
+    multiplier: 1.0

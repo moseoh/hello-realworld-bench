@@ -573,6 +573,8 @@ class ContractValidationTest(unittest.TestCase):
     def test_read_contract_accepts_all_catalog_load_profiles(self):
         profile_ids = [
             "burst-recovery",
+            "calibration-burst",
+            "calibration-steady",
             "capacity-ramp",
             "development-local",
             "none",
@@ -605,7 +607,7 @@ class ContractValidationTest(unittest.TestCase):
             {
                 "schema_version": "1.0",
                 "id": "home-k3s-v1",
-                "contract_version": "1.0",
+                "contract_version": "1.1",
                 "status": "frozen",
                 "description": "Official single-node home k3s benchmark environment.",
                 "orchestrator": "k3s",
@@ -636,6 +638,8 @@ class ContractValidationTest(unittest.TestCase):
                 "validity": {
                     "max_background_cpu_millicores": 2000,
                     "max_background_memory_bytes": 8000000000,
+                    "max_load_generator_cpu_percent": 350,
+                    "max_dependency_cpu_percent": 95,
                     "min_sample_coverage_ratio": 0.90,
                     "stats_sample_interval_seconds": 10,
                     "phases": ["preflight", "in-run", "postflight"],
@@ -832,8 +836,8 @@ class ContractValidationTest(unittest.TestCase):
                 "duration_seconds values must sum to $.timing.measured_seconds "
                 "(20), got 0",
                 "contracts/load-profiles/development.yaml: "
-                "$.phases[0].duration_seconds: must be greater than 0 when $.model "
-                "is 'open'",
+                "$.phases[0].duration_seconds: must be non-negative for ramping "
+                "arrival rate and positive for constant arrival rate",
                 "contracts/load-profiles/development.yaml: "
                 "$.phases[0].multiplier: must be greater than 0 when $.model is "
                 "'open'",

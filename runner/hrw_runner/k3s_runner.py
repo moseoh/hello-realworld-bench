@@ -21,7 +21,7 @@ from .evidence import (
 )
 from .kubernetes import Kubectl, evaluate_preflight
 from .kubernetes_image import build_and_export_image, build_and_push_image
-from .kubernetes_render import render_ping_documents
+from .kubernetes_render import render_scenario_documents
 from .kubernetes_stats import normalize_stats_sample, validate_stats_series
 from .manifest import build_resolved_manifest, read_git_provenance, validate_resolved_manifest
 from .results import k6_runtime_metrics, read_json, write_json
@@ -36,8 +36,13 @@ from .runner import (
 
 
 def run_k3s_benchmark_set(config: RunConfig, root_dir: Path) -> Path:
-    if config.scenario != "ping-api":
-        raise ValueError("The k3s v1 runner currently qualifies ping-api only")
+    supported_scenarios = {
+        "ping-api",
+        "transactional-command-api",
+        "io-aggregation-api",
+    }
+    if config.scenario not in supported_scenarios:
+        raise ValueError(f"The k3s runner does not support {config.scenario}")
     paths = _run_set_paths(config, root_dir)
     paths.result_dir.mkdir(parents=True, exist_ok=False)
     source = read_git_provenance(root_dir)
@@ -116,7 +121,7 @@ def run_k3s_benchmark_set(config: RunConfig, root_dir: Path) -> Path:
     trial_references = []
     started_at = _utc_timestamp()
     script = (root_dir / str(config.load["script"])).read_text()
-    template = root_dir / "infra/k8s/ping-api.yaml"
+    template = root_dir / "infra/k8s" / f"{config.scenario}.yaml"
     try:
         setup = _render(
             execution_config,
@@ -132,8 +137,44 @@ def run_k3s_benchmark_set(config: RunConfig, root_dir: Path) -> Path:
             _import_image(client, namespace, image_archive)
             if distribution == "import":
                 image_archive.unlink()
-        client.apply([_kind(setup, "Service"), _kind(setup, "ConfigMap")])
-        _prepull_target(client, _kind(setup, "Pod"), namespace)
+        dependency_start = time.perf_counter()
+        dependencies = _component_documents(setup, "dependency")
+        dependency_resources = [
+            document for document in dependencies if document["kind"] != "Pod"
+        ]
+        dependency_pods = [
+            document for document in dependencies if document["kind"] == "Pod"
+        ]
+        if dependency_resources:
+            client.apply(dependency_resources)
+        if dependency_pods:
+            client.apply(dependency_pods)
+            for pod in dependency_pods:
+                client.command(
+                    [
+                        "wait",
+                        "--for=condition=Ready",
+                        f"pod/{pod['metadata']['name']}",
+                        "-n",
+                        namespace,
+                        "--timeout=120s",
+                    ]
+                )
+        dependency_ready_ms = round(
+            (time.perf_counter() - dependency_start) * 1000
+        )
+        shared_resources = [
+            document
+            for document in setup
+            if _component_name(document) in {"target", "load-generator"}
+            and document["kind"] not in {"Pod", "Job"}
+        ]
+        client.apply(shared_resources)
+        _prepull_target(
+            client,
+            _component_document(setup, "Pod", "target"),
+            namespace,
+        )
 
         for index in range(1, trial_count + 1):
             trial_id = f"trial-{index:02d}"
@@ -154,6 +195,7 @@ def run_k3s_benchmark_set(config: RunConfig, root_dir: Path) -> Path:
                     cohort_fingerprint,
                     image,
                     preflight["cluster"],
+                    dependency_ready_ms,
                 )
             except Exception as error:
                 _cleanup_trial_workloads(client, namespace)
@@ -237,6 +279,7 @@ def _run_trial(
     cohort_fingerprint: str,
     build: dict[str, object],
     cluster_metadata: dict[str, object],
+    dependency_ready_ms: int,
 ) -> dict[str, Any]:
     trial_dir.mkdir(parents=True, exist_ok=False)
     started_at = _utc_timestamp()
@@ -250,7 +293,7 @@ def _run_trial(
         f"k6-target-{trial_index:02d}",
         str(config.load["test_duration"]),
     )
-    client.apply([_kind(target_documents, "Pod")])
+    client.apply([_component_document(target_documents, "Pod", "target")])
     client.command(
         [
             "wait",
@@ -263,7 +306,7 @@ def _run_trial(
     )
     ready_ms = round((time.perf_counter() - startup_start) * 1000)
     startup = {
-        "dependency_ready_ms": 0,
+        "dependency_ready_ms": dependency_ready_ms,
         "ready_ms": ready_ms,
         "first_request_ms": None,
         "iterations": 1,
@@ -281,7 +324,13 @@ def _run_trial(
         str(config.load["warmup_duration"]),
     )
     client.apply([_kind(warmup, "Job")])
-    _wait_job(client, namespace, warmup_name, config.load["warmup_duration"])
+    try:
+        _wait_job(client, namespace, warmup_name, config.load["warmup_duration"])
+    except Exception:
+        _collect_job_log(
+            client, namespace, warmup_name, trial_dir / "k6-warmup.log"
+        )
+        raise
     _collect_job(
         client,
         namespace,
@@ -290,6 +339,7 @@ def _run_trial(
         trial_dir / "k6-warmup.log",
     )
     client.command(["delete", "job", warmup_name, "-n", namespace, "--wait=true"])
+    _reset_scenario_state(client, namespace, config.scenario)
 
     measured_name = f"k6-measured-{trial_index:02d}"
     measured = _render(
@@ -314,6 +364,9 @@ def _run_trial(
     sampler.start()
     try:
         _wait_job(client, namespace, measured_name, config.load["test_duration"])
+    except Exception:
+        _collect_job_log(client, namespace, measured_name, trial_dir / "k6.log")
+        raise
     finally:
         stop.set()
         sampler.join(timeout=3)
@@ -325,9 +378,21 @@ def _run_trial(
         summary_path,
         trial_dir / "k6.log",
     )
+    k6_summary = read_json(summary_path)
+    correctness = _scenario_correctness(
+        client,
+        namespace,
+        config.scenario,
+        k6_summary,
+    )
+    write_json(trial_dir / "correctness.json", correctness)
     write_json(trial_dir / "kubelet-stats.json", {"snapshots": raw_snapshots})
     target_pod = client.json(["get", "pod", "target", "-n", namespace])
     write_json(trial_dir / "target-pod.json", target_pod)
+    dependency_pods, dependency_reasons = _collect_dependency_evidence(
+        client, namespace, trial_dir
+    )
+    write_json(trial_dir / "dependency-pods.json", {"items": dependency_pods})
     (trial_dir / "target.log").write_text(
         client.command(["logs", "pod/target", "-n", namespace], capture=True)
     )
@@ -347,13 +412,23 @@ def _run_trial(
         samples,
         _duration_seconds(str(config.load["test_duration"])),
         environment["validity"],
+        dependency_expected=bool(config.scenario_config["dependencies"]),
     )
     write_json(trial_dir / "in-run-validity.json", stats_validity)
 
-    k6_summary = read_json(summary_path)
     application_status, application_reasons = _trial_validity(k6_summary)
+    if correctness["status"] != "valid":
+        application_status = "invalid"
+        application_reasons.extend(correctness["reasons"])
     infrastructure_reasons = list(stats_validity["reasons"])
+    if "rate" in config.load:
+        dropped_iterations = _optional_k6_counter(k6_summary, "dropped_iterations")
+        if dropped_iterations > 0:
+            infrastructure_reasons.append(
+                f"k6 dropped {dropped_iterations} scheduled iterations"
+            )
     infrastructure_reasons.extend(_pod_failure_reasons(target_pod, config.image_tag))
+    infrastructure_reasons.extend(dependency_reasons)
     if infrastructure_reasons:
         status = "invalid"
         invalidity_class = "infrastructure"
@@ -439,7 +514,12 @@ export function handleSummary(data) {
   return { stdout: `HRW_SUMMARY_JSON=${JSON.stringify(data)}\\n` };
 }
 """
-    return render_ping_documents(
+    open_model = "rate" in config.load
+    warmup = job_name.startswith("k6-warmup")
+    executor = str(config.load.get("executor", "constant-vus"))
+    if open_model and warmup:
+        executor = "constant-arrival-rate"
+    return render_scenario_documents(
         template,
         namespace=namespace,
         run_set_id=namespace,
@@ -450,12 +530,44 @@ export function handleSummary(data) {
         vus=int(config.load["vus"]),
         job_name=job_name,
         script=script + summary_handler,
+        scenario_id=config.scenario,
+        executor=executor,
+        rate=int(
+            config.load.get("warmup_rate" if warmup else "rate", 1)
+        ),
+        stages=json.dumps(config.load.get("stages", []), separators=(",", ":")),
+        pre_allocated_vus=int(config.load.get("pre_allocated_vus", 1)),
+        max_vus=int(config.load.get("max_vus", 1)),
         virtual_threads=bool(config.runtime.get("virtual_threads", False)),
     )
 
 
 def _kind(documents: list[dict[str, Any]], kind: str) -> dict[str, Any]:
     return next(document for document in documents if document["kind"] == kind)
+
+
+def _component_name(document: dict[str, Any]) -> str | None:
+    return document.get("metadata", {}).get("labels", {}).get(
+        "app.kubernetes.io/component"
+    )
+
+
+def _component_documents(
+    documents: list[dict[str, Any]], component: str
+) -> list[dict[str, Any]]:
+    return [
+        document for document in documents if _component_name(document) == component
+    ]
+
+
+def _component_document(
+    documents: list[dict[str, Any]], kind: str, component: str
+) -> dict[str, Any]:
+    return next(
+        document
+        for document in documents
+        if document["kind"] == kind and _component_name(document) == component
+    )
 
 
 def _prepull_target(client: Kubectl, target: dict[str, Any], namespace: str) -> None:
@@ -610,6 +722,21 @@ def _collect_job(
     write_json(summary_path, summary)
 
 
+def _collect_job_log(
+    client: Kubectl, namespace: str, job_name: str, log_path: Path
+) -> None:
+    pods = client.json(
+        ["get", "pods", "-n", namespace, "-l", f"job-name={job_name}"]
+    ).get("items", [])
+    if not pods:
+        log_path.write_text("No pod was created for the failed job.\n")
+        return
+    pod_name = pods[0]["metadata"]["name"]
+    log_path.write_text(
+        client.command(["logs", pod_name, "-n", namespace], capture=True)
+    )
+
+
 def _summary_from_k6_log(log: str) -> dict[str, Any]:
     marker = "HRW_SUMMARY_JSON="
     lines = [line for line in log.splitlines() if line.startswith(marker)]
@@ -659,6 +786,106 @@ def _resource_summary(samples: list[dict[str, Any]]) -> dict[str, object]:
     }
 
 
+def _reset_scenario_state(
+    client: Kubectl, namespace: str, scenario: str
+) -> None:
+    if scenario != "transactional-command-api":
+        return
+    client.command(
+        [
+            "exec",
+            "pod/postgres",
+            "-n",
+            namespace,
+            "--",
+            "psql",
+            "-v",
+            "ON_ERROR_STOP=1",
+            "-U",
+            "hrw",
+            "-d",
+            "hrw",
+            "-c",
+            "truncate table order_items, outbox_events, orders;",
+        ],
+        capture=True,
+    )
+
+
+def _scenario_correctness(
+    client: Kubectl,
+    namespace: str,
+    scenario: str,
+    k6_summary: dict[str, Any],
+) -> dict[str, Any]:
+    if scenario != "transactional-command-api":
+        return {
+            "status": "valid",
+            "oracle": "k6-semantic-response-checks",
+            "reasons": [],
+        }
+    expected = _k6_counter(k6_summary, "iterations")
+    output = client.command(
+        [
+            "exec",
+            "pod/postgres",
+            "-n",
+            namespace,
+            "--",
+            "psql",
+            "-v",
+            "ON_ERROR_STOP=1",
+            "-U",
+            "hrw",
+            "-d",
+            "hrw",
+            "-At",
+            "-c",
+            "select (select count(*) from orders) || ',' || "
+            "(select count(*) from order_items) || ',' || "
+            "(select count(*) from outbox_events);",
+        ],
+        capture=True,
+    ).strip()
+    try:
+        orders, order_items, outbox_events = (int(value) for value in output.split(","))
+    except (TypeError, ValueError) as error:
+        raise RuntimeError(f"Invalid PostgreSQL correctness output: {output}") from error
+    observed = {
+        "orders": orders,
+        "order_items": order_items,
+        "outbox_events": outbox_events,
+    }
+    reasons = [
+        f"{name} row count {value} does not match {expected} measured iterations"
+        for name, value in observed.items()
+        if value != expected
+    ]
+    return {
+        "status": "valid" if not reasons else "invalid",
+        "oracle": "transactional-row-counts",
+        "expected_iterations": expected,
+        "observed": observed,
+        "reasons": reasons,
+    }
+
+
+def _k6_counter(summary: dict[str, Any], name: str) -> int:
+    metric = summary.get("metrics", {}).get(name, {})
+    values = metric.get("values", {}) if isinstance(metric, dict) else {}
+    count = values.get("count") if isinstance(values, dict) else None
+    if not isinstance(count, (int, float)) or count < 0:
+        raise RuntimeError(f"k6 summary is missing {name} count")
+    return int(count)
+
+
+def _optional_k6_counter(summary: dict[str, Any], name: str) -> int:
+    metric = summary.get("metrics", {}).get(name)
+    if metric is None:
+        return 0
+    return _k6_counter(summary, name)
+
+
 def _pod_failure_reasons(
     pod: dict[str, Any], expected_image: str
 ) -> list[str]:
@@ -671,10 +898,45 @@ def _pod_failure_reasons(
             )
         if int(status.get("restartCount", 0)) > 0:
             reasons.append(f"target restarted {status['restartCount']} time(s)")
-        terminated = status.get("lastState", {}).get("terminated", {})
-        if terminated.get("reason") == "OOMKilled":
+        if _container_was_oom_killed(status):
             reasons.append("target was OOMKilled")
     return reasons
+
+
+def _collect_dependency_evidence(
+    client: Kubectl, namespace: str, trial_dir: Path
+) -> tuple[list[dict[str, Any]], list[str]]:
+    response = client.json(
+        [
+            "get",
+            "pods",
+            "-n",
+            namespace,
+            "-l",
+            "app.kubernetes.io/component=dependency",
+        ]
+    )
+    pods = response.get("items", [])
+    reasons = []
+    for pod in pods:
+        name = str(pod["metadata"]["name"])
+        (trial_dir / f"{name}.log").write_text(
+            client.command(["logs", f"pod/{name}", "-n", namespace], capture=True)
+        )
+        for status in pod.get("status", {}).get("containerStatuses", []):
+            if int(status.get("restartCount", 0)) > 0:
+                reasons.append(f"dependency {name} restarted")
+            if _container_was_oom_killed(status):
+                reasons.append(f"dependency {name} was OOMKilled")
+    return pods, reasons
+
+
+def _container_was_oom_killed(status: dict[str, Any]) -> bool:
+    return any(
+        status.get(state_name, {}).get("terminated", {}).get("reason")
+        == "OOMKilled"
+        for state_name in ("state", "lastState")
+    )
 
 
 def _duration_seconds(value: str) -> int:

@@ -52,13 +52,11 @@ platform:
 Run resolution rejects any selected profile whose status is `draft` before
 benchmark execution. Profiles with `development` or `frozen` status are eligible
 only when their semantics match an implemented runner: scenario-driven constant-VU
-or disabled load, supported service or lifecycle measurement timing, Docker
-Compose or the frozen home k3s contract, and the current Gradle/image build path.
-Other executable profile semantics are rejected instead of being ignored. The
-`steady`, `capacity-ramp`, and `burst-recovery` load profiles are draft catalog
-definitions for future official-profile work, not executable or official
-benchmark profiles. Results produced by the current local runner are not official
-benchmark results.
+load, deterministic open arrival-rate load, or disabled load; supported service
+or lifecycle measurement timing; Docker Compose, home k3s calibration, or the
+frozen home k3s contract; and the current Gradle/image build path. Other
+executable profile semantics are rejected instead of being ignored. Results
+produced by local and calibration profiles are not official benchmark results.
 
 The `home-k3s-v1` environment and `official-service-v1` protocol are frozen
 official contracts. The k3s environment fixes host identity, non-exclusive CPU
@@ -66,7 +64,9 @@ quota mode, role resources, immutable images, evidence cadence, and host-noise
 thresholds. Selecting the official environment dispatches `make run-set` to the
 Kubernetes runner; Docker Compose remains the development execution profile.
 The official environment accepts only `official-service-v1` together with the
-frozen `platform-qualification-v1` load contract.
+frozen `platform-qualification-v1`, `steady`, `capacity-ramp`, or
+`burst-recovery` load contract. The platform qualification profile validates the
+runner path. The three open-model profiles are the official service workloads.
 
 The protocol `trials` field owns run-set repetition. Service startup is measured
 once inside each trial. Lifecycle protocols also execute one lifecycle measurement

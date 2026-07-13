@@ -58,6 +58,34 @@ class KubernetesStatsTest(unittest.TestCase):
         self.assertEqual(noisy["status"], "invalid")
         self.assertTrue(any("background CPU" in reason for reason in noisy["reasons"]))
 
+    def test_rejects_load_generator_or_dependency_saturation(self):
+        series = [
+            {
+                "source_time": f"t-{index}",
+                "background_cpu_millicores": 100.0,
+                "background_memory_bytes": 1_000_000,
+                "load_generator_cpu_percent": 360.0,
+                "dependency_cpu_percent": 98.0,
+            }
+            for index in range(6)
+        ]
+        validity = {
+            "stats_sample_interval_seconds": 10,
+            "min_sample_coverage_ratio": 0.9,
+            "max_background_cpu_millicores": 1000,
+            "max_background_memory_bytes": 8_000_000_000,
+            "max_load_generator_cpu_percent": 350,
+            "max_dependency_cpu_percent": 95,
+        }
+
+        result = validate_stats_series(
+            series, 60, validity, dependency_expected=True
+        )
+
+        self.assertEqual(result["status"], "invalid")
+        self.assertTrue(any("load generator CPU" in reason for reason in result["reasons"]))
+        self.assertTrue(any("dependency CPU" in reason for reason in result["reasons"]))
+
     @staticmethod
     def _pod(namespace, name, cpu, memory):
         return {

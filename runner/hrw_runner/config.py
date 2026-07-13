@@ -280,6 +280,69 @@ def _resolve_load_config(
     ):
         return load
 
+    if (
+        load_profile_config["model"] == "open"
+        and load_profile_config["executor"]
+        in {"constant-arrival-rate", "ramping-arrival-rate"}
+        and isinstance(timing.get("warmup_seconds"), int)
+        and timing["warmup_seconds"] > 0
+        and isinstance(timing.get("measured_seconds"), int)
+        and timing["measured_seconds"] > 0
+        and isinstance(phases, list)
+        and phases
+        and load.get("enabled") is True
+        and isinstance(load.get("arrival_rate"), dict)
+    ):
+        arrival_rate = _dict_value(load, "arrival_rate")
+        base_rate = arrival_rate.get("base_per_second")
+        pre_allocated_vus = arrival_rate.get("pre_allocated_vus")
+        max_vus = arrival_rate.get("max_vus")
+        if not all(
+            isinstance(value, int) and value > 0
+            for value in (base_rate, pre_allocated_vus, max_vus)
+        ) or int(pre_allocated_vus) > int(max_vus):
+            raise _unsupported_profile("load profile", load_profile_config)
+        resolved_phases = []
+        for phase in phases:
+            if not isinstance(phase, dict):
+                raise _unsupported_profile("load profile", load_profile_config)
+            duration_seconds = phase.get("duration_seconds")
+            multiplier = phase.get("multiplier")
+            if (
+                not isinstance(duration_seconds, int)
+                or duration_seconds < 0
+                or not isinstance(multiplier, (int, float))
+                or multiplier <= 0
+            ):
+                raise _unsupported_profile("load profile", load_profile_config)
+            resolved_phases.append(
+                {
+                    "duration": f"{duration_seconds}s",
+                    "target": max(1, round(int(base_rate) * float(multiplier))),
+                }
+            )
+        if sum(int(phase["duration"][:-1]) for phase in resolved_phases) != int(
+            timing["measured_seconds"]
+        ):
+            raise _unsupported_profile("load profile", load_profile_config)
+        load.update(
+            {
+                "executor": load_profile_config["executor"],
+                "warmup_rate": int(base_rate),
+                "rate": (
+                    resolved_phases[0]["target"]
+                    if load_profile_config["executor"] == "ramping-arrival-rate"
+                    else int(base_rate)
+                ),
+                "stages": resolved_phases,
+                "pre_allocated_vus": int(pre_allocated_vus),
+                "max_vus": int(max_vus),
+                "warmup_duration": f"{timing['warmup_seconds']}s",
+                "test_duration": f"{timing['measured_seconds']}s",
+            }
+        )
+        return load
+
     raise _unsupported_profile("load profile", load_profile_config)
 
 
@@ -341,7 +404,16 @@ def _validate_environment_profile(
     home_k3s = (
         environment_profile_config["orchestrator"] == "k3s"
         and environment_profile_config["load_generator"] == "in-cluster-k6-job"
-        and environment_profile_config["official"] is True
+        and (
+            (
+                environment_profile_config["id"] == "home-k3s-v1"
+                and environment_profile_config["official"] is True
+            )
+            or (
+                environment_profile_config["id"] == "home-k3s-calibration"
+                and environment_profile_config["official"] is False
+            )
+        )
     )
     if not (local_compose or home_k3s):
         raise _unsupported_profile(
@@ -369,18 +441,23 @@ def _validate_profile_combination(
 ) -> None:
     if environment["official"] is not True:
         return
-    expected = {
-        "measurement_protocol": "official-service-v1",
-        "load_profile": "platform-qualification-v1",
+    allowed_load_profiles = {
+        "platform-qualification-v1",
+        "steady",
+        "capacity-ramp",
+        "burst-recovery",
     }
     actual = {
         "measurement_protocol": measurement_protocol["id"],
         "load_profile": load_profile["id"],
     }
-    if actual != expected:
+    if (
+        actual["measurement_protocol"] != "official-service-v1"
+        or actual["load_profile"] not in allowed_load_profiles
+    ):
         raise ValueError(
             "Official environment 'home-k3s-v1' requires measurement protocol "
-            "'official-service-v1' and load profile 'platform-qualification-v1'."
+            "'official-service-v1' and a frozen official load profile."
         )
 
 

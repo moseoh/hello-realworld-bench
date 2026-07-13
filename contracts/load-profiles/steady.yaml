@@ -1,7 +1,7 @@
 schema_version: "1.0"
 id: steady
-contract_version: "0.1"
-status: draft
+contract_version: "1.0"
+status: frozen
 description: "Constant arrival rate with a two-minute warmup and eight-minute measured phase."
 model: open
 executor: constant-arrival-rate

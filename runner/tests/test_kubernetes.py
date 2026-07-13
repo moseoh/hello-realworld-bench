@@ -6,8 +6,11 @@ from unittest.mock import Mock
 
 from hrw_runner.config import resolve_run_config
 from hrw_runner.k3s_runner import (
+    _collect_dependency_evidence,
     _pod_failure_reasons,
     _summary_from_k6_log,
+    _reset_scenario_state,
+    _scenario_correctness,
     _wait_job,
     _write_failed_trial,
 )
@@ -30,6 +33,45 @@ PROFILE = {
         "min_sample_coverage_ratio": 0.9,
     },
 }
+
+
+class ScenarioLifecycleTest(unittest.TestCase):
+    def test_resets_transactional_tables_after_warmup(self):
+        client = Mock()
+
+        _reset_scenario_state(client, "hrw-run", "transactional-command-api")
+
+        command = client.command.call_args.args[0]
+        self.assertEqual(command[:4], ["exec", "pod/postgres", "-n", "hrw-run"])
+        self.assertIn("truncate table order_items, outbox_events, orders", command[-1])
+
+    def test_transactional_correctness_matches_all_rows_to_iterations(self):
+        client = Mock()
+        client.command.return_value = "120,120,120\n"
+        summary = {"metrics": {"iterations": {"values": {"count": 120}}}}
+
+        correctness = _scenario_correctness(
+            client, "hrw-run", "transactional-command-api", summary
+        )
+
+        self.assertEqual(correctness["status"], "valid")
+        self.assertEqual(correctness["expected_iterations"], 120)
+        self.assertEqual(
+            correctness["observed"],
+            {"orders": 120, "order_items": 120, "outbox_events": 120},
+        )
+
+    def test_transactional_correctness_rejects_missing_outbox_write(self):
+        client = Mock()
+        client.command.return_value = "120,120,119\n"
+        summary = {"metrics": {"iterations": {"values": {"count": 120}}}}
+
+        correctness = _scenario_correctness(
+            client, "hrw-run", "transactional-command-api", summary
+        )
+
+        self.assertEqual(correctness["status"], "invalid")
+        self.assertIn("outbox_events", correctness["reasons"][0])
 
 
 class KubernetesPreflightTest(unittest.TestCase):
@@ -189,6 +231,58 @@ class TargetImageIdentityTest(unittest.TestCase):
         reasons = _pod_failure_reasons(pod, expected)
 
         self.assertTrue(any("imageID" in reason for reason in reasons))
+
+    def test_rejects_target_oom_in_current_or_previous_container_state(self):
+        expected = "ghcr.io/example/target@sha256:" + "a" * 64
+        for state_name in ("state", "lastState"):
+            with self.subTest(state_name=state_name):
+                pod = {
+                    "status": {
+                        "containerStatuses": [
+                            {
+                                "imageID": expected,
+                                "restartCount": 0,
+                                state_name: {"terminated": {"reason": "OOMKilled"}},
+                            }
+                        ]
+                    }
+                }
+
+                reasons = _pod_failure_reasons(pod, expected)
+
+                self.assertIn("target was OOMKilled", reasons)
+
+
+class DependencyPodEvidenceTest(unittest.TestCase):
+    def test_rejects_dependency_oom_in_current_or_previous_container_state(self):
+        for state_name in ("state", "lastState"):
+            with self.subTest(state_name=state_name):
+                client = Mock()
+                client.json.return_value = {
+                    "items": [
+                        {
+                            "metadata": {"name": "postgres"},
+                            "status": {
+                                "containerStatuses": [
+                                    {
+                                        "restartCount": 0,
+                                        state_name: {
+                                            "terminated": {"reason": "OOMKilled"}
+                                        },
+                                    }
+                                ]
+                            },
+                        }
+                    ]
+                }
+                client.command.return_value = "dependency log"
+
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    _, reasons = _collect_dependency_evidence(
+                        client, "hrw-run", Path(temp_dir)
+                    )
+
+                self.assertIn("dependency postgres was OOMKilled", reasons)
 
 
 class KubernetesJobWaitTest(unittest.TestCase):

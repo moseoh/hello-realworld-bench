@@ -18,6 +18,8 @@ Baseline settings:
 | Connection pooling | enabled |
 | Max total connections | `128` |
 | Max connections per upstream route | `128` |
+| Max concurrent upstream operations | `128` |
+| Max pending upstream operations | `128` |
 | Connect timeout | `500ms` |
 | Connection acquisition timeout | `500ms` |
 | Response timeout, `io-aggregation-api` | `1000ms` |
@@ -25,7 +27,10 @@ Baseline settings:
 | Retries | disabled unless a scenario explicitly measures retries |
 | Circuit breaker | disabled unless a scenario explicitly measures circuit breakers |
 
-The Spring Boot implementation uses Apache HttpClient 5 through Spring `RestClient`.
+The Spring Boot implementation uses Apache HttpClient 5 through Spring
+`RestClient` and a dedicated fixed-size executor for its blocking upstream
+operations. The executor limit matches the connection limit so a framework
+default task pool cannot become an undocumented bottleneck.
 
 Equivalent settings for future implementations do not need identical configuration names, but they must preserve the same behavior: pooled connections, the same effective timeout values, no retry behavior, and no circuit breaker behavior.
 
@@ -41,8 +46,8 @@ Baseline settings:
 | CPU limit | `1.0` |
 | Memory limit | `512m` |
 | Request journal | disabled |
-| Container threads | `32` |
-| Jetty accept queue size | `200` |
+| Container threads | `128` |
+| Jetty accept queue size | `512` |
 
 The request journal is disabled because these scenarios do not verify received requests through WireMock admin APIs, and recording every request adds memory and synchronization overhead that is not part of the service pattern being measured.
 

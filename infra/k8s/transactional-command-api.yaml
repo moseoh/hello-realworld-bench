@@ -9,16 +9,111 @@ metadata:
 apiVersion: v1
 kind: Service
 metadata:
+  name: postgres
+  namespace: __NAMESPACE__
+  labels:
+    app.kubernetes.io/name: transactional-command-api
+    app.kubernetes.io/component: dependency
+    app.kubernetes.io/part-of: hello-realworld-bench
+    hello-real-world/run-set: __RUN_SET_ID__
+spec:
+  selector:
+    app.kubernetes.io/name: transactional-command-api
+    app.kubernetes.io/component: dependency
+    hello-real-world/run-set: __RUN_SET_ID__
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: postgres
+  namespace: __NAMESPACE__
+  labels:
+    app.kubernetes.io/name: transactional-command-api
+    app.kubernetes.io/component: dependency
+    app.kubernetes.io/part-of: hello-realworld-bench
+    hello-real-world/run-set: __RUN_SET_ID__
+spec:
+  automountServiceAccountToken: false
+  nodeSelector:
+    kubernetes.io/hostname: homlab
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 999
+    runAsGroup: 999
+    fsGroup: 999
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: postgres
+      image: postgres:18@sha256:0c49c0c906cb405ea65e70c284570fee91c7750ca9336369afc0edf4fce211db
+      imagePullPolicy: IfNotPresent
+      env:
+        - name: POSTGRES_DB
+          value: hrw
+        - name: POSTGRES_USER
+          value: hrw
+        - name: POSTGRES_PASSWORD
+          value: hrw
+      ports:
+        - name: postgres
+          containerPort: 5432
+      readinessProbe:
+        exec:
+          command:
+            - pg_isready
+            - -U
+            - hrw
+            - -d
+            - hrw
+        periodSeconds: 1
+        timeoutSeconds: 1
+        failureThreshold: 30
+      resources:
+        requests:
+          cpu: "1"
+          memory: 1Gi
+        limits:
+          cpu: "1"
+          memory: 1Gi
+      securityContext:
+        privileged: false
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop:
+            - ALL
+      volumeMounts:
+        - name: data
+          mountPath: /var/lib/postgresql
+        - name: tmp
+          mountPath: /tmp
+        - name: run
+          mountPath: /var/run/postgresql
+  volumes:
+    - name: data
+      emptyDir: {}
+    - name: tmp
+      emptyDir: {}
+    - name: run
+      emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
   name: target
   namespace: __NAMESPACE__
   labels:
-    app.kubernetes.io/name: ping-api
+    app.kubernetes.io/name: transactional-command-api
     app.kubernetes.io/component: target
     app.kubernetes.io/part-of: hello-realworld-bench
     hello-real-world/run-set: __RUN_SET_ID__
 spec:
   selector:
-    app.kubernetes.io/name: ping-api
+    app.kubernetes.io/name: transactional-command-api
     app.kubernetes.io/component: target
     hello-real-world/run-set: __RUN_SET_ID__
   ports:
@@ -32,7 +127,7 @@ metadata:
   name: target
   namespace: __NAMESPACE__
   labels:
-    app.kubernetes.io/name: ping-api
+    app.kubernetes.io/name: transactional-command-api
     app.kubernetes.io/component: target
     app.kubernetes.io/part-of: hello-realworld-bench
     hello-real-world/run-set: __RUN_SET_ID__
@@ -55,6 +150,14 @@ spec:
           value: __VIRTUAL_THREADS__
         - name: SPRING_MAIN_KEEP_ALIVE
           value: __KEEP_ALIVE__
+        - name: SPRING_PROFILES_ACTIVE
+          value: transactional
+        - name: SPRING_DATASOURCE_URL
+          value: jdbc:postgresql://postgres:5432/hrw
+        - name: SPRING_DATASOURCE_USERNAME
+          value: hrw
+        - name: SPRING_DATASOURCE_PASSWORD
+          value: hrw
       ports:
         - name: http
           containerPort: 8080
@@ -92,7 +195,7 @@ metadata:
   name: k6-script
   namespace: __NAMESPACE__
   labels:
-    app.kubernetes.io/name: ping-api
+    app.kubernetes.io/name: transactional-command-api
     app.kubernetes.io/component: load-generator
     app.kubernetes.io/part-of: hello-realworld-bench
     hello-real-world/run-set: __RUN_SET_ID__
@@ -105,7 +208,7 @@ metadata:
   name: __K6_JOB_NAME__
   namespace: __NAMESPACE__
   labels:
-    app.kubernetes.io/name: ping-api
+    app.kubernetes.io/name: transactional-command-api
     app.kubernetes.io/component: load-generator
     app.kubernetes.io/part-of: hello-realworld-bench
     hello-real-world/run-set: __RUN_SET_ID__
@@ -114,7 +217,7 @@ spec:
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: ping-api
+        app.kubernetes.io/name: transactional-command-api
         app.kubernetes.io/component: load-generator
         app.kubernetes.io/part-of: hello-realworld-bench
         hello-real-world/run-set: __RUN_SET_ID__

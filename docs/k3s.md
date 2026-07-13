@@ -31,6 +31,12 @@ One namespace is created per run set. Dependencies are prepared first, one targe
 image digest is reused across every trial, and target state is reset between
 trials. The namespace is deleted on both success and failure.
 
+PostgreSQL and WireMock each use the dependency allocation. PostgreSQL remains
+running across a run set, but the transactional tables are truncated after each
+warmup. The measured order, order-item, and outbox row counts must each match the
+measured successful iteration count. WireMock is stateless with its request
+journal disabled.
+
 ## Validity
 
 Preflight verifies the context, node identity, Ready state, architecture,
@@ -41,7 +47,9 @@ host CPU and memory.
 The v1 background ceilings are 2,000 millicores and 8,000,000,000 working-set
 bytes. The CPU allowance accounts for the timestamp skew between kubelet node and
 container samples while still rejecting material contention on the 16-thread
-host. Resource samples are expected every ten seconds with at least 90 percent
+host. k6 may use at most 350 percent CPU from its four-core allocation, and a
+dependency may use at most 95 percent of its one-core allocation. Resource
+samples are expected every ten seconds with at least 90 percent
 coverage. A failed correctness check is application-invalid; orchestration,
 resource, noise, or evidence failures are infrastructure-invalid. Invalid trials
 remain in the run set but do not contribute to promoted summaries.
@@ -66,7 +74,12 @@ credentials to the home host. The same imported digest is reused for all trials.
 ## Protocol
 
 `official-service-v1` fixes three trials, a 120-second warmup, and a 480-second
-measured window. `platform-qualification-v1` fixes the closed-model traffic used
-to validate the runner; it is not a backend performance conclusion. The official
-environment rejects other protocol or load-profile combinations so a one-trial
-development run cannot be mistaken for official platform evidence.
+measured window. `steady`, `capacity-ramp`, and `burst-recovery` are frozen open
+arrival-rate profiles. Scenario contracts own their calibrated base rate;
+profile contracts own the deterministic multipliers and timing. Burst transitions
+use zero-second stages so 3x and 5x spikes are immediate rather than ramps.
+
+`home-k3s-calibration`, `calibration-service`, and the calibration load profiles
+provide a one-trial development path. Calibration evidence is never publishable.
+`platform-qualification-v1` remains the closed-model smoke workload and is not a
+backend performance conclusion.

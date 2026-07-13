@@ -118,6 +118,8 @@
       "required": [
         "max_background_cpu_millicores",
         "max_background_memory_bytes",
+        "max_load_generator_cpu_percent",
+        "max_dependency_cpu_percent",
         "min_sample_coverage_ratio",
         "stats_sample_interval_seconds",
         "phases",
@@ -126,6 +128,8 @@
       "properties": {
         "max_background_cpu_millicores": { "type": "integer", "minimum": 0 },
         "max_background_memory_bytes": { "type": "integer", "minimum": 0 },
+        "max_load_generator_cpu_percent": { "type": "number", "exclusiveMinimum": 0 },
+        "max_dependency_cpu_percent": { "type": "number", "exclusiveMinimum": 0 },
         "min_sample_coverage_ratio": {
           "type": "number",
           "exclusiveMinimum": 0,
