@@ -79,6 +79,22 @@ class WorkflowTrustBoundaryTest(unittest.TestCase):
         self.assertEqual(
             workflow["jobs"]["publish"]["strategy"]["max-parallel"], "1"
         )
+        self.assertIn("HRW_NAMESPACE_RECORD", benchmark_step["env"])
+        recovery = next(
+            step
+            for step in benchmark["steps"]
+            if step.get("name") == "Recover interrupted benchmark namespaces"
+        )
+        self.assertIn('"$RUNNER_TEMP"/hrw-*.namespace', recovery["run"])
+        self.assertIn("app.kubernetes.io/part-of", recovery["run"])
+        cleanup = next(
+            step
+            for step in benchmark["steps"]
+            if step.get("name") == "Cleanup canceled benchmark namespace"
+        )
+        self.assertEqual(cleanup["if"], "${{ always() }}")
+        self.assertIn("app.kubernetes.io/part-of", cleanup["run"])
+        self.assertIn('delete namespace "$namespace"', cleanup["run"])
 
     def test_official_build_matrix_is_static_and_builds_both_implementations(self):
         workflow = self._load("official-benchmark.yml")
@@ -101,6 +117,7 @@ class WorkflowTrustBoundaryTest(unittest.TestCase):
                 },
             ],
         )
+
         self.assertNotIn("app_dir", workflow["on"]["workflow_call"]["inputs"])
         build_step = next(
             step
@@ -125,6 +142,47 @@ class WorkflowTrustBoundaryTest(unittest.TestCase):
         self.assertIn("${{ matrix.image_key }}", upload["with"]["name"])
         self.assertIn("target-image.oci.tar", upload["with"]["path"])
         self.assertIn("image-ref.txt", upload["with"]["path"])
+
+    def test_interrupted_namespace_recovery_deletes_only_recorded_benchmark(self):
+        workflow = self._load("official-benchmark.yml")
+        recovery = next(
+            step
+            for step in workflow["jobs"]["benchmark"]["steps"]
+            if step.get("name") == "Recover interrupted benchmark namespaces"
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            namespace = "hrw-20260713t010203-abcdef0"
+            marker = root / "hrw-old.namespace"
+            marker.write_text(f"{namespace}\n")
+            delete_log = root / "deleted"
+            executable = root / "kubectl"
+            executable.write_text(
+                "#!/bin/sh\n"
+                "if [ \"$3\" = get ]; then\n"
+                "  printf hello-realworld-bench\n"
+                "elif [ \"$3\" = delete ]; then\n"
+                "  printf '%s\\n' \"$5\" >> \"$DELETE_LOG\"\n"
+                "fi\n"
+            )
+            executable.chmod(0o755)
+            completed = subprocess.run(
+                ["bash", "-e", "-o", "pipefail", "-c", recovery["run"]],
+                check=False,
+                capture_output=True,
+                text=True,
+                env={
+                    **os.environ,
+                    "PATH": f"{root}:{os.environ['PATH']}",
+                    "RUNNER_TEMP": str(root),
+                    "DELETE_LOG": str(delete_log),
+                },
+            )
+
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            self.assertFalse(marker.exists())
+            self.assertEqual(delete_log.read_text(), f"{namespace}\n")
 
     def test_official_matrix_validation_rejects_canonical_duplicate_cells(self):
         workflow = self._load("official-benchmark.yml")

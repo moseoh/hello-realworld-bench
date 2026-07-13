@@ -44,6 +44,12 @@ The worker installs uv for each job. Image building happens on a
 GitHub-hosted runner, so Docker, Java, Gradle, and make are not required on the
 home runner.
 
+Each benchmark process records the one namespace it owns in a runner-temporary
+marker. An `always()` cleanup step validates that namespace and its benchmark
+label before deletion. If host interruption prevents that step from running,
+the next job validates and removes namespaces referenced by retained markers
+before preflight. Neither path deletes namespaces by a broad label selector.
+
 The runner process lives in `~/actions-runner`. Install it as a system
 service on the home host so it survives logout and reboot:
 
@@ -103,23 +109,23 @@ copy.
 
 The trusted worker currently builds one immutable target image for every
 supported implementation, then each cell selects its implementation-keyed
-artifact for the serial home-runner matrix. The first core campaign contains
-`transactional-command-api` and `io-aggregation-api`, each under `steady`,
-`capacity-ramp`, and `burst-recovery`. Every cell contains three trials. Publish
-jobs are also serialized so append-only catalog updates cannot race.
+artifact for the serial home-runner matrix. The complete core campaign contains
+`transactional-command-api`, `io-aggregation-api`, and `read-heavy-query-api`,
+each under `steady`, `capacity-ramp`, and `burst-recovery`. Every cell contains
+three trials. Publish jobs are also serialized so append-only catalog updates
+cannot race.
 
 `ping-api` remains a separate platform qualification cell and is not a backend
 performance conclusion.
 
-`read-heavy-query-api` is implemented for both targets and allowlisted by the
-worker, but it is not part of the private campaign matrix while its scenario
-contract is marked uncalibrated. Promotion requires a home-k3s calibration run,
-a frozen arrival rate, and a scenario contract version change.
+`read-heavy-query-api` is implemented for both targets, frozen at a 300 requests
+per second base rate, and included in the private campaign matrix under all
+three official load profiles.
 
 The same reusable worker has a non-publishing calibration mode. It accepts only
 `calibration-service` with `publish_results: false`, retains the raw workflow
 artifact for inspection, and shares the `official-home-k3s` concurrency group so
-calibration cannot overlap an official campaign. The provisional read-heavy
-base rate is 300 requests per second; calibration exercises both a steady 300
+calibration cannot overlap an official campaign. The frozen read-heavy base
+rate is 300 requests per second; calibration exercises both a steady 300
 requests per second load and deterministic bursts up to 1,500 requests per
 second against both implementations.

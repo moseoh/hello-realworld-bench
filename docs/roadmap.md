@@ -42,8 +42,10 @@ image repository ownership moved from the Spring-specific environment profile to
 each implementation contract. Transactional scenario version `1.2` also raised
 pre-allocated VUs from 100 to 200 after a 1,000 requests/second burst showed a
 113 ms tail and four dropped iterations while dynamic allocation caught up.
-Transactional v1.3, I/O aggregation v1.2, and provisional read-heavy v0.3 add
+Transactional v1.3, I/O aggregation v1.2, and read-heavy v1.0 add
 bounded 10-second request, failure, latency, and resource timeline evidence.
+Read-heavy v1.0 freezes its home-k3s-calibrated base rate at 300 requests per
+second.
 
 ## Benchmark Model
 
@@ -200,9 +202,9 @@ Core service scenarios:
 
 `read-heavy-query-api` excludes application caching in v1. Its dataset, schema, indexes, selectivity, pagination, response size, and cache-temperature policy must be fixed by the scenario contract.
 
-The implementation and local runner path are complete. The remaining work is
-home-k3s arrival-rate calibration, contract promotion from `0.3`, and inclusion
-in the trusted 54-trial campaign.
+The implementation, local runner path, home-k3s arrival-rate calibration, and
+contract promotion are complete. The remaining work is the trusted 54-trial
+campaign.
 
 Exit criteria:
 

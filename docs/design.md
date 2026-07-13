@@ -111,16 +111,17 @@ Create a separate implementation folder only when the implementation source or f
 `ping-api` validates the runner path and is not a performance conclusion. Core
 service qualification uses `transactional-command-api`,
 `read-heavy-query-api`, and `io-aggregation-api` under steady, capacity-ramp,
-and burst-recovery load profiles. The read-heavy profile remains unfrozen until
-its arrival rate is calibrated on the home k3s environment.
+and burst-recovery load profiles. The read-heavy v1.0 profile uses its frozen
+home-k3s-calibrated base rate.
 
 Transactional scenario contract version `1.2` raised immediately available k6
 VUs from 100 to 200. Calibration at the 1,000 requests/second burst observed a
 113 ms tail and four dropped iterations while dynamic VU allocation caught up;
 the higher reservation removes that load-generator artifact from future cohorts.
 Version `1.3` records bounded 10-second request, failure, and latency aggregates
-for comparison and APM-style views. I/O aggregation v1.2 and provisional
-read-heavy v0.3 use the same timeline contract.
+for comparison and APM-style views. I/O aggregation v1.2 and read-heavy v1.0
+use the same timeline contract. Read-heavy v1.0 freezes its calibrated base
+rate at 300 requests per second.
 
 ## Result Output
 

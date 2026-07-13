@@ -89,6 +89,20 @@ class ResolveRunConfigTest(unittest.TestCase):
                 load_profile="steady",
             )
 
+    def test_resolves_calibrated_read_heavy_rate_for_official_profile(self):
+        config = resolve_run_config(
+            "java/spring-boot",
+            "read-heavy-query-api",
+            "jvm-java25",
+            PROJECT_ROOT,
+            environment_profile="home-k3s-v1",
+            measurement_protocol="official-service-v1",
+            load_profile="steady",
+        )
+
+        self.assertEqual(config.load["rate"], 300)
+        self.assertIs(config.load["arrival_rate"]["calibrated"], True)
+
     def test_allows_uncalibrated_read_heavy_rate_for_development_calibration(self):
         root_dir = self._copy_runnable_contracts()
         self._copy_scenario(root_dir, "read-heavy-query-api")

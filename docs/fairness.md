@@ -54,9 +54,9 @@ load-generator condition and therefore cannot be mixed with scenario v1.1.
 Version `1.3` adds bounded 10-second request, failure, and latency evidence;
 it starts a new cohort because the load script and recorded evidence changed.
 
-I/O aggregation contract version `1.2` and provisional read-heavy contract
-version `0.3` add the same bounded timeline evidence to their respective
-cohorts.
+I/O aggregation contract version `1.2` and read-heavy contract version `1.0`
+add the same bounded timeline evidence to their respective cohorts. Read-heavy
+v1.0 also freezes its calibrated base rate at 300 requests per second.
 
 ## Build Conditions
 

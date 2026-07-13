@@ -1,6 +1,6 @@
 schema_version: "1.0"
 id: read-heavy-query-api
-contract_version: "0.3"
+contract_version: "1.0"
 description: "HTTP query API that reads a deterministic PostgreSQL product catalog through indexed filters and keyset pagination."
 kind: service
 question: "How does the target behave when serving bounded, indexed product queries from a warm PostgreSQL dataset?"
@@ -76,7 +76,7 @@ load:
     base_per_second: 300
     pre_allocated_vus: 200
     max_vus: 400
-    calibrated: false
+    calibrated: true
 
 metrics:
   collect:
