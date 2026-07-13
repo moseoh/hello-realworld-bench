@@ -101,8 +101,8 @@ jobs:
             java/spring-boot ping-api jvm-java25 \
             --environment-profile home-k3s-v1 \
             --measurement-protocol official-service-v1 \
-            --load-profile platform-qualification-v1 | tee official-benchmark.log
-          result_dir="$(sed -n 's/^Run set directory: //p' official-benchmark.log | tail -1)"
+            --load-profile platform-qualification-v1 | tee ../official-benchmark.log
+          result_dir="$(sed -n 's/^Run set directory: //p' ../official-benchmark.log | tail -1)"
           test -n "$result_dir"
           test -f "$result_dir/run-set.json"
           printf 'result_dir=%s\n' "$result_dir" >> "$GITHUB_OUTPUT"

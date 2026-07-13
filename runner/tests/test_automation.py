@@ -23,6 +23,13 @@ class WorkflowTrustBoundaryTest(unittest.TestCase):
             workflow["jobs"]["publish"]["steps"][0]["with"]["token"],
             "${{ secrets.PUBLIC_REPO_TOKEN }}",
         )
+        benchmark_step = next(
+            step
+            for step in benchmark["steps"]
+            if step.get("name") == "Run official qualification set"
+        )
+        self.assertEqual(benchmark_step["working-directory"], "source")
+        self.assertIn("tee ../official-benchmark.log", benchmark_step["run"])
 
     def test_pull_request_ci_uses_only_github_hosted_runner(self):
         workflow = self._load("ci.yml")
