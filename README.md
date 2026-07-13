@@ -53,6 +53,7 @@ The current profile catalog supports local development runs. Draft load profiles
 - Docker Compose
 - k6
 - Java 25 for local development
+- kubectl access to context `homelab` for the official k3s profile
 
 The Spring Boot implementation is generated from Spring Initializr and includes the Gradle wrapper. The runner prefers local k6. If local k6 is unavailable, it can fall back to the `grafana/k6` Docker image.
 
@@ -68,6 +69,21 @@ only once:
 ```bash
 make run-set
 ```
+
+Run on the frozen home k3s environment:
+
+```bash
+make run-set \
+  ENVIRONMENT_PROFILE=home-k3s-v1 \
+  MEASUREMENT_PROTOCOL=official-service-v1 \
+  LOAD_PROFILE=platform-qualification-v1
+```
+
+The k3s runner builds and pushes one `linux/amd64` image by default. A trusted
+pipeline may pass an already published immutable image with `TARGET_IMAGE`. For
+local qualification when registry push credentials are unavailable, use the
+explicit `IMAGE_DISTRIBUTION=import` mode; it imports an OCI image into the fixed
+k3s node before benchmark workloads start.
 
 With explicit values:
 
@@ -135,6 +151,9 @@ The Makefile calls the uv-managed Python runner. Before starting measurement, th
 is the repeatable evidence workflow: it builds once, executes the selected
 measurement protocol's `trials`, resets Compose state between trials, and validates
 the complete digest chain before returning successfully.
+When `home-k3s-v1` is selected, the same command dispatches to the Kubernetes
+runner. See [Home k3s Platform](docs/k3s.md) for the frozen host contract,
+resources, validity rules, and image delivery modes.
 
 The implementation contract owns the default variant and build profile. Each
 service scenario owns the default load profile, environment profile, and

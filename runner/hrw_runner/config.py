@@ -138,12 +138,18 @@ def resolve_run_config(
     _reject_draft_profile("build profile", build_profile_config)
 
     _validate_environment_profile(environment_profile_config)
+    _validate_profile_combination(
+        environment_profile_config,
+        measurement_protocol_config,
+        load_profile_config,
+    )
     _validate_build_profile(build_profile_config)
     target = _dict_value(scenario_config, "target")
     load = _resolve_load_config(
         _dict_value(scenario_config, "load"),
         load_profile_config,
     )
+    load = _apply_measurement_timing(load, measurement_protocol_config)
     startup = _resolve_startup_config(
         scenario_config,
         measurement_protocol_config,
@@ -260,7 +266,10 @@ def _resolve_load_config(
     if (
         load_profile_config["model"] == "closed"
         and load_profile_config["executor"] == "constant-vus"
-        and timing == {"source": "scenario"}
+        and timing in (
+            {"source": "scenario"},
+            {"source": "measurement-protocol"},
+        )
         and phases
         == [{"source": "scenario", "duration_seconds": None, "vus": None}]
         and load.get("enabled") is True
@@ -298,10 +307,17 @@ def _resolve_startup_config(
             and measurement_protocol_config["measured_seconds"] == 0
         )
     else:
+        timing_source = measurement_protocol_config["timing_source"]
         supported_timing = (
-            measurement_protocol_config["timing_source"] == "scenario"
+            timing_source == "scenario"
             and measurement_protocol_config["warmup_seconds"] is None
             and measurement_protocol_config["measured_seconds"] is None
+        ) or (
+            timing_source == "profile"
+            and isinstance(measurement_protocol_config["warmup_seconds"], int)
+            and measurement_protocol_config["warmup_seconds"] > 0
+            and isinstance(measurement_protocol_config["measured_seconds"], int)
+            and measurement_protocol_config["measured_seconds"] > 0
         )
     if not supported_timing:
         raise _unsupported_profile(
@@ -317,14 +333,54 @@ def _resolve_startup_config(
 def _validate_environment_profile(
     environment_profile_config: dict[str, object],
 ) -> None:
-    if not (
+    local_compose = (
         environment_profile_config["orchestrator"] == "docker-compose"
         and environment_profile_config["load_generator"] == "same-host"
         and environment_profile_config["official"] is False
-    ):
+    )
+    home_k3s = (
+        environment_profile_config["orchestrator"] == "k3s"
+        and environment_profile_config["load_generator"] == "in-cluster-k6-job"
+        and environment_profile_config["official"] is True
+    )
+    if not (local_compose or home_k3s):
         raise _unsupported_profile(
             "environment profile",
             environment_profile_config,
+        )
+
+
+def _apply_measurement_timing(
+    load: dict[str, object],
+    measurement_protocol_config: dict[str, object],
+) -> dict[str, object]:
+    if measurement_protocol_config["timing_source"] != "profile":
+        return load
+    timed = dict(load)
+    timed["warmup_duration"] = f"{measurement_protocol_config['warmup_seconds']}s"
+    timed["test_duration"] = f"{measurement_protocol_config['measured_seconds']}s"
+    return timed
+
+
+def _validate_profile_combination(
+    environment: dict[str, object],
+    measurement_protocol: dict[str, object],
+    load_profile: dict[str, object],
+) -> None:
+    if environment["official"] is not True:
+        return
+    expected = {
+        "measurement_protocol": "official-service-v1",
+        "load_profile": "platform-qualification-v1",
+    }
+    actual = {
+        "measurement_protocol": measurement_protocol["id"],
+        "load_profile": load_profile["id"],
+    }
+    if actual != expected:
+        raise ValueError(
+            "Official environment 'home-k3s-v1' requires measurement protocol "
+            "'official-service-v1' and load profile 'platform-qualification-v1'."
         )
 
 

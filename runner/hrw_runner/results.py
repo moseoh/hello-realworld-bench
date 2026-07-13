@@ -66,9 +66,9 @@ def k6_runtime_metrics(summary: dict[str, Any]) -> dict[str, Any]:
         return {}
 
     metrics = summary.get("metrics", {})
-    http_reqs = metrics.get("http_reqs", {})
-    duration = metrics.get("http_req_duration", {})
-    failed = metrics.get("http_req_failed", {})
+    http_reqs = _metric_values(metrics.get("http_reqs", {}))
+    duration = _metric_values(metrics.get("http_req_duration", {}))
+    failed = _metric_values(metrics.get("http_req_failed", {}))
 
     return {
         "rps": http_reqs.get("rate"),
@@ -180,6 +180,13 @@ def _first_present(source: dict[str, Any], *keys: str) -> Any:
         if key in source:
             return source[key]
     return None
+
+
+def _metric_values(metric: Any) -> dict[str, Any]:
+    if not isinstance(metric, dict):
+        return {}
+    values = metric.get("values")
+    return values if isinstance(values, dict) else metric
 
 
 def _summarize_numeric_values(samples: list[dict[str, Any]], key: str) -> dict[str, Any]:

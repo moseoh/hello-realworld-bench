@@ -88,7 +88,8 @@
             "implementation-compose",
             "variant-compose",
             "scenario-compose",
-            "scenario-file"
+            "scenario-file",
+            "kubernetes-template"
           ]
         },
         "path": { "$ref": "#/$defs/repositoryPath" },
@@ -101,7 +102,7 @@
         {
           "properties": {
             "role": {
-              "enum": ["environment-compose", "scenario-compose", "scenario-file"]
+              "enum": ["environment-compose", "scenario-compose", "scenario-file", "kubernetes-template"]
             }
           }
         }

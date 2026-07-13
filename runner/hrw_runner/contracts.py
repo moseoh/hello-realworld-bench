@@ -417,10 +417,10 @@ def _validate_load_profile_semantics(value: dict[str, object]) -> list[str]:
                 ("executor",),
                 "must be 'constant-vus' when $.model is 'closed'",
             )
-        if timing.get("source") != "scenario":
+        if timing.get("source") not in {"scenario", "measurement-protocol"}:
             add_error(
                 ("timing", "source"),
-                "must be 'scenario' when $.model is 'closed'",
+                "must be 'scenario' or 'measurement-protocol' when $.model is 'closed'",
             )
         for field in ("warmup_seconds", "measured_seconds"):
             if timing.get(field) is not None:

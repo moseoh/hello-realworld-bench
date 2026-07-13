@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import unicodedata
+from dataclasses import replace
 from pathlib import Path
 from typing import Mapping
 
@@ -33,6 +34,7 @@ _COHORT_ASSET_ROLES = {
     "environment-compose",
     "scenario-compose",
     "scenario-file",
+    "kubernetes-template",
 }
 _ASSET_ROLE_ORDER = {
     "environment-compose": 0,
@@ -40,6 +42,7 @@ _ASSET_ROLE_ORDER = {
     "variant-compose": 2,
     "scenario-compose": 3,
     "scenario-file": 4,
+    "kubernetes-template": 5,
 }
 
 
@@ -127,7 +130,9 @@ def resolve_input_assets(config: RunConfig) -> list[dict[str, str]]:
     )
 
     assets: list[dict[str, str]] = []
-    for role, path, required in compose_files:
+    orchestrator = config.environment_profile_config["orchestrator"]
+    selected_compose_files = compose_files if orchestrator == "docker-compose" else ()
+    for role, path, required in selected_compose_files:
         relative_path = _repository_path_without_symlinks(path, root, "$.assets")
         if not path.is_file():
             if required:
@@ -136,6 +141,15 @@ def resolve_input_assets(config: RunConfig) -> list[dict[str, str]]:
                 )
             continue
         assets.append(_asset_ref(role, path, relative_path))
+
+    if orchestrator == "k3s":
+        template = root / "infra" / "k8s" / f"{config.scenario}.yaml"
+        relative_path = _repository_path_without_symlinks(template, root, "$.assets")
+        if not template.is_file():
+            raise ManifestValidationError(
+                [f"$.assets: required asset is missing: {relative_path}"]
+            )
+        assets.append(_asset_ref("kubernetes-template", template, relative_path))
 
     _repository_path_without_symlinks(config.scenario_dir, root, "$.assets")
     scenario_dir = Path(os.path.abspath(config.scenario_dir))
@@ -297,6 +311,22 @@ def validate_resolved_manifest(manifest: object, root: Path) -> None:
     except ValueError as error:
         raise ManifestValidationError([f"$.selection: {error}"]) from error
 
+    if config.environment_profile_config["orchestrator"] == "k3s":
+        execution = manifest["execution"]
+        assert isinstance(execution, dict)
+        image = execution["image_tag"]
+        repository = str(
+            config.environment_profile_config["images"]["target_repository"]
+        )
+        if not isinstance(image, str) or not _is_repository_digest(image, repository):
+            raise ManifestValidationError(
+                [
+                    "$.execution.image_tag: must use the official target repository "
+                    "and an immutable sha256 digest"
+                ]
+            )
+        config = replace(config, image_tag=image)
+
     expected = build_resolved_manifest(
         config,
         str(manifest["run_id"]),
@@ -305,6 +335,14 @@ def validate_resolved_manifest(manifest: object, root: Path) -> None:
     mismatches = _resolved_manifest_mismatches(manifest, expected)
     if mismatches:
         raise ManifestValidationError(mismatches)
+
+
+def _is_repository_digest(image: str, repository: str) -> bool:
+    prefix = f"{repository}@sha256:"
+    digest = image.removeprefix(prefix)
+    return image.startswith(prefix) and len(digest) == 64 and all(
+        character in "0123456789abcdef" for character in digest
+    )
 
 
 def _update_snapshot(

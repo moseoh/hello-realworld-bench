@@ -122,16 +122,19 @@ def _summarize_metric_group(
     return metrics
 
 
-def build_trial_summary(result: dict[str, Any]) -> list[dict[str, object]]:
+def build_trial_summary(
+    result: dict[str, Any],
+    resource_source: str = "docker-stats.json",
+) -> list[dict[str, object]]:
     sources = {
         "rps": ("requests_per_second", "k6-summary.json"),
         "p50_ms": ("milliseconds", "k6-summary.json"),
         "p95_ms": ("milliseconds", "k6-summary.json"),
         "p99_ms": ("milliseconds", "k6-summary.json"),
         "error_rate": ("ratio", "k6-summary.json"),
-        "cpu_percent_avg": ("percent", "docker-stats.json"),
-        "cpu_percent_max": ("percent", "docker-stats.json"),
-        "memory_usage_max_bytes": ("bytes", "docker-stats.json"),
+        "cpu_percent_avg": ("percent", resource_source),
+        "cpu_percent_max": ("percent", resource_source),
+        "memory_usage_max_bytes": ("bytes", resource_source),
     }
     runtime_metrics = result.get("runtime_metrics", {})
     summary = [
@@ -193,6 +196,12 @@ def validate_run_set_evidence(run_set_dir: Path, root_dir: Path) -> None:
     cohort = manifest.get("cohort", {})
     if run_set["cohort_fingerprint"] != cohort.get("fingerprint"):
         raise ValueError("Run set cohort fingerprint does not match resolved manifest")
+    selection = manifest.get("selection", {})
+    if (
+        selection.get("environment_profile") == "home-k3s-v1"
+        and "platform_evidence" not in run_set
+    ):
+        raise ValueError("Official k3s run set is missing platform evidence")
     references = run_set["trials"]
     if run_set["expected_trials"] != len(references):
         raise ValueError("Run set expected_trials does not match trial references")
@@ -238,6 +247,10 @@ def validate_run_set_evidence(run_set_dir: Path, root_dir: Path) -> None:
             for source in metric["source_artifacts"]:
                 if source not in artifact_paths:
                     raise ValueError(f"Summary source is not raw evidence: {source}")
+    for reference in run_set.get("platform_evidence", {}).values():
+        path = _contained_file(run_set_dir, str(reference["path"]))
+        if sha256_file(path) != reference["sha256"]:
+            raise ValueError(f"Platform evidence digest mismatch: {reference['path']}")
 
 
 def _validated_reference(

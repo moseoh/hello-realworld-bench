@@ -593,6 +593,106 @@ class ContractValidationTest(unittest.TestCase):
             profile_ids,
         )
 
+    def test_home_k3s_v1_profile_has_frozen_platform_contract(self):
+        document = read_contract(
+            PROJECT_ROOT / "contracts/environment-profiles/home-k3s-v1.yaml",
+            "environment-profile",
+            PROJECT_ROOT,
+        )
+
+        self.assertEqual(
+            document.value,
+            {
+                "schema_version": "1.0",
+                "id": "home-k3s-v1",
+                "contract_version": "1.0",
+                "status": "frozen",
+                "description": "Official single-node home k3s benchmark environment.",
+                "orchestrator": "k3s",
+                "official": True,
+                "load_generator": "in-cluster-k6-job",
+                "cluster": {
+                    "context": "homelab",
+                    "node_name": "homlab",
+                    "machine_id": "f66cd2d134b94bb18eb7e531d1baf343",
+                    "architecture": "amd64",
+                    "cpu_model": "AMD Ryzen 7 5825U",
+                    "cpu_manager_policy": "none",
+                    "min_logical_cpus": 16,
+                    "min_memory_bytes": 29313151795,
+                },
+                "resources": {
+                    "requests_equal_limits": True,
+                    "target": {"cpu": "2", "memory": "1Gi"},
+                    "dependency": {"cpu": "1", "memory": "1Gi"},
+                    "load_generator": {"cpu": "4", "memory": "3Gi"},
+                },
+                "images": {
+                    "target_repository": "ghcr.io/moseoh/hello-realworld-bench/spring-boot",
+                    "target_platform": "linux/amd64",
+                    "target_digest_required": True,
+                    "k6": "grafana/k6@sha256:68e78d94140704ec4ee0cb7c5cf6cd12a32b7d310a6f98d94931ee9b0b9dc629",
+                },
+                "validity": {
+                    "max_background_cpu_millicores": 2000,
+                    "max_background_memory_bytes": 8000000000,
+                    "min_sample_coverage_ratio": 0.90,
+                    "stats_sample_interval_seconds": 10,
+                    "phases": ["preflight", "in-run", "postflight"],
+                    "threshold_exceeded_classification": "infrastructure-invalid",
+                },
+            },
+        )
+
+    def test_official_environment_profile_requires_strict_platform_blocks(self):
+        path = self.root_dir / "contracts/environment-profiles/local.yaml"
+        original = self.read_yaml("contracts/environment-profiles/local.yaml")
+        original["official"] = True
+
+        for missing_property in ("cluster", "resources", "images", "validity"):
+            with self.subTest(missing_property=missing_property):
+                value = copy.deepcopy(original)
+                for property_name in ("cluster", "resources", "images", "validity"):
+                    value[property_name] = {}
+                del value[missing_property]
+                self.write_yaml("contracts/environment-profiles/local.yaml", value)
+
+                with self.assertRaises(ContractValidationError) as context:
+                    read_contract(path, "environment-profile", self.root_dir)
+
+                self.assertIn(f"'{missing_property}' is a required property", str(context.exception))
+
+    def test_home_k3s_v1_profile_rejects_unknown_nested_fields(self):
+        source = yaml.safe_load(
+            (PROJECT_ROOT / "contracts/environment-profiles/home-k3s-v1.yaml").read_text()
+        )
+        source["validity"]["unknown"] = True
+        self.write_yaml("contracts/environment-profiles/local.yaml", source)
+
+        with self.assertRaises(ContractValidationError) as context:
+            read_contract(
+                self.root_dir / "contracts/environment-profiles/local.yaml",
+                "environment-profile",
+                self.root_dir,
+            )
+
+        self.assertIn("$.validity", str(context.exception))
+        self.assertIn("was unexpected", str(context.exception))
+
+    def test_official_service_v1_protocol_has_frozen_timing(self):
+        document = read_contract(
+            PROJECT_ROOT / "contracts/measurement-protocols/official-service-v1.yaml",
+            "measurement-protocol",
+            PROJECT_ROOT,
+        )
+
+        self.assertEqual(document.value["status"], "frozen")
+        self.assertEqual(document.value["evidence_family"], "service")
+        self.assertEqual(document.value["trials"], 3)
+        self.assertEqual(document.value["timing_source"], "profile")
+        self.assertEqual(document.value["warmup_seconds"], 120)
+        self.assertEqual(document.value["measured_seconds"], 480)
+
     def test_read_contract_rejects_mixed_disabled_load_semantics(self):
         path = self.root_dir / "contracts/load-profiles/development.yaml"
         value = self.read_yaml("contracts/load-profiles/development.yaml")
@@ -674,7 +774,7 @@ class ContractValidationTest(unittest.TestCase):
                 "$.timing.measured_seconds: must be null or omitted when $.model "
                 "is 'closed'",
                 "contracts/load-profiles/development.yaml: $.timing.source: must be "
-                "'scenario' when $.model is 'closed'",
+                "'scenario' or 'measurement-protocol' when $.model is 'closed'",
                 "contracts/load-profiles/development.yaml: $.timing.warmup_seconds: "
                 "must be null or omitted when $.model is 'closed'",
             ],

@@ -1,0 +1,43 @@
+schema_version: "1.0"
+id: home-k3s-v1
+contract_version: "1.0"
+status: frozen
+description: "Official single-node home k3s benchmark environment."
+orchestrator: k3s
+official: true
+load_generator: in-cluster-k6-job
+cluster:
+  context: homelab
+  node_name: homlab
+  machine_id: f66cd2d134b94bb18eb7e531d1baf343
+  architecture: amd64
+  cpu_model: "AMD Ryzen 7 5825U"
+  cpu_manager_policy: none
+  min_logical_cpus: 16
+  min_memory_bytes: 29313151795
+resources:
+  requests_equal_limits: true
+  target:
+    cpu: "2"
+    memory: 1Gi
+  dependency:
+    cpu: "1"
+    memory: 1Gi
+  load_generator:
+    cpu: "4"
+    memory: 3Gi
+images:
+  target_repository: ghcr.io/moseoh/hello-realworld-bench/spring-boot
+  target_platform: linux/amd64
+  target_digest_required: true
+  k6: grafana/k6@sha256:68e78d94140704ec4ee0cb7c5cf6cd12a32b7d310a6f98d94931ee9b0b9dc629
+validity:
+  max_background_cpu_millicores: 2000
+  max_background_memory_bytes: 8000000000
+  min_sample_coverage_ratio: 0.90
+  stats_sample_interval_seconds: 10
+  phases:
+    - preflight
+    - in-run
+    - postflight
+  threshold_exceeded_classification: infrastructure-invalid

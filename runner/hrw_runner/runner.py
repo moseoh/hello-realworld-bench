@@ -53,6 +53,10 @@ class RunPaths:
 
 
 def run_benchmark_set(config: RunConfig, root_dir: Path) -> Path:
+    if config.environment_profile_config["orchestrator"] == "k3s":
+        from .k3s_runner import run_k3s_benchmark_set
+
+        return run_k3s_benchmark_set(config, root_dir)
     paths = _run_set_paths(config, root_dir)
     paths.result_dir.mkdir(parents=True, exist_ok=False)
     run_log = paths.result_dir / "run.log"
@@ -245,6 +249,7 @@ def _execute_trial(
             }
             if invalid_reasons:
                 trial_document["invalid_reasons"] = invalid_reasons
+                trial_document["invalidity_class"] = "application"
             validate_evidence_document(trial_document, "trial", root_dir)
             write_json(trial_dir / "trial.json", trial_document)
             return {**trial_document, "result": result}
@@ -272,6 +277,8 @@ def _trial_validity(k6_summary: dict[str, object]) -> tuple[str, list[str]]:
     checks = metrics.get("checks", {})
     if not isinstance(checks, dict):
         return "invalid", ["k6 summary is missing check results"]
+    if isinstance(checks.get("values"), dict):
+        checks = checks["values"]
     fails = checks.get("fails")
     if not isinstance(fails, (int, float)):
         return "invalid", ["k6 summary is missing check failure count"]
