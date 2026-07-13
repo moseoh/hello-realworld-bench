@@ -6,6 +6,10 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / "infra" / "k8s" / "ping-api.yaml"
+TRANSACTIONAL_MANIFEST = (
+    ROOT / "infra" / "k8s" / "transactional-command-api.yaml"
+)
+IO_AGGREGATION_MANIFEST = ROOT / "infra" / "k8s" / "io-aggregation-api.yaml"
 DOCKERFILE = ROOT / "implementations" / "java" / "spring-boot" / "Dockerfile"
 ENVIRONMENT = ROOT / "contracts" / "environment-profiles" / "home-k3s-v1.yaml"
 
@@ -119,3 +123,217 @@ class KubernetesManifestTest(unittest.TestCase):
 
         self.assertIn("useradd --system --uid 10001", dockerfile)
         self.assertIn("USER 10001", dockerfile)
+
+    def test_transactional_manifest_contains_postgres_target_and_load_generator(self):
+        manifests = list(yaml.safe_load_all(TRANSACTIONAL_MANIFEST.read_text()))
+
+        self.assertEqual(
+            [(item["kind"], item["metadata"]["name"]) for item in manifests],
+            [
+                ("Namespace", "__NAMESPACE__"),
+                ("Service", "postgres"),
+                ("Pod", "postgres"),
+                ("Service", "target"),
+                ("Pod", "target"),
+                ("ConfigMap", "k6-script"),
+                ("Job", "__K6_JOB_NAME__"),
+            ],
+        )
+
+        postgres = next(
+            item
+            for item in manifests
+            if item["kind"] == "Pod" and item["metadata"]["name"] == "postgres"
+        )
+        container = postgres["spec"]["containers"][0]
+        self.assertEqual(
+            container["image"],
+            "postgres:18@sha256:"
+            "0c49c0c906cb405ea65e70c284570fee91c7750ca9336369afc0edf4fce211db",
+        )
+        self.assertEqual(
+            container["readinessProbe"]["exec"]["command"],
+            ["pg_isready", "-U", "hrw", "-d", "hrw"],
+        )
+        self.assertEqual(
+            postgres["spec"]["securityContext"],
+            {
+                "runAsNonRoot": True,
+                "runAsUser": 999,
+                "runAsGroup": 999,
+                "fsGroup": 999,
+                "seccompProfile": {"type": "RuntimeDefault"},
+            },
+        )
+        self.assertEqual(
+            container["resources"]["limits"], {"cpu": "1", "memory": "1Gi"}
+        )
+
+        target = next(
+            item
+            for item in manifests
+            if item["kind"] == "Pod" and item["metadata"]["name"] == "target"
+        )
+        target_env = {
+            item["name"]: item["value"]
+            for item in target["spec"]["containers"][0]["env"]
+        }
+        self.assertEqual(target_env["SPRING_PROFILES_ACTIVE"], "transactional")
+        self.assertEqual(
+            target_env["SPRING_DATASOURCE_URL"],
+            "jdbc:postgresql://postgres:5432/hrw",
+        )
+        self.assertEqual(target_env["SPRING_DATASOURCE_USERNAME"], "hrw")
+        self.assertEqual(target_env["SPRING_DATASOURCE_PASSWORD"], "hrw")
+
+        self._assert_scenario_workloads(manifests)
+
+    def test_io_manifest_contains_wiremock_mappings_target_and_load_generator(self):
+        manifests = list(yaml.safe_load_all(IO_AGGREGATION_MANIFEST.read_text()))
+
+        self.assertEqual(
+            [(item["kind"], item["metadata"]["name"]) for item in manifests],
+            [
+                ("Namespace", "__NAMESPACE__"),
+                ("ConfigMap", "wiremock-mappings"),
+                ("Service", "mock-upstream"),
+                ("Pod", "mock-upstream"),
+                ("Service", "target"),
+                ("Pod", "target"),
+                ("ConfigMap", "k6-script"),
+                ("Job", "__K6_JOB_NAME__"),
+            ],
+        )
+
+        mappings = next(
+            item
+            for item in manifests
+            if item["kind"] == "ConfigMap"
+            and item["metadata"]["name"] == "wiremock-mappings"
+        )
+        self.assertEqual(
+            set(mappings["data"]),
+            {"inventory.json", "profile.json", "recommendations.json"},
+        )
+
+        wiremock = next(
+            item
+            for item in manifests
+            if item["kind"] == "Pod"
+            and item["metadata"]["name"] == "mock-upstream"
+        )
+        container = wiremock["spec"]["containers"][0]
+        self.assertEqual(
+            container["image"],
+            "wiremock/wiremock:3.13.2@sha256:"
+            "d737d2de3664a7e1bf96f73a7bd48a0d47d61988f7ca88a6e51ea44b8c1f687d",
+        )
+        self.assertEqual(
+            container["args"],
+            [
+                "--no-request-journal",
+                "--container-threads",
+                "128",
+                "--jetty-accept-queue-size",
+                "512",
+            ],
+        )
+        self.assertEqual(
+            container["readinessProbe"]["httpGet"],
+            {"path": "/__admin/health", "port": "http"},
+        )
+        self.assertEqual(
+            wiremock["spec"]["securityContext"],
+            {
+                "runAsNonRoot": True,
+                "runAsUser": 1000,
+                "runAsGroup": 1000,
+                "fsGroup": 1000,
+                "seccompProfile": {"type": "RuntimeDefault"},
+            },
+        )
+        self.assertEqual(
+            container["resources"]["limits"], {"cpu": "1", "memory": "1Gi"}
+        )
+
+        target = next(
+            item
+            for item in manifests
+            if item["kind"] == "Pod" and item["metadata"]["name"] == "target"
+        )
+        target_env = {
+            item["name"]: item["value"]
+            for item in target["spec"]["containers"][0]["env"]
+        }
+        self.assertEqual(
+            target_env,
+            {
+                "JAVA_TOOL_OPTIONS": "__JAVA_TOOL_OPTIONS__",
+                "SPRING_THREADS_VIRTUAL_ENABLED": "__VIRTUAL_THREADS__",
+                "SPRING_MAIN_KEEP_ALIVE": "__KEEP_ALIVE__",
+                "MOCK_UPSTREAM_BASE_URL": "http://mock-upstream:8080",
+                "AGGREGATION_HTTP_CONNECT_TIMEOUT_MS": "500",
+                "AGGREGATION_HTTP_RESPONSE_TIMEOUT_MS": "1000",
+                "AGGREGATION_HTTP_CONNECTION_REQUEST_TIMEOUT_MS": "500",
+                "AGGREGATION_HTTP_MAX_CONNECTIONS": "128",
+                "AGGREGATION_HTTP_MAX_CONNECTIONS_PER_ROUTE": "128",
+                "AGGREGATION_MAX_CONCURRENT_UPSTREAM_REQUESTS": "128",
+                "AGGREGATION_MAX_PENDING_UPSTREAM_REQUESTS": "128",
+            },
+        )
+
+        self._assert_scenario_workloads(manifests)
+
+    def _assert_scenario_workloads(self, manifests):
+        environment = yaml.safe_load(ENVIRONMENT.read_text())
+        for manifest in manifests:
+            labels = manifest["metadata"]["labels"]
+            self.assertEqual(
+                labels["app.kubernetes.io/part-of"], "hello-realworld-bench"
+            )
+            self.assertEqual(labels["hello-real-world/run-set"], "__RUN_SET_ID__")
+
+            if labels.get("app.kubernetes.io/component") == "dependency":
+                self.assertEqual(labels["app.kubernetes.io/component"], "dependency")
+
+            if manifest["kind"] not in {"Pod", "Job"}:
+                continue
+
+            pod_spec = (
+                manifest["spec"]
+                if manifest["kind"] == "Pod"
+                else manifest["spec"]["template"]["spec"]
+            )
+            self.assertEqual(
+                pod_spec["nodeSelector"],
+                {"kubernetes.io/hostname": environment["cluster"]["node_name"]},
+            )
+            self.assertIs(pod_spec["automountServiceAccountToken"], False)
+            self.assertIs(pod_spec["securityContext"]["runAsNonRoot"], True)
+            self.assertEqual(
+                pod_spec["securityContext"]["seccompProfile"],
+                {"type": "RuntimeDefault"},
+            )
+            for container in pod_spec["containers"]:
+                self.assertEqual(
+                    container["resources"]["requests"],
+                    container["resources"]["limits"],
+                )
+                security = container["securityContext"]
+                self.assertIs(security["privileged"], False)
+                self.assertIs(security["allowPrivilegeEscalation"], False)
+                self.assertIs(security["readOnlyRootFilesystem"], True)
+                self.assertEqual(security["capabilities"]["drop"], ["ALL"])
+
+        dependency_pods = [
+            item
+            for item in manifests
+            if item["kind"] == "Pod"
+            and item["metadata"]["labels"].get("app.kubernetes.io/component")
+            == "dependency"
+        ]
+        for dependency in dependency_pods:
+            self.assertEqual(
+                dependency["spec"]["containers"][0]["resources"]["limits"],
+                environment["resources"]["dependency"],
+            )

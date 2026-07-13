@@ -68,6 +68,7 @@ def validate_stats_series(
     samples: list[dict[str, object]],
     measured_seconds: int,
     validity: dict[str, Any],
+    dependency_expected: bool = False,
 ) -> dict[str, object]:
     interval = int(validity["stats_sample_interval_seconds"])
     expected = max(1, ceil(measured_seconds / interval))
@@ -90,6 +91,20 @@ def validate_stats_series(
         (int(sample.get("background_memory_bytes", 0)) for sample in measured_samples),
         default=0,
     )
+    max_load_generator_cpu = max(
+        (
+            float(sample.get("load_generator_cpu_percent", 0))
+            for sample in measured_samples
+        ),
+        default=0,
+    )
+    max_dependency_cpu = max(
+        (
+            float(sample.get("dependency_cpu_percent", 0))
+            for sample in measured_samples
+        ),
+        default=0,
+    )
     reasons = []
     if coverage < float(validity["min_sample_coverage_ratio"]):
         reasons.append(
@@ -106,6 +121,24 @@ def validate_stats_series(
             f"background memory {max_memory} exceeds "
             f"{validity['max_background_memory_bytes']} bytes"
         )
+    load_generator_limit = validity.get("max_load_generator_cpu_percent")
+    if (
+        isinstance(load_generator_limit, (int, float))
+        and max_load_generator_cpu > float(load_generator_limit)
+    ):
+        reasons.append(
+            f"load generator CPU {max_load_generator_cpu:g}% exceeds "
+            f"{load_generator_limit}%"
+        )
+    dependency_limit = validity.get("max_dependency_cpu_percent")
+    if (
+        dependency_expected
+        and isinstance(dependency_limit, (int, float))
+        and max_dependency_cpu > float(dependency_limit)
+    ):
+        reasons.append(
+            f"dependency CPU {max_dependency_cpu:g}% exceeds {dependency_limit}%"
+        )
     return {
         "status": "valid" if not reasons else "invalid",
         "reasons": reasons,
@@ -114,6 +147,8 @@ def validate_stats_series(
         "coverage_ratio": round(coverage, 4),
         "max_background_cpu_millicores": max_cpu,
         "max_background_memory_bytes": max_memory,
+        "max_load_generator_cpu_percent": max_load_generator_cpu,
+        "max_dependency_cpu_percent": max_dependency_cpu,
     }
 
 

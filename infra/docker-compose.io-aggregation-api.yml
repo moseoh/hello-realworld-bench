@@ -7,6 +7,8 @@ services:
       AGGREGATION_HTTP_CONNECTION_REQUEST_TIMEOUT_MS: "500"
       AGGREGATION_HTTP_MAX_CONNECTIONS: "128"
       AGGREGATION_HTTP_MAX_CONNECTIONS_PER_ROUTE: "128"
+      AGGREGATION_MAX_CONCURRENT_UPSTREAM_REQUESTS: "128"
+      AGGREGATION_MAX_PENDING_UPSTREAM_REQUESTS: "128"
     depends_on:
       mock-upstream:
         condition: service_started
@@ -17,9 +19,9 @@ services:
     command:
       - "--no-request-journal"
       - "--container-threads"
-      - "32"
+      - "128"
       - "--jetty-accept-queue-size"
-      - "200"
+      - "512"
     ports:
       - "8081:8080"
     volumes:

@@ -2,18 +2,20 @@
 
 Hello Real World Bench is a small benchmark automation platform.
 
-The MVP architecture is:
+The execution architecture is:
 
 ```text
 runner
   ↓
-docker compose
+Docker Compose (development) or k3s (official)
   ↓
 target implementation
+  ↕
+scenario dependencies
   ↓
 scenario load test
   ↓
-result JSON
+validated result evidence
 ```
 
 ## Runner
@@ -33,7 +35,11 @@ Runner behavior is configuration-driven:
 - service behavior and default load, environment, and measurement profiles: `scenarios/<scenario>/scenario.yaml`
 - load, environment, measurement, and build profile catalogs: `contracts/`
 
-The complete ownership model and current catalog status are documented in [benchmark-contracts.md](benchmark-contracts.md). Current runs use development profiles for local Docker Compose execution. Run resolution rejects any selected draft profile, and draft profiles do not define official benchmark results.
+The complete ownership model and current catalog status are documented in
+[benchmark-contracts.md](benchmark-contracts.md). Local Docker Compose and home
+k3s calibration runs produce development evidence. Frozen home k3s contracts
+produce official evidence only after all trial and publication validity gates pass.
+Run resolution rejects any selected draft profile.
 
 Before measurement, the runner persists and validates a checkout-bound resolved
 manifest. That manifest is the source of the ordered Compose overlay list and links
@@ -48,9 +54,11 @@ The MVP records two separate build phases:
 
 These are intentionally separate because code-change feedback and image packaging can behave differently. Later build profiles should make cache state explicit, such as cold dependency cache, warm dependency cache, Docker cache enabled, and Docker cache disabled.
 
-## Docker Compose
+## Execution Profiles
 
-Docker Compose is the first execution profile. Kubernetes is intentionally out of scope for the MVP and should be added later as a separate profile.
+Docker Compose is the local development profile. The official profile uses the
+fixed single-node home k3s environment with separately limited target,
+dependency, and in-cluster k6 workloads.
 
 The target service is always named `target` so scenarios can interact with a stable contract.
 
@@ -64,11 +72,14 @@ implementations/
     spring-boot/
 ```
 
-The first implementation is Spring Boot 4 with Java 25. It exposes:
+The first implementation is Spring Boot 4 with Java 25. It implements:
 
 - `GET /ping`
+- transactional command handling with PostgreSQL
+- parallel upstream HTTP aggregation
 
-No database, cache, message broker, tracing stack, or service mesh is included in the MVP.
+Redis, message brokers, tracing stacks, and service meshes are not part of the
+current core benchmark.
 
 ## Variants
 
@@ -82,9 +93,12 @@ implementations/java/spring-boot/variants/jvm-java25.yaml
 
 Create a separate implementation folder only when the implementation source or framework family changes, such as Spring MVC versus WebFlux, Spring Boot versus Quarkus, or Java versus Go.
 
-## Scenario Load Test
+## Scenario Load Tests
 
-The first scenario is `ping-api`. It validates that the benchmark runner can exercise a target service and save outputs. It is not a final performance comparison.
+`ping-api` validates the runner path and is not a performance conclusion. Core
+service qualification uses `transactional-command-api` and
+`io-aggregation-api` under frozen steady, capacity-ramp, and burst-recovery load
+profiles.
 
 ## Result Output
 

@@ -1,6 +1,6 @@
 schema_version: "1.0"
 id: java/spring-boot
-contract_version: "1.0"
+contract_version: "1.1"
 description: "Spring Boot reference implementation using Spring Web MVC."
 language: java
 framework: spring-boot

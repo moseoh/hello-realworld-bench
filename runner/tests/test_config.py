@@ -13,6 +13,82 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 class ResolveRunConfigTest(unittest.TestCase):
+    def test_resolves_official_open_model_load_profile_from_scenario_rate(self):
+        config = resolve_run_config(
+            "java/spring-boot",
+            "transactional-command-api",
+            "jvm-java25",
+            PROJECT_ROOT,
+            environment_profile="home-k3s-v1",
+            measurement_protocol="official-service-v1",
+            load_profile="capacity-ramp",
+        )
+
+        self.assertEqual(config.load["executor"], "ramping-arrival-rate")
+        self.assertEqual(config.load["warmup_duration"], "120s")
+        self.assertEqual(config.load["test_duration"], "480s")
+        self.assertEqual(config.load["warmup_rate"], 200)
+        self.assertEqual(config.load["rate"], 50)
+        self.assertEqual(
+            config.load["stages"],
+            [
+                {"duration": "60s", "target": rate}
+                for rate in (50, 100, 150, 200, 250, 300, 350, 400)
+            ],
+        )
+        self.assertEqual(config.load["pre_allocated_vus"], 100)
+        self.assertEqual(config.load["max_vus"], 400)
+
+    def test_official_environment_accepts_only_frozen_official_load_suite(self):
+        for load_profile in ("steady", "capacity-ramp", "burst-recovery"):
+            with self.subTest(load_profile=load_profile):
+                config = resolve_run_config(
+                    "java/spring-boot",
+                    "transactional-command-api",
+                    "jvm-java25",
+                    PROJECT_ROOT,
+                    environment_profile="home-k3s-v1",
+                    measurement_protocol="official-service-v1",
+                    load_profile=load_profile,
+                )
+                self.assertEqual(config.load_profile_config["id"], load_profile)
+
+    def test_resolves_short_non_official_k3s_calibration(self):
+        config = resolve_run_config(
+            "java/spring-boot",
+            "io-aggregation-api",
+            "jvm-java25",
+            PROJECT_ROOT,
+            environment_profile="home-k3s-calibration",
+            measurement_protocol="calibration-service",
+            load_profile="calibration-steady",
+        )
+
+        self.assertIs(config.environment_profile_config["official"], False)
+        self.assertEqual(config.measurement_protocol_config["trials"], 1)
+        self.assertEqual(config.load["warmup_duration"], "10s")
+        self.assertEqual(config.load["test_duration"], "60s")
+        self.assertEqual(config.load["rate"], 80)
+
+    def test_rejects_unknown_non_official_k3s_environment(self):
+        root_dir = self._copy_runnable_contracts()
+        source = root_dir / "contracts/environment-profiles/home-k3s-calibration.yaml"
+        destination = root_dir / "contracts/environment-profiles/unknown-k3s.yaml"
+        document = yaml.safe_load(source.read_text())
+        document["id"] = "unknown-k3s"
+        destination.write_text(yaml.safe_dump(document, sort_keys=False))
+
+        with self.assertRaisesRegex(ValueError, "environment profile"):
+            resolve_run_config(
+                "java/spring-boot",
+                "ping-api",
+                "jvm-java25",
+                root_dir,
+                environment_profile="unknown-k3s",
+                measurement_protocol="development-service",
+                load_profile="development-local",
+            )
+
     def test_resolves_frozen_home_k3s_service_protocol_timing(self):
         config = resolve_run_config(
             "java/spring-boot",

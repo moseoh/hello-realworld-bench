@@ -2,6 +2,7 @@ package org.hellorealworld.ping.aggregate;
 
 import java.util.concurrent.CompletableFuture;
 
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.stereotype.Service;
 
@@ -11,7 +12,10 @@ class AggregationService {
 	private final UpstreamClient upstreamClient;
 	private final AsyncTaskExecutor executor;
 
-	AggregationService(UpstreamClient upstreamClient, AsyncTaskExecutor executor) {
+	AggregationService(
+			UpstreamClient upstreamClient,
+			@Qualifier("aggregationTaskExecutor") AsyncTaskExecutor executor
+	) {
 		this.upstreamClient = upstreamClient;
 		this.executor = executor;
 	}

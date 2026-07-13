@@ -101,8 +101,11 @@ copy.
 
 ## Current Campaign
 
-The first automated campaign is the three-trial `ping-api` platform
-qualification cell. It proves the trusted execution and publication path; it is
-not a framework performance conclusion. The workflow matrix expands only after
-the transactional and I/O scenarios have complete k3s contracts and calibrated
-load profiles.
+The trusted worker builds one immutable target image and reuses it across a
+serial home-runner matrix. The first core campaign contains
+`transactional-command-api` and `io-aggregation-api`, each under `steady`,
+`capacity-ramp`, and `burst-recovery`. Every cell contains three trials. Publish
+jobs are also serialized so append-only catalog updates cannot race.
+
+`ping-api` remains a separate platform qualification cell and is not a backend
+performance conclusion.

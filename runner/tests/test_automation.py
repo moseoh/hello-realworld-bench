@@ -29,7 +29,12 @@ class WorkflowTrustBoundaryTest(unittest.TestCase):
             if step.get("name") == "Run official qualification set"
         )
         self.assertEqual(benchmark_step["working-directory"], "source")
-        self.assertIn("tee ../official-benchmark.log", benchmark_step["run"])
+        self.assertIn("${{ matrix.scenario }}", benchmark_step["run"])
+        self.assertIn("${{ matrix.load_profile }}", benchmark_step["run"])
+        self.assertEqual(benchmark["strategy"]["max-parallel"], "1")
+        self.assertEqual(
+            workflow["jobs"]["publish"]["strategy"]["max-parallel"], "1"
+        )
 
     def test_pull_request_ci_uses_only_github_hosted_runner(self):
         workflow = self._load("ci.yml")

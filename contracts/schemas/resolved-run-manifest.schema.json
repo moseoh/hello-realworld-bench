@@ -157,6 +157,36 @@
         "warmup_duration": { "type": "string", "minLength": 1 },
         "test_duration": { "type": "string", "minLength": 1 },
         "vus": { "type": "integer", "minimum": 0 },
+        "arrival_rate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["base_per_second", "pre_allocated_vus", "max_vus"],
+          "properties": {
+            "base_per_second": { "type": "integer", "minimum": 1 },
+            "pre_allocated_vus": { "type": "integer", "minimum": 1 },
+            "max_vus": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "executor": {
+          "type": "string",
+          "enum": ["constant-arrival-rate", "ramping-arrival-rate"]
+        },
+        "warmup_rate": { "type": "integer", "minimum": 1 },
+        "rate": { "type": "integer", "minimum": 1 },
+        "pre_allocated_vus": { "type": "integer", "minimum": 1 },
+        "max_vus": { "type": "integer", "minimum": 1 },
+        "stages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["duration", "target"],
+            "properties": {
+              "duration": { "type": "string", "minLength": 1 },
+              "target": { "type": "integer", "minimum": 1 }
+            }
+          }
+        },
         "docker_stats_interval_seconds": { "type": "number", "exclusiveMinimum": 0 }
       }
     },

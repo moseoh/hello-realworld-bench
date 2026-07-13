@@ -1,6 +1,6 @@
 schema_version: "1.0"
 id: io-aggregation-api
-contract_version: "1.0"
+contract_version: "1.1"
 description: "HTTP API that aggregates several upstream HTTP responses into one response."
 kind: service
 question: "How does the target behave when a request fans out to multiple upstream HTTP calls and combines the results?"
@@ -43,6 +43,10 @@ load:
   warmup_duration: "15s"
   test_duration: "45s"
   vus: 25
+  arrival_rate:
+    base_per_second: 80
+    pre_allocated_vus: 50
+    max_vus: 200
 
 metrics:
   collect:

@@ -25,6 +25,11 @@ The runner intentionally does not use framework health endpoints for cold-start 
 Runtime metrics come from the scenario load test. Average latency is less important than p95 and p99 latency because tail behavior is usually more relevant to service reliability.
 
 The MVP extracts request rate, p50, p95, p99, and error rate from the k6 summary JSON.
+Official service profiles use deterministic open arrival rates. `steady` holds
+the scenario base rate, `capacity-ramp` increases from 0.25x through 2x, and
+`burst-recovery` applies immediate 3x and 5x spikes separated by base-rate
+recovery windows. Dropped scheduled iterations invalidate a trial as load
+generator capacity failure.
 
 For HTTP aggregation scenarios, target outbound HTTP client settings and mock upstream settings are part of the benchmark contract. The baseline is documented in [http-baseline.md](http-baseline.md).
 
@@ -50,7 +55,10 @@ measurement conditions while excluding implementation-specific inputs. See
 
 ## Load Generator Placement
 
-For the MVP, the load generator runs on the same host as the target container. This is acceptable for validating runner automation, but it must be documented in every result.
+For local development, the load generator runs on the same host as the target
+container. The official profile runs k6 as a separately limited in-cluster Job
+on the same physical k3s node. Both placements are recorded in the resolved
+environment contract.
 
 A later phase should add remote load generator mode.
 
@@ -58,5 +66,6 @@ A later phase should add remote load generator mode.
 
 Benchmark results should be phrased as trade-offs under specific scenario conditions. Avoid universal claims such as one framework being faster than another in general.
 
-Current local outputs are development evidence. Official runs in a later phase
-require clean, trusted commits and official profiles.
+Local and calibration outputs are development evidence. Official results require
+clean trusted commits, three valid trials, frozen profiles, complete correctness
+evidence, and the home-k3s validity checks.

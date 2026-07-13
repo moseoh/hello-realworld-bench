@@ -36,6 +36,14 @@ How does the target behave when handling a command request with validation, doma
 
 - `baseline`: Single transaction with order and outbox writes.
 
+## Official Load
+
+The calibrated base arrival rate is `200 requests/second`. Official runs apply
+the frozen `steady`, `capacity-ramp`, and `burst-recovery` profiles for three
+trials each. Warmup writes are truncated before measurement. After measurement,
+the orders, order items, and outbox events must each equal the successful k6
+iteration count.
+
 ## Metrics
 
 - build time

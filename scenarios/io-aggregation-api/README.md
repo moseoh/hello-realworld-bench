@@ -31,6 +31,14 @@ HTTP client and mock upstream baseline settings are documented in [../../docs/ht
 
 - `baseline`: All upstream responses complete within the response timeout.
 
+## Official Load
+
+The calibrated base arrival rate is `80 requests/second`. The rate keeps the
+one-core mock upstream below its saturation threshold through the 5x burst while
+still exercising deterministic steady, capacity-ramp, and burst-recovery traffic.
+The target allows 128 active and 128 pending blocking upstream operations, and
+WireMock uses 128 container threads with a 512-request accept queue.
+
 ## Metrics
 
 - build time

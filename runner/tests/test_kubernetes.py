@@ -8,6 +8,8 @@ from hrw_runner.config import resolve_run_config
 from hrw_runner.k3s_runner import (
     _pod_failure_reasons,
     _summary_from_k6_log,
+    _reset_scenario_state,
+    _scenario_correctness,
     _wait_job,
     _write_failed_trial,
 )
@@ -30,6 +32,45 @@ PROFILE = {
         "min_sample_coverage_ratio": 0.9,
     },
 }
+
+
+class ScenarioLifecycleTest(unittest.TestCase):
+    def test_resets_transactional_tables_after_warmup(self):
+        client = Mock()
+
+        _reset_scenario_state(client, "hrw-run", "transactional-command-api")
+
+        command = client.command.call_args.args[0]
+        self.assertEqual(command[:4], ["exec", "pod/postgres", "-n", "hrw-run"])
+        self.assertIn("truncate table order_items, outbox_events, orders", command[-1])
+
+    def test_transactional_correctness_matches_all_rows_to_iterations(self):
+        client = Mock()
+        client.command.return_value = "120,120,120\n"
+        summary = {"metrics": {"iterations": {"values": {"count": 120}}}}
+
+        correctness = _scenario_correctness(
+            client, "hrw-run", "transactional-command-api", summary
+        )
+
+        self.assertEqual(correctness["status"], "valid")
+        self.assertEqual(correctness["expected_iterations"], 120)
+        self.assertEqual(
+            correctness["observed"],
+            {"orders": 120, "order_items": 120, "outbox_events": 120},
+        )
+
+    def test_transactional_correctness_rejects_missing_outbox_write(self):
+        client = Mock()
+        client.command.return_value = "120,120,119\n"
+        summary = {"metrics": {"iterations": {"values": {"count": 120}}}}
+
+        correctness = _scenario_correctness(
+            client, "hrw-run", "transactional-command-api", summary
+        )
+
+        self.assertEqual(correctness["status"], "invalid")
+        self.assertIn("outbox_events", correctness["reasons"][0])
 
 
 class KubernetesPreflightTest(unittest.TestCase):

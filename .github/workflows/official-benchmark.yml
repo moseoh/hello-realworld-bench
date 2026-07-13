@@ -7,6 +7,11 @@ on:
         description: Trusted full commit from the public main branch
         required: true
         type: string
+      matrix_json:
+        description: JSON array of trusted scenario and load-profile cells
+        required: false
+        type: string
+        default: '[{"scenario":"ping-api","load_profile":"platform-qualification-v1"}]'
     secrets:
       PUBLIC_REPO_TOKEN:
         description: Token used only by the GitHub-hosted publication job
@@ -59,6 +64,11 @@ jobs:
 
   benchmark:
     needs: build
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include: ${{ fromJSON(inputs.matrix_json) }}
     runs-on: [self-hosted, linux, x64, hrw-home-k3s]
     timeout-minutes: 60
     env:
@@ -98,18 +108,20 @@ jobs:
         run: |
           set -o pipefail
           PYTHONPATH=runner uv run --project runner python -m hrw_runner run-set \
-            java/spring-boot ping-api jvm-java25 \
+            java/spring-boot ${{ matrix.scenario }} jvm-java25 \
             --environment-profile home-k3s-v1 \
             --measurement-protocol official-service-v1 \
-            --load-profile platform-qualification-v1 | tee ../official-benchmark.log
-          result_dir="$(sed -n 's/^Run set directory: //p' ../official-benchmark.log | tail -1)"
+            --load-profile ${{ matrix.load_profile }} \
+            | tee ../official-${{ matrix.scenario }}-${{ matrix.load_profile }}.log
+          result_dir="$(sed -n 's/^Run set directory: //p' \
+            ../official-${{ matrix.scenario }}-${{ matrix.load_profile }}.log | tail -1)"
           test -n "$result_dir"
           test -f "$result_dir/run-set.json"
           printf 'result_dir=%s\n' "$result_dir" >> "$GITHUB_OUTPUT"
       - name: Transfer raw evidence
         uses: actions/upload-artifact@v4
         with:
-          name: official-${{ inputs.source_sha }}-${{ github.run_id }}
+          name: official-${{ matrix.scenario }}-${{ matrix.load_profile }}-${{ inputs.source_sha }}-${{ github.run_id }}
           path: ${{ steps.benchmark.outputs.result_dir }}
           if-no-files-found: error
           retention-days: 90
@@ -117,6 +129,11 @@ jobs:
 
   publish:
     needs: benchmark
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include: ${{ fromJSON(inputs.matrix_json) }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -134,7 +151,7 @@ jobs:
           cache-dependency-glob: source/runner/uv.lock
       - uses: actions/download-artifact@v4
         with:
-          name: official-${{ inputs.source_sha }}-${{ github.run_id }}
+          name: official-${{ matrix.scenario }}-${{ matrix.load_profile }}-${{ inputs.source_sha }}-${{ github.run_id }}
           path: raw-run-set
       - name: Prepare append-only data branch
         working-directory: source
