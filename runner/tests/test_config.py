@@ -107,7 +107,7 @@ class ResolveRunConfigTest(unittest.TestCase):
             load_profile="calibration-steady",
         )
 
-        self.assertEqual(config.load["rate"], 100)
+        self.assertEqual(config.load["rate"], 300)
         self.assertIs(config.load["arrival_rate"]["calibrated"], False)
 
     def test_rejects_unknown_non_official_k3s_environment(self):
