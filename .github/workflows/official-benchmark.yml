@@ -214,6 +214,17 @@ jobs:
               exit 1
               ;;
           esac
+          case "$measurement_protocol" in
+            official-service-v1)
+              environment_profile=home-k3s-v1
+              ;;
+            calibration-service)
+              environment_profile=home-k3s-calibration
+              ;;
+            *)
+              exit 1
+              ;;
+          esac
 
           {
             printf 'implementation=%s\n' "$implementation"
@@ -222,6 +233,7 @@ jobs:
             printf 'scenario=%s\n' "$scenario"
             printf 'load_profile=%s\n' "$load_profile"
             printf 'measurement_protocol=%s\n' "$measurement_protocol"
+            printf 'environment_profile=%s\n' "$environment_profile"
           } >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v4
         with:
@@ -279,6 +291,7 @@ jobs:
           SCENARIO: ${{ steps.allowlist.outputs.scenario }}
           LOAD_PROFILE: ${{ steps.allowlist.outputs.load_profile }}
           MEASUREMENT_PROTOCOL: ${{ steps.allowlist.outputs.measurement_protocol }}
+          ENVIRONMENT_PROFILE: ${{ steps.allowlist.outputs.environment_profile }}
           HRW_IMAGE_DISTRIBUTION: push
           HRW_TARGET_IMAGE: ${{ steps.image_ref.outputs.target_image }}
           HRW_TARGET_IMAGE_ARCHIVE: ${{ github.workspace }}/target-image/target-image.oci.tar
@@ -287,7 +300,7 @@ jobs:
           log_path="../official-${IMAGE_KEY}-${SCENARIO}-${LOAD_PROFILE}.log"
           PYTHONPATH=runner uv run --project runner python -m hrw_runner run-set \
             "$IMPLEMENTATION" "$SCENARIO" "$VARIANT" \
-            --environment-profile home-k3s-v1 \
+            --environment-profile "$ENVIRONMENT_PROFILE" \
             --measurement-protocol "$MEASUREMENT_PROTOCOL" \
             --load-profile "$LOAD_PROFILE" \
             | tee "$log_path"

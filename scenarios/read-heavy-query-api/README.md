@@ -48,7 +48,7 @@ an application cache.
 ## Current Status
 
 Spring Boot and Quarkus implement this contract, and the local Compose runner is
-verified end to end. The provisional `0.2` contract deliberately sets
+verified end to end. The provisional `0.3` contract deliberately sets
 `arrival_rate.calibrated: false`; frozen official open-model profiles reject it
 until the rate is calibrated on the home k3s environment.
 

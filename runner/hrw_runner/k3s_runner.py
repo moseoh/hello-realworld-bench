@@ -7,6 +7,7 @@ import re
 import threading
 import time
 from dataclasses import replace
+from datetime import datetime
 from pathlib import Path
 from statistics import mean
 from typing import Any
@@ -34,6 +35,14 @@ from .runner import (
     _trial_validity,
     _utc_timestamp,
 )
+
+
+_TIMELINE_SCENARIOS = {
+    "transactional-command-api",
+    "io-aggregation-api",
+    "read-heavy-query-api",
+}
+_TIMELINE_BUCKET_SECONDS = 10
 
 
 def run_k3s_benchmark_set(config: RunConfig, root_dir: Path) -> Path:
@@ -424,11 +433,24 @@ def _run_trial(
     client.command(["delete", "job", measured_name, "-n", namespace, "--wait=true"])
     client.command(["delete", "pod", "target", "-n", namespace, "--wait=true"])
 
+    timeline_required = config.scenario in _TIMELINE_SCENARIOS
+    sample_interval_seconds = (
+        _TIMELINE_BUCKET_SECONDS
+        if timeline_required
+        else int(environment["validity"]["stats_sample_interval_seconds"])
+    )
     time_series = {
         "schema_version": "1.0",
         "trial_id": trial_id,
-        "sample_interval_ms": int(environment["validity"]["stats_sample_interval_seconds"]) * 1000,
-        "samples": samples,
+        "sample_interval_ms": sample_interval_seconds * 1000,
+        "samples": _build_runtime_timeline(
+            samples,
+            k6_summary,
+            _duration_seconds(str(config.load["test_duration"])),
+            config.load,
+            bucket_seconds=_TIMELINE_BUCKET_SECONDS,
+            required=timeline_required,
+        ),
     }
     validate_evidence_document(time_series, "time-series", config.root_dir)
     time_series_path = trial_dir / "time-series.json"
@@ -826,6 +848,152 @@ def _resource_summary(samples: list[dict[str, Any]]) -> dict[str, object]:
         "cpu_percent_max": max(cpu) if cpu else None,
         "memory_usage_max_bytes": max(memory) if memory else None,
     }
+
+
+def _build_runtime_timeline(
+    resource_samples: list[dict[str, Any]],
+    k6_summary: dict[str, Any],
+    measured_seconds: int,
+    load: dict[str, Any],
+    bucket_seconds: int = _TIMELINE_BUCKET_SECONDS,
+    *,
+    required: bool = False,
+) -> list[dict[str, Any]]:
+    metrics = k6_summary.get("metrics", {})
+    if not isinstance(metrics, dict) or not any(
+        str(name).startswith("hrw_timeline_requests{") for name in metrics
+    ):
+        if required:
+            raise RuntimeError("Core scenario is missing k6 timeline metrics")
+        return resource_samples
+    origin_ms = _timeline_origin_ms(metrics)
+
+    samples = []
+    bucket_count = max(1, (measured_seconds + bucket_seconds - 1) // bucket_seconds)
+    for bucket in range(bucket_count):
+        start_seconds = bucket * bucket_seconds
+        end_seconds = min(measured_seconds, (bucket + 1) * bucket_seconds)
+        window_seconds = end_seconds - start_seconds
+        elapsed_ms = end_seconds * 1000
+        resource = _nearest_resource_sample(resource_samples, elapsed_ms, origin_ms)
+        request_values = _timeline_metric_values(
+            metrics, "hrw_timeline_requests", bucket
+        )
+        failure_values = _timeline_metric_values(
+            metrics, "hrw_timeline_failures", bucket
+        )
+        duration_values = _timeline_metric_values(
+            metrics, "hrw_timeline_duration", bucket
+        )
+        request_count = int(request_values.get("count", 0))
+        failure_count = int(failure_values.get("count", 0))
+        midpoint_seconds = start_seconds + window_seconds / 2
+        samples.append(
+            {
+                **resource,
+                "elapsed_ms": elapsed_ms,
+                "requested_rps": _requested_rps(load, midpoint_seconds),
+                "achieved_rps": round(request_count / window_seconds, 4),
+                "request_count": request_count,
+                "failure_count": failure_count,
+                "error_rate": (
+                    round(failure_count / request_count, 8)
+                    if request_count > 0
+                    else None
+                ),
+                "p50_ms": _number_or_none(duration_values.get("med")),
+                "p95_ms": _number_or_none(duration_values.get("p(95)")),
+                "p99_ms": _number_or_none(duration_values.get("p(99)")),
+            }
+        )
+    return samples
+
+
+def _nearest_resource_sample(
+    samples: list[dict[str, Any]], elapsed_ms: int, origin_ms: float
+) -> dict[str, Any]:
+    if samples:
+        return dict(
+            min(
+                samples,
+                key=lambda sample: abs(
+                    _resource_elapsed_ms(sample, origin_ms) - elapsed_ms
+                ),
+            )
+        )
+    return {
+        "target_cpu_percent": None,
+        "target_memory_bytes": None,
+        "target_memory_percent": None,
+    }
+
+
+def _timeline_origin_ms(metrics: dict[str, Any]) -> float:
+    values = _timeline_metric_values(metrics, "hrw_timeline_origin_ms", None)
+    origin = values.get("value")
+    if not isinstance(origin, (int, float)) or origin <= 0:
+        raise RuntimeError("k6 timeline is missing its scenario start timestamp")
+    return float(origin)
+
+
+def _resource_elapsed_ms(sample: dict[str, Any], origin_ms: float) -> int:
+    source_time = sample.get("source_time")
+    if not isinstance(source_time, str):
+        raise RuntimeError("Kubernetes resource sample is missing source_time")
+    try:
+        timestamp = datetime.fromisoformat(source_time.replace("Z", "+00:00"))
+    except ValueError as error:
+        raise RuntimeError("Kubernetes resource sample has invalid source_time") from error
+    if timestamp.tzinfo is None:
+        raise RuntimeError("Kubernetes resource sample source_time has no timezone")
+    return round(timestamp.timestamp() * 1000 - origin_ms)
+
+
+def _timeline_metric_values(
+    metrics: dict[str, Any], name: str, bucket: int | None
+) -> dict[str, Any]:
+    key = name if bucket is None else f"{name}{{bucket:{bucket}}}"
+    metric = metrics.get(key, {})
+    if not isinstance(metric, dict):
+        return {}
+    values = metric.get("values", metric)
+    return values if isinstance(values, dict) else {}
+
+
+def _requested_rps(load: dict[str, Any], elapsed_seconds: float) -> float | None:
+    executor = load.get("executor")
+    rate = load.get("rate")
+    if executor == "constant-arrival-rate" and isinstance(rate, (int, float)):
+        return float(rate)
+    if executor != "ramping-arrival-rate" or not isinstance(rate, (int, float)):
+        return None
+
+    current = float(rate)
+    phase_start = 0.0
+    stages = load.get("stages", [])
+    if not isinstance(stages, list):
+        return None
+    for stage in stages:
+        if not isinstance(stage, dict):
+            return None
+        target = stage.get("target")
+        duration = stage.get("duration")
+        if not isinstance(target, (int, float)) or not isinstance(duration, str):
+            return None
+        seconds = _duration_seconds(duration)
+        if seconds == 0:
+            current = float(target)
+            continue
+        if elapsed_seconds <= phase_start + seconds:
+            progress = max(0.0, elapsed_seconds - phase_start) / seconds
+            return round(current + (float(target) - current) * progress, 4)
+        phase_start += seconds
+        current = float(target)
+    return current
+
+
+def _number_or_none(value: object) -> float | None:
+    return float(value) if isinstance(value, (int, float)) else None
 
 
 def _reset_scenario_state(

@@ -114,10 +114,13 @@ service qualification uses `transactional-command-api`,
 and burst-recovery load profiles. The read-heavy profile remains unfrozen until
 its arrival rate is calibrated on the home k3s environment.
 
-Transactional scenario contract version `1.2` raises immediately available k6
+Transactional scenario contract version `1.2` raised immediately available k6
 VUs from 100 to 200. Calibration at the 1,000 requests/second burst observed a
 113 ms tail and four dropped iterations while dynamic VU allocation caught up;
 the higher reservation removes that load-generator artifact from future cohorts.
+Version `1.3` records bounded 10-second request, failure, and latency aggregates
+for comparison and APM-style views. I/O aggregation v1.2 and provisional
+read-heavy v0.3 use the same timeline contract.
 
 ## Result Output
 

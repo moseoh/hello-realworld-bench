@@ -47,10 +47,16 @@ Spring-specific environment profile to each implementation contract. This is a
 new comparison cohort: evidence produced under earlier environment contract
 versions must not be compared directly with v1.2 evidence.
 
-Transactional scenario contract version `1.2` also raises pre-allocated k6 VUs
+Transactional scenario contract version `1.2` raised pre-allocated k6 VUs
 from 100 to 200 after a 1,000 requests/second calibration burst showed a 113 ms
 tail and four dropped iterations during dynamic allocation. This changes the
 load-generator condition and therefore cannot be mixed with scenario v1.1.
+Version `1.3` adds bounded 10-second request, failure, and latency evidence;
+it starts a new cohort because the load script and recorded evidence changed.
+
+I/O aggregation contract version `1.2` and provisional read-heavy contract
+version `0.3` add the same bounded timeline evidence to their respective
+cohorts.
 
 ## Build Conditions
 
