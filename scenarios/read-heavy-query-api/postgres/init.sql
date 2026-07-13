@@ -42,3 +42,10 @@ CREATE INDEX idx_catalog_products_filter
   ON catalog_products (category, active, price_cents, id);
 
 ANALYZE catalog_products;
+
+CREATE TABLE benchmark_init_markers (
+  name TEXT PRIMARY KEY
+);
+
+INSERT INTO benchmark_init_markers (name)
+VALUES ('catalog_products_ready');

@@ -24,8 +24,17 @@ const priceWindows = [
 ];
 const pageSizes = [20, 50];
 const priceInverse = 17679;
+const dumpRequests = __ENV.HRW_DUMP_REQUESTS === 'true';
 
 function loadOptions() {
+  if (dumpRequests) {
+    return {
+      vus: 1,
+      iterations: Number(__ENV.HRW_DUMP_ITERATIONS || '256'),
+      summaryTrendStats,
+    };
+  }
+
   const executor = __ENV.HRW_LOAD_EXECUTOR;
   if (!executor || executor === 'constant-vus') {
     return { vus, duration, summaryTrendStats };
@@ -115,6 +124,13 @@ function firstPageCursor(category, priceWindow, limit) {
 export default function () {
   const iteration = exec.scenario.iterationInTest;
   const request = buildRequest(iteration);
+  if (dumpRequests) {
+    const cursor = request.cursor || {};
+    console.log(
+      `HRW_DUMP:${iteration}|${request.category}|${request.minPriceCents}|${request.maxPriceCents}|${request.limit}|${cursor.priceCents || 'null'}|${cursor.id || 'null'}`,
+    );
+    return;
+  }
   const query = request.query;
   const response = http.get(`${baseUrl}/products?${query}`);
 

@@ -191,11 +191,13 @@ class KubernetesManifestTest(unittest.TestCase):
             "../scenarios/read-heavy-query-api/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro",
             compose["services"]["postgres"]["volumes"],
         )
-        fingerprint = "100000|5000050000|5049950000|399997276|95000"
         compose_healthcheck = compose["services"]["postgres"]["healthcheck"]["test"]
         self.assertEqual(compose_healthcheck[0], "CMD-SHELL")
-        self.assertIn("SELECT count(*), sum(id), sum(price_cents)", compose_healthcheck[1])
-        self.assertIn(fingerprint, compose_healthcheck[1])
+        self.assertIn(
+            "SELECT 1 FROM benchmark_init_markers WHERE name = 'catalog_products_ready'",
+            compose_healthcheck[1],
+        )
+        self.assertNotIn("sum(price_cents)", compose_healthcheck[1])
         self.assertEqual(
             [(item["kind"], item["metadata"]["name"]) for item in manifests],
             [
@@ -226,8 +228,20 @@ class KubernetesManifestTest(unittest.TestCase):
         container = postgres["spec"]["containers"][0]
         readiness = container["readinessProbe"]["exec"]["command"]
         self.assertEqual(readiness[:2], ["sh", "-ec"])
-        self.assertIn("SELECT count(*), sum(id), sum(price_cents)", readiness[2])
-        self.assertIn(fingerprint, readiness[2])
+        self.assertIn(
+            "SELECT 1 FROM benchmark_init_markers WHERE name = 'catalog_products_ready'",
+            readiness[2],
+        )
+        self.assertNotIn("sum(price_cents)", readiness[2])
+        init_sql = (
+            ROOT / "scenarios/read-heavy-query-api/postgres/init.sql"
+        ).read_text()
+        self.assertIn("CREATE TABLE benchmark_init_markers", init_sql)
+        self.assertIn("'catalog_products_ready'", init_sql)
+        self.assertGreater(
+            init_sql.index("INSERT INTO benchmark_init_markers"),
+            init_sql.index("ANALYZE catalog_products"),
+        )
         self.assertIn(
             {
                 "name": "init",

@@ -80,7 +80,7 @@ spec:
             - sh
             - -ec
             - >-
-              test "$(psql -U hrw -d hrw -Atc 'SELECT count(*), sum(id), sum(price_cents), sum(rating_basis_points), count(*) FILTER (WHERE active) FROM catalog_products')" = "100000|5000050000|5049950000|399997276|95000"
+              test "$(psql -U hrw -d hrw -Atc "SELECT 1 FROM benchmark_init_markers WHERE name = 'catalog_products_ready'")" = "1"
         periodSeconds: 1
         timeoutSeconds: 1
         failureThreshold: 30
