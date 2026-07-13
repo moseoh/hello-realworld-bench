@@ -281,6 +281,26 @@ jobs:
           test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
           test -z "$(git status --porcelain)"
           test -f ../target-image/target-image.oci.tar
+      - name: Recover interrupted benchmark namespaces
+        env:
+          RUNNER_TEMP: ${{ runner.temp }}
+        run: |
+          for record in "$RUNNER_TEMP"/hrw-*.namespace; do
+            if [ ! -f "$record" ]; then
+              continue
+            fi
+            namespace="$(tr -d '[:space:]' < "$record")"
+            printf '%s\n' "$namespace" | grep -Eq '^hrw-[a-z0-9]+-[0-9a-f]{7}$'
+            part_of="$(kubectl --context homelab get namespace "$namespace" \
+              --ignore-not-found \
+              -o 'go-template={{index .metadata.labels "app.kubernetes.io/part-of"}}')"
+            if [ -n "$part_of" ]; then
+              test "$part_of" = hello-realworld-bench
+              kubectl --context homelab delete namespace "$namespace" \
+                --wait=true --timeout=120s
+            fi
+            rm -f "$record"
+          done
       - name: Run official qualification set
         id: benchmark
         working-directory: source

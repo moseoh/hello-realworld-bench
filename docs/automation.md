@@ -46,9 +46,9 @@ home runner.
 
 Each benchmark process records the one namespace it owns in a runner-temporary
 marker. An `always()` cleanup step validates that namespace and its benchmark
-label before deletion, so workflow cancellation cannot leave workloads that
-invalidate the next preflight. It never deletes namespaces by a broad label
-selector.
+label before deletion. If host interruption prevents that step from running,
+the next job validates and removes namespaces referenced by retained markers
+before preflight. Neither path deletes namespaces by a broad label selector.
 
 The runner process lives in `~/actions-runner`. Install it as a system
 service on the home host so it survives logout and reboot:

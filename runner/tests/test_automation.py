@@ -80,6 +80,13 @@ class WorkflowTrustBoundaryTest(unittest.TestCase):
             workflow["jobs"]["publish"]["strategy"]["max-parallel"], "1"
         )
         self.assertIn("HRW_NAMESPACE_RECORD", benchmark_step["env"])
+        recovery = next(
+            step
+            for step in benchmark["steps"]
+            if step.get("name") == "Recover interrupted benchmark namespaces"
+        )
+        self.assertIn('"$RUNNER_TEMP"/hrw-*.namespace', recovery["run"])
+        self.assertIn("app.kubernetes.io/part-of", recovery["run"])
         cleanup = next(
             step
             for step in benchmark["steps"]

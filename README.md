@@ -169,9 +169,8 @@ make run SCENARIO=read-heavy-query-api
 ```
 
 Its deterministic 100,000-row PostgreSQL dataset is initialized before the
-target starts. The current `0.2` contract is available for local validation but
-remains excluded from frozen official open-model runs until its home-k3s arrival
-rate is calibrated and versioned.
+target starts. Contract `1.0` freezes its home-k3s-calibrated base rate at 300
+requests per second and enables the frozen official open-model profiles.
 
 I/O aggregation scenario:
 
