@@ -143,6 +143,20 @@ def read_contract(path: Path, kind: str, root_dir: Path) -> ContractDocument:
                 [f"{display_path}: {error}" for error in semantic_errors]
             )
 
+    if kind == "environment-profile":
+        semantic_errors = _validate_environment_profile_semantics(value)
+        if semantic_errors:
+            raise ContractValidationError(
+                [f"{display_path}: {error}" for error in semantic_errors]
+            )
+
+    if kind == "variant":
+        semantic_errors = _validate_variant_build_paths(value, path)
+        if semantic_errors:
+            raise ContractValidationError(
+                [f"{display_path}: {error}" for error in semantic_errors]
+            )
+
     return ContractDocument(kind, path, value, canonical_contract_digest(value))
 
 
@@ -401,10 +415,15 @@ def _validate_references(
 def _validate_measurement_protocol_semantics(
     value: dict[str, object],
 ) -> list[str]:
-    if value["evidence_family"] != "build":
-        return []
-
     errors: list[str] = []
+    family = str(value["evidence_family"])
+    if family != "build" and "build" in value:
+        errors.append(f"$.build: must not be defined for {family} evidence")
+    if family != "lifecycle" and "lifecycle" in value:
+        errors.append(f"$.lifecycle: must not be defined for {family} evidence")
+    if family != "build":
+        return errors
+
     if value["trials"] != 3:
         errors.append("$.trials: must be 3 for build evidence")
     if value["timing_source"] != "none":
@@ -415,6 +434,61 @@ def _validate_measurement_protocol_semantics(
         errors.append("$.measured_seconds: must be 0 for build evidence")
     if "lifecycle" in value:
         errors.append("$.lifecycle: must not be defined for build evidence")
+    return errors
+
+
+def _validate_environment_profile_semantics(
+    value: dict[str, object],
+) -> list[str]:
+    orchestrator = str(value["orchestrator"])
+    errors: list[str] = []
+    if orchestrator != "host-build" and "build" in value:
+        errors.append("$.build: must only be defined for host-build")
+    if orchestrator == "host-build":
+        for field in ("cluster", "resources", "images", "validity"):
+            if field in value:
+                errors.append(
+                    f"$.{field}: must not be defined for host-build"
+                )
+    return errors
+
+
+def _validate_variant_build_paths(
+    value: dict[str, object],
+    contract_path: Path,
+) -> list[str]:
+    build = value.get("build")
+    if not isinstance(build, dict):
+        return []
+
+    app_dir = contract_path.parents[1]
+    errors: list[str] = []
+    for field, expected_type in (("dockerfile", "file"), ("context", "directory")):
+        raw_path = build.get(field)
+        if not isinstance(raw_path, str):
+            continue
+        candidate = app_dir if raw_path == "." else app_dir / raw_path
+        current = app_dir
+        parts = () if raw_path == "." else Path(raw_path).parts
+        for part in parts:
+            current /= part
+            if current.is_symlink():
+                errors.append(
+                    f"$.build.{field}: symlink components are not allowed: {raw_path}"
+                )
+                break
+        else:
+            try:
+                candidate.resolve(strict=True).relative_to(app_dir.resolve(strict=True))
+            except (FileNotFoundError, ValueError):
+                errors.append(
+                    f"$.build.{field}: must resolve inside the implementation directory"
+                )
+                continue
+            if expected_type == "file" and not candidate.is_file():
+                errors.append(f"$.build.{field}: must reference an existing regular file")
+            if expected_type == "directory" and not candidate.is_dir():
+                errors.append(f"$.build.{field}: must reference an existing directory")
     return errors
 
 

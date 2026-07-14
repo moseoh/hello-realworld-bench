@@ -97,6 +97,9 @@
           "warmup_seconds": { "const": 0 },
           "measured_seconds": { "const": 0 }
         }
+      },
+      "else": {
+        "not": { "required": ["build"] }
       }
     },
     {
@@ -107,7 +110,19 @@
         },
         "required": ["status", "evidence_family"]
       },
-      "then": { "required": ["lifecycle"] }
+      "then": {
+        "required": ["lifecycle"],
+        "not": { "required": ["build"] }
+      },
+      "else": {
+        "if": {
+          "properties": { "evidence_family": { "const": "service" } },
+          "required": ["evidence_family"]
+        },
+        "then": {
+          "not": { "required": ["lifecycle"] }
+        }
+      }
     }
   ]
 }

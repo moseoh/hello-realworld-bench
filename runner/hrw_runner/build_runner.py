@@ -9,6 +9,7 @@ import subprocess
 import tarfile
 import tempfile
 import time
+import unicodedata
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Callable, Mapping
@@ -513,6 +514,18 @@ def _image_argv(
     metadata: Path,
     cache_seed_dir: Path | None,
 ) -> list[str]:
+    dockerfile = _resolve_build_input_path(
+        app_dir,
+        str(config.build["dockerfile"]),
+        "dockerfile",
+        expected_type="file",
+    )
+    context = _resolve_build_input_path(
+        app_dir,
+        str(config.build["context"]),
+        "context",
+        expected_type="directory",
+    )
     argv = [
         "docker",
         "buildx",
@@ -523,7 +536,7 @@ def _image_argv(
         "linux/amd64",
         "--provenance=false",
         "--file",
-        str(app_dir / str(config.build["dockerfile"])),
+        str(dockerfile),
     ]
     if cache_seed_dir is not None:
         argv.extend(["--cache-from", f"type=local,src={cache_seed_dir}"])
@@ -533,7 +546,7 @@ def _image_argv(
             f"type=oci,dest={archive}",
             "--metadata-file",
             str(metadata),
-            str(app_dir / str(config.build["context"])),
+            str(context),
         ]
     )
     return argv
@@ -665,6 +678,18 @@ def _prepare_buildkit_cache_seed(
     state_volume = resources["seed_state_volume"]
     _create_builder(builder_name, command_runner)
     try:
+        dockerfile = _resolve_build_input_path(
+            config.app_dir,
+            str(config.build["dockerfile"]),
+            "dockerfile",
+            expected_type="file",
+        )
+        context = _resolve_build_input_path(
+            config.app_dir,
+            str(config.build["context"]),
+            "context",
+            expected_type="directory",
+        )
         argv = [
             "docker",
             "buildx",
@@ -675,14 +700,14 @@ def _prepare_buildkit_cache_seed(
             "linux/amd64",
             "--provenance=false",
             "--file",
-            str(config.app_dir / str(config.build["dockerfile"])),
+            str(dockerfile),
             "--target",
             "runtime-base",
             "--cache-to",
             f"type=local,dest={cache_seed_dir},mode=max",
             "--output",
             "type=cacheonly",
-            str(config.app_dir / str(config.build["context"])),
+            str(context),
         ]
         _execute(command_runner, argv)
     finally:
@@ -953,6 +978,71 @@ def _validate_config(config: BuildRunConfig) -> None:
         raise ValueError("Only the frozen official build contracts are executable")
     if config.measurement_protocol_config.get("trials") != 3:
         raise ValueError("Official build evidence requires exactly three trials")
+    _resolve_build_input_path(
+        config.app_dir,
+        str(config.build["dockerfile"]),
+        "dockerfile",
+        expected_type="file",
+    )
+    _resolve_build_input_path(
+        config.app_dir,
+        str(config.build["context"]),
+        "context",
+        expected_type="directory",
+    )
+
+
+def _resolve_build_input_path(
+    app_dir: Path,
+    relative_path: str,
+    field: str,
+    *,
+    expected_type: str,
+) -> Path:
+    if not _is_canonical_build_input_path(relative_path, allow_root=field == "context"):
+        raise ValueError(
+            f"Build {field} must be a normalized implementation-relative path"
+        )
+
+    app_root = Path(os.path.abspath(app_dir))
+    candidate = app_root if relative_path == "." else app_root / relative_path
+    current = app_root
+    if current.is_symlink():
+        raise ValueError(f"Build {field} must not contain symlink components")
+    for part in (() if relative_path == "." else Path(relative_path).parts):
+        current /= part
+        if current.is_symlink():
+            raise ValueError(f"Build {field} must not contain symlink components")
+    try:
+        candidate.resolve(strict=True).relative_to(app_root.resolve(strict=True))
+    except (FileNotFoundError, ValueError):
+        raise ValueError(
+            f"Build {field} must resolve inside the implementation directory"
+        ) from None
+    if expected_type == "file" and not candidate.is_file():
+        raise ValueError(f"Build {field} must reference an existing regular file")
+    if expected_type == "directory" and not candidate.is_dir():
+        raise ValueError(f"Build {field} must reference an existing directory")
+    return candidate
+
+
+def _is_canonical_build_input_path(path: str, *, allow_root: bool) -> bool:
+    if allow_root and path == ".":
+        return True
+    if (
+        not path
+        or path.startswith("/")
+        or "\\" in path
+        or "%" in path
+        or unicodedata.normalize("NFC", path) != path
+        or any(ord(character) < 32 or ord(character) == 127 for character in path)
+    ):
+        return False
+    return all(
+        part not in {"", ".", ".."}
+        and all(character.isascii() and (character.isalnum() or character in "._-") for character in part)
+        for part in path.split("/")
+    )
 
 
 def _execute(

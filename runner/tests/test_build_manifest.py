@@ -2,6 +2,7 @@ import copy
 import hashlib
 import json
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 from jsonschema import Draft202012Validator
@@ -52,7 +53,10 @@ class BuildResolvedManifestTest(unittest.TestCase):
         self.assertNotIn("scenario", manifest["selection"])
         self.assertNotIn("load_profile", manifest["selection"])
         self.assertNotIn("runtime", manifest["execution"])
-        self.assertEqual(manifest["cohort"]["contracts"], manifest["contracts"])
+        self.assertEqual(
+            set(manifest["cohort"]["contracts"]),
+            {"environment_profile", "measurement_protocol", "build_profile"},
+        )
         self.assertEqual(manifest["cohort"]["evidence_family"], "build")
         self.assertEqual(
             manifest["cohort"]["fingerprint"],
@@ -64,15 +68,53 @@ class BuildResolvedManifestTest(unittest.TestCase):
         )
         validate_resolved_build_manifest(manifest, PROJECT_ROOT)
 
+    def test_cohort_is_shared_across_implementations_with_the_same_profiles(self):
+        spring = build_resolved_build_manifest(self.config, "spring-001", self.source)
+        quarkus_config = resolve_build_run_config(
+            "java/quarkus",
+            "jvm-java25",
+            PROJECT_ROOT,
+            environment_profile="home-build-v1",
+            measurement_protocol="official-build-v1",
+            build_profile="official-gradle-docker-v1",
+        )
+        quarkus = build_resolved_build_manifest(
+            quarkus_config,
+            "quarkus-001",
+            self.source,
+        )
+
+        self.assertEqual(spring["cohort"], quarkus["cohort"])
+        self.assertNotEqual(spring["contracts"]["implementation"], quarkus["contracts"]["implementation"])
+        self.assertNotEqual(spring["contracts"]["variant"], quarkus["contracts"]["variant"])
+
+    def test_cohort_changes_when_a_build_profile_contract_changes(self):
+        manifest = build_resolved_build_manifest(self.config, "build-001", self.source)
+        selected_contracts = dict(self.config.selected_contracts)
+        selected_contracts["build_profile"] = replace(
+            selected_contracts["build_profile"],
+            digest="0" * 64,
+        )
+        changed_config = replace(
+            self.config,
+            selected_contracts=selected_contracts,
+        )
+        changed = build_resolved_build_manifest(
+            changed_config,
+            "build-002",
+            self.source,
+        )
+
+        self.assertNotEqual(
+            manifest["cohort"]["fingerprint"],
+            changed["cohort"]["fingerprint"],
+        )
+
     def test_validation_rejects_recomputed_checkout_bound_tampering(self):
         manifest = build_resolved_build_manifest(self.config, "build-001", self.source)
         tampered = copy.deepcopy(manifest)
         tampered["contracts"]["variant"]["path"] = (
             "implementations/java/spring-boot/variants/jvm-java25-virtual-threads.yaml"
-        )
-        tampered["cohort"]["contracts"] = copy.deepcopy(tampered["contracts"])
-        tampered["cohort"]["fingerprint"] = _digest(
-            {key: value for key, value in tampered["cohort"].items() if key != "fingerprint"}
         )
         tampered["manifest_digest"] = _digest(
             {key: value for key, value in tampered.items() if key != "manifest_digest"}
@@ -82,6 +124,24 @@ class BuildResolvedManifestTest(unittest.TestCase):
             validate_resolved_build_manifest(tampered, PROJECT_ROOT)
 
         self.assertIn("$.contracts.variant", str(context.exception))
+
+    def test_schema_rejects_role_swapped_contracts_and_arbitrary_build_payload(self):
+        manifest = build_resolved_build_manifest(self.config, "build-001", self.source)
+
+        role_swapped = copy.deepcopy(manifest)
+        role_swapped["contracts"]["implementation"], role_swapped["contracts"]["variant"] = (
+            role_swapped["contracts"]["variant"],
+            role_swapped["contracts"]["implementation"],
+        )
+        self.assertTrue(
+            self._schema_errors("build-resolved-run-manifest.schema.json", role_swapped)
+        )
+
+        arbitrary_build = copy.deepcopy(manifest)
+        arbitrary_build["execution"]["build"] = {"command": ["arbitrary"]}
+        self.assertTrue(
+            self._schema_errors("build-resolved-run-manifest.schema.json", arbitrary_build)
+        )
 
     def test_build_evidence_schemas_require_three_ordered_trial_references_and_metrics(self):
         trial = {

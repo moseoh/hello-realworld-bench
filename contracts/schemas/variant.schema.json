@@ -21,6 +21,16 @@
       "type": "object",
       "propertyNames": { "$ref": "#/$defs/environmentName" },
       "additionalProperties": { "type": "string", "minLength": 1 }
+    },
+    "relativeBuildPath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*%)(?!.*[\\u0000-\\u001f\\u007f])(?!\\.{1,2}(?:/|(?![\\s\\S])))(?!.*[/]\\.{1,2}(?:/|(?![\\s\\S])))[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*(?![\\s\\S])"
+    },
+    "buildContextPath": {
+      "oneOf": [
+        { "const": "." },
+        { "$ref": "#/$defs/relativeBuildPath" }
+      ]
     }
   },
   "type": "object",
@@ -140,8 +150,8 @@
             }
           ]
         },
-        "dockerfile": { "type": "string", "minLength": 1 },
-        "context": { "type": "string", "minLength": 1 }
+        "dockerfile": { "$ref": "#/$defs/relativeBuildPath" },
+        "context": { "$ref": "#/$defs/buildContextPath" }
       }
     },
     "kubernetes": {

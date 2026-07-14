@@ -32,6 +32,121 @@
         "path": { "$ref": "#/$defs/relativePath" }
       }
     },
+    "implementationContractRef": {
+      "allOf": [
+        { "$ref": "#/$defs/contractRef" },
+        { "properties": { "kind": { "const": "implementation" } } }
+      ]
+    },
+    "variantContractRef": {
+      "allOf": [
+        { "$ref": "#/$defs/contractRef" },
+        { "properties": { "kind": { "const": "variant" } } }
+      ]
+    },
+    "environmentProfileContractRef": {
+      "allOf": [
+        { "$ref": "#/$defs/contractRef" },
+        { "properties": { "kind": { "const": "environment-profile" } } }
+      ]
+    },
+    "measurementProtocolContractRef": {
+      "allOf": [
+        { "$ref": "#/$defs/contractRef" },
+        { "properties": { "kind": { "const": "measurement-protocol" } } }
+      ]
+    },
+    "buildProfileContractRef": {
+      "allOf": [
+        { "$ref": "#/$defs/contractRef" },
+        { "properties": { "kind": { "const": "build-profile" } } }
+      ]
+    },
+    "relativeBuildPath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*%)(?!.*[\\u0000-\\u001f\\u007f])(?!\\.{1,2}(?:/|(?![\\s\\S])))(?!.*[/]\\.{1,2}(?:/|(?![\\s\\S])))[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*(?![\\s\\S])"
+    },
+    "buildContextPath": {
+      "oneOf": [
+        { "const": "." },
+        { "$ref": "#/$defs/relativeBuildPath" }
+      ]
+    },
+    "buildInputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "clean_command",
+        "incremental_command",
+        "incremental_input",
+        "application_artifact",
+        "dockerfile",
+        "context"
+      ],
+      "properties": {
+        "clean_command": {
+          "type": "array",
+          "prefixItems": [
+            { "const": "./gradlew" },
+            { "const": "clean" },
+            { "const": "build" },
+            { "const": "--offline" },
+            { "const": "--no-daemon" },
+            { "const": "--no-build-cache" }
+          ],
+          "items": false,
+          "minItems": 6,
+          "maxItems": 6
+        },
+        "incremental_command": {
+          "type": "array",
+          "prefixItems": [
+            { "const": "./gradlew" },
+            { "const": "build" },
+            { "const": "--offline" },
+            { "const": "--no-daemon" },
+            { "const": "--no-build-cache" }
+          ],
+          "items": false,
+          "minItems": 5,
+          "maxItems": 5
+        },
+        "incremental_input": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "from", "to"],
+          "properties": {
+            "path": { "const": "src/main/java/org/hellorealworld/benchmark/BuildBenchmarkProbe.java" },
+            "from": { "const": "public static final int VALUE = 0;" },
+            "to": { "const": "public static final int VALUE = 1;" }
+          }
+        },
+        "application_artifact": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["type", "path"],
+              "properties": {
+                "type": { "const": "glob" },
+                "path": { "const": "build/libs/*.jar" }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["type", "path"],
+              "properties": {
+                "type": { "const": "directory" },
+                "path": { "const": "build/quarkus-app" }
+              }
+            }
+          ]
+        },
+        "dockerfile": { "$ref": "#/$defs/relativeBuildPath" },
+        "context": { "$ref": "#/$defs/buildContextPath" }
+      }
+    },
     "source": {
       "type": "object",
       "additionalProperties": false,
@@ -88,11 +203,11 @@
         "build_profile"
       ],
       "properties": {
-        "implementation": { "$ref": "#/$defs/contractRef" },
-        "variant": { "$ref": "#/$defs/contractRef" },
-        "environment_profile": { "$ref": "#/$defs/contractRef" },
-        "measurement_protocol": { "$ref": "#/$defs/contractRef" },
-        "build_profile": { "$ref": "#/$defs/contractRef" }
+        "implementation": { "$ref": "#/$defs/implementationContractRef" },
+        "variant": { "$ref": "#/$defs/variantContractRef" },
+        "environment_profile": { "$ref": "#/$defs/environmentProfileContractRef" },
+        "measurement_protocol": { "$ref": "#/$defs/measurementProtocolContractRef" },
+        "build_profile": { "$ref": "#/$defs/buildProfileContractRef" }
       }
     },
     "execution": {
@@ -102,7 +217,7 @@
       "properties": {
         "app_dir": { "$ref": "#/$defs/relativePath" },
         "variant_file": { "$ref": "#/$defs/relativePath" },
-        "build": { "type": "object" }
+        "build": { "$ref": "#/$defs/buildInputs" }
       }
     },
     "cohort": {
@@ -115,18 +230,14 @@
           "type": "object",
           "additionalProperties": false,
           "required": [
-            "implementation",
-            "variant",
             "environment_profile",
             "measurement_protocol",
             "build_profile"
           ],
           "properties": {
-            "implementation": { "$ref": "#/$defs/contractRef" },
-            "variant": { "$ref": "#/$defs/contractRef" },
-            "environment_profile": { "$ref": "#/$defs/contractRef" },
-            "measurement_protocol": { "$ref": "#/$defs/contractRef" },
-            "build_profile": { "$ref": "#/$defs/contractRef" }
+            "environment_profile": { "$ref": "#/$defs/environmentProfileContractRef" },
+            "measurement_protocol": { "$ref": "#/$defs/measurementProtocolContractRef" },
+            "build_profile": { "$ref": "#/$defs/buildProfileContractRef" }
           }
         },
         "fingerprint": { "$ref": "#/$defs/digest" }

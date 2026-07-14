@@ -198,13 +198,18 @@
         }
       },
       "else": {
-        "if": {
-          "properties": { "official": { "const": true } },
-          "required": ["official"]
-        },
-        "then": {
-          "required": ["cluster", "resources", "images", "validity"]
-        }
+        "not": { "required": ["build"] },
+        "allOf": [
+          {
+            "if": {
+              "properties": { "official": { "const": true } },
+              "required": ["official"]
+            },
+            "then": {
+              "required": ["cluster", "resources", "images", "validity"]
+            }
+          }
+        ]
       }
     },
     {

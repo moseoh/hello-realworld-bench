@@ -22,6 +22,12 @@ _CONTRACT_ROLES = (
     "build_profile",
 )
 
+_COHORT_CONTRACT_ROLES = (
+    "environment_profile",
+    "measurement_protocol",
+    "build_profile",
+)
+
 
 def build_resolved_build_manifest(
     config: BuildRunConfig,
@@ -32,7 +38,13 @@ def build_resolved_build_manifest(
         role: _contract_ref(config.selected_contracts[role], config.root_dir, role)
         for role in _CONTRACT_ROLES
     }
-    cohort_payload = {"evidence_family": "build", "contracts": contracts}
+    cohort_payload = {
+        "evidence_family": "build",
+        "contracts": {
+            role: contracts[role]
+            for role in _COHORT_CONTRACT_ROLES
+        },
+    }
     cohort = {
         **cohort_payload,
         "fingerprint": _canonical_digest(cohort_payload),
@@ -96,8 +108,14 @@ def validate_resolved_build_manifest(manifest: object, root: Path) -> None:
     contracts = manifest["contracts"]
     assert isinstance(cohort, dict)
     assert isinstance(contracts, dict)
-    if cohort["contracts"] != contracts:
-        validation_errors.append("$.cohort.contracts: must match $.contracts")
+    expected_cohort_contracts = {
+        role: contracts[role]
+        for role in _COHORT_CONTRACT_ROLES
+    }
+    if cohort["contracts"] != expected_cohort_contracts:
+        validation_errors.append(
+            "$.cohort.contracts: must match the shared profile contracts"
+        )
 
     cohort_payload = {key: value for key, value in cohort.items() if key != "fingerprint"}
     if cohort["fingerprint"] != _canonical_digest(cohort_payload):
@@ -214,8 +232,15 @@ def _repository_path_errors(manifest: dict[str, object]) -> list[str]:
             for key in sorted(value):
                 child_location = f"{location}.{key}"
                 child = value[key]
-                if key in {"path", "app_dir", "variant_file"} and isinstance(child, str):
-                    if not _is_canonical_repository_path(child):
+                if key in {
+                    "path",
+                    "app_dir",
+                    "variant_file",
+                    "dockerfile",
+                    "context",
+                } and isinstance(child, str):
+                    allows_root = key == "context" and child == "."
+                    if not allows_root and not _is_canonical_repository_path(child):
                         errors.append(
                             f"{child_location}: must be a normalized "
                             "repository-relative POSIX path"
