@@ -116,6 +116,19 @@ class WorkflowTrustBoundaryTest(unittest.TestCase):
             "DOCKER_HOST=unix:///run/user/1000/docker.sock",
             setup["run"],
         )
+        cleanup = next(
+            step
+            for step in steps
+            if step.get("name") == "Cleanup build campaign resources"
+        )
+        self.assertEqual(
+            cleanup["env"]["DOCKER_HOST"],
+            "unix:///run/user/1000/docker.sock",
+        )
+        self.assertIn(
+            'export PATH="$HOME/.local/bin:$HOME/bin:$PATH"',
+            cleanup["run"],
+        )
         self.assertNotIn("DOCKER_HOST", json.dumps(publish))
 
     def test_official_build_workflow_creates_archive_from_validated_allowlist(self):

@@ -118,8 +118,11 @@ jobs:
         if: ${{ always() }}
         working-directory: source
         env:
+          DOCKER_HOST: unix:///run/user/1000/docker.sock
           MARKER_DIR: ${{ runner.temp }}/../hrw-build-campaigns
-        run: PYTHONPATH=runner uv run --project runner python -m hrw_runner build-cleanup "$MARKER_DIR"
+        run: |
+          export PATH="$HOME/.local/bin:$HOME/bin:$PATH"
+          PYTHONPATH=runner uv run --project runner python -m hrw_runner build-cleanup "$MARKER_DIR"
       - name: Transfer raw build evidence
         uses: actions/upload-artifact@v4
         with:
