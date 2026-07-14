@@ -53,8 +53,8 @@
       "additionalProperties": false,
       "required": ["start_boundary", "completion_boundary"],
       "properties": {
-        "start_boundary": { "const": "checkout-complete" },
-        "completion_boundary": { "const": "image-archive-written" }
+        "start_boundary": { "const": "operation-command-start" },
+        "completion_boundary": { "const": "operation-command-exit" }
       }
     },
     "lifecycle": {
@@ -88,7 +88,16 @@
         "properties": { "evidence_family": { "const": "build" } },
         "required": ["evidence_family"]
       },
-      "then": { "required": ["build"] }
+      "then": {
+        "required": ["build"],
+        "not": { "required": ["lifecycle"] },
+        "properties": {
+          "trials": { "const": 3 },
+          "timing_source": { "const": "none" },
+          "warmup_seconds": { "const": 0 },
+          "measured_seconds": { "const": 0 }
+        }
+      }
     },
     {
       "if": {

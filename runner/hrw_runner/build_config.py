@@ -173,11 +173,16 @@ def _validate_build_environment_profile(profile: dict[str, object]) -> None:
     if not (
         profile["status"] == "frozen"
         and profile["official"] is True
-        and profile["orchestrator"] == "github-actions"
+        and profile["orchestrator"] == "host-build"
         and profile["load_generator"] == "none"
         and isinstance(build, dict)
-        and build.get("runner") == "github-hosted"
+        and build.get("runner_labels")
+        == ["self-hosted", "linux", "x64", "hrw-home-k3s"]
         and build.get("platform") == "linux/amd64"
+        and build.get("machine_id") == "f66cd2d134b94bb18eb7e531d1baf343"
+        and build.get("cpu_model") == "AMD Ryzen 7 5825U"
+        and build.get("min_logical_cpus") == 16
+        and build.get("min_memory_bytes") == 29313151795
     ):
         raise ValueError(
             f"Unsupported build environment profile '{profile['id']}'."
@@ -189,12 +194,14 @@ def _validate_build_measurement_protocol(profile: dict[str, object]) -> None:
     if not (
         profile["status"] == "frozen"
         and profile["evidence_family"] == "build"
+        and profile["trials"] == 3
         and profile["timing_source"] == "none"
         and profile["warmup_seconds"] == 0
         and profile["measured_seconds"] == 0
+        and "lifecycle" not in profile
         and isinstance(build, dict)
-        and build.get("start_boundary") == "checkout-complete"
-        and build.get("completion_boundary") == "image-archive-written"
+        and build.get("start_boundary") == "operation-command-start"
+        and build.get("completion_boundary") == "operation-command-exit"
     ):
         raise ValueError(
             f"Unsupported build measurement protocol '{profile['id']}'."
@@ -206,12 +213,21 @@ def _validate_build_profile(profile: dict[str, object]) -> None:
     if not (
         profile["status"] == "frozen"
         and profile["build_tool"] == "gradle"
-        and profile["dependency_cache"] == "persistent"
-        and profile["image_cache"] == "disabled"
+        and profile["dependency_cache"] == "immutable-fresh-copy-seed"
+        and profile["image_cache"] == "base-only-then-first-package-cache"
         and profile["image_input"] == "built-artifact"
         and isinstance(build, dict)
         and build.get("image_platform") == "linux/amd64"
         and build.get("image_output") == "oci-archive"
+        and build.get("workspace") == "fresh-copy"
+        and build.get("source_probe") == "0->1"
+        and build.get("operations")
+        == [
+            "gradle_clean_build",
+            "image_package",
+            "gradle_incremental_rebuild",
+            "image_rebuild",
+        ]
     ):
         raise ValueError(f"Unsupported build profile '{profile['id']}'.")
 

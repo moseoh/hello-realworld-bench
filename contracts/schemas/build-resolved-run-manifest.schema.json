@@ -98,19 +98,19 @@
     "execution": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["app_dir", "variant_file", "runtime", "build"],
+      "required": ["app_dir", "variant_file", "build"],
       "properties": {
         "app_dir": { "$ref": "#/$defs/relativePath" },
         "variant_file": { "$ref": "#/$defs/relativePath" },
-        "runtime": { "type": "object" },
         "build": { "type": "object" }
       }
     },
     "cohort": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["contracts", "fingerprint"],
+      "required": ["evidence_family", "contracts", "fingerprint"],
       "properties": {
+        "evidence_family": { "const": "build" },
         "contracts": {
           "type": "object",
           "additionalProperties": false,

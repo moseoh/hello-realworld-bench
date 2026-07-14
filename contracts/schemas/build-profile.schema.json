@@ -40,11 +40,85 @@
     "build": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["image_platform", "image_output"],
+      "required": [
+        "image_platform",
+        "image_output",
+        "workspace",
+        "source_probe",
+        "operations",
+        "image_cache",
+        "java_executor",
+        "buildkit"
+      ],
       "properties": {
         "image_platform": { "const": "linux/amd64" },
-        "image_output": { "const": "oci-archive" }
+        "image_output": { "const": "oci-archive" },
+        "workspace": { "const": "fresh-copy" },
+        "source_probe": { "const": "0->1" },
+        "operations": {
+          "type": "array",
+          "prefixItems": [
+            { "const": "gradle_clean_build" },
+            { "const": "image_package" },
+            { "const": "gradle_incremental_rebuild" },
+            { "const": "image_rebuild" }
+          ],
+          "items": false,
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "image_cache": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["image_package", "image_rebuild"],
+          "properties": {
+            "image_package": { "const": "base-only" },
+            "image_rebuild": { "const": "first-package" }
+          }
+        },
+        "java_executor": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["image", "cpu", "memory", "extra_swap"],
+          "properties": {
+            "image": { "const": "eclipse-temurin:25-jdk@sha256:68868d04fa9cfd5f5c6abec0b5cef86d8de2bf9c62c37c7d3e4f0f80f5cfd7ff" },
+            "cpu": { "const": "2" },
+            "memory": { "const": "4GiB" },
+            "extra_swap": { "const": "none" }
+          }
+        },
+        "buildkit": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["image", "builder", "cpu_quota", "cpu_period", "memory", "memory_swap"],
+          "properties": {
+            "image": { "const": "moby/buildkit:buildx-stable-1@sha256:0168606be2315b7c807a03b3d8aa79beefdb31c98740cebdffdfeebf31190c9f" },
+            "builder": { "const": "per-trial-fresh" },
+            "cpu_quota": { "const": 200000 },
+            "cpu_period": { "const": 100000 },
+            "memory": { "const": "4g" },
+            "memory_swap": { "const": "4g" }
+          }
+        }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "id": { "const": "official-gradle-docker-v1" } },
+        "required": ["id"]
+      },
+      "then": {
+        "required": ["build"],
+        "properties": {
+          "status": { "const": "frozen" },
+          "build_tool": { "const": "gradle" },
+          "dependency_cache": { "const": "immutable-fresh-copy-seed" },
+          "image_cache": { "const": "base-only-then-first-package-cache" },
+          "image_input": { "const": "built-artifact" }
+        }
+      }
+    }
+  ]
 }

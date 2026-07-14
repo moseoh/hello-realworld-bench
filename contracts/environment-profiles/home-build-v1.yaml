@@ -2,10 +2,18 @@ schema_version: "1.0"
 id: home-build-v1
 contract_version: "1.0"
 status: frozen
-description: "Official GitHub-hosted build environment for immutable Linux AMD64 images."
-orchestrator: github-actions
+description: "Official fixed home-machine environment for build evidence."
+orchestrator: host-build
 official: true
 load_generator: none
 build:
-  runner: github-hosted
+  runner_labels:
+    - self-hosted
+    - linux
+    - x64
+    - hrw-home-k3s
   platform: linux/amd64
+  machine_id: f66cd2d134b94bb18eb7e531d1baf343
+  cpu_model: "AMD Ryzen 7 5825U"
+  min_logical_cpus: 16
+  min_memory_bytes: 29313151795

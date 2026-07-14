@@ -32,7 +32,7 @@ def build_resolved_build_manifest(
         role: _contract_ref(config.selected_contracts[role], config.root_dir, role)
         for role in _CONTRACT_ROLES
     }
-    cohort_payload = {"contracts": contracts}
+    cohort_payload = {"evidence_family": "build", "contracts": contracts}
     cohort = {
         **cohort_payload,
         "fingerprint": _canonical_digest(cohort_payload),
@@ -60,7 +60,6 @@ def build_resolved_build_manifest(
                 config.root_dir,
                 "$.execution.variant_file",
             ),
-            "runtime": config.runtime,
             "build": config.build,
         },
         "cohort": cohort,

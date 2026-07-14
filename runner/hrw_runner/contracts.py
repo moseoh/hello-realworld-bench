@@ -405,12 +405,16 @@ def _validate_measurement_protocol_semantics(
         return []
 
     errors: list[str] = []
+    if value["trials"] != 3:
+        errors.append("$.trials: must be 3 for build evidence")
     if value["timing_source"] != "none":
         errors.append("$.timing_source: must be 'none' for build evidence")
     if value["warmup_seconds"] != 0:
         errors.append("$.warmup_seconds: must be 0 for build evidence")
     if value["measured_seconds"] != 0:
         errors.append("$.measured_seconds: must be 0 for build evidence")
+    if "lifecycle" in value:
+        errors.append("$.lifecycle: must not be defined for build evidence")
     return errors
 
 

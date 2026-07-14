@@ -72,9 +72,51 @@
     "build": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["application_command", "dockerfile", "context"],
+      "required": [
+        "clean_command",
+        "incremental_command",
+        "incremental_input",
+        "dockerfile",
+        "context"
+      ],
       "properties": {
-        "application_command": { "type": "string", "minLength": 1 },
+        "clean_command": {
+          "type": "array",
+          "prefixItems": [
+            { "const": "./gradlew" },
+            { "const": "clean" },
+            { "const": "build" },
+            { "const": "--offline" },
+            { "const": "--no-daemon" },
+            { "const": "--no-build-cache" }
+          ],
+          "items": false,
+          "minItems": 6,
+          "maxItems": 6
+        },
+        "incremental_command": {
+          "type": "array",
+          "prefixItems": [
+            { "const": "./gradlew" },
+            { "const": "build" },
+            { "const": "--offline" },
+            { "const": "--no-daemon" },
+            { "const": "--no-build-cache" }
+          ],
+          "items": false,
+          "minItems": 5,
+          "maxItems": 5
+        },
+        "incremental_input": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "from", "to"],
+          "properties": {
+            "path": { "const": "src/main/java/org/hellorealworld/build/BuildBenchmarkProbe.java" },
+            "from": { "const": "public static final int VALUE = 0;" },
+            "to": { "const": "public static final int VALUE = 1;" }
+          }
+        },
         "dockerfile": { "type": "string", "minLength": 1 },
         "context": { "type": "string", "minLength": 1 }
       }

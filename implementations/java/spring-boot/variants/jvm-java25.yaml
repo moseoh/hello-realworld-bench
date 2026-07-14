@@ -16,7 +16,23 @@ docker:
   image_tag: "hello-realworld/java-spring-boot-jvm-java25:local"
 
 build:
-  application_command: "./gradlew clean build --no-daemon"
+  clean_command:
+    - ./gradlew
+    - clean
+    - build
+    - --offline
+    - --no-daemon
+    - --no-build-cache
+  incremental_command:
+    - ./gradlew
+    - build
+    - --offline
+    - --no-daemon
+    - --no-build-cache
+  incremental_input:
+    path: src/main/java/org/hellorealworld/build/BuildBenchmarkProbe.java
+    from: "public static final int VALUE = 0;"
+    to: "public static final int VALUE = 1;"
   dockerfile: Dockerfile
   context: .
 

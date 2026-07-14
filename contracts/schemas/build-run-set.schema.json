@@ -2,27 +2,121 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://hellorealworld.dev/contracts/schemas/build-run-set.schema.json",
   "title": "Build run set",
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "relativePath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*[\\u0000-\\u001f\\u007f])(?!\\.{1,2}(?:/|(?![\\s\\S])))(?!.*[/]\\.{1,2}(?:/|(?![\\s\\S])))[^/]+(?:/[^/]+)*(?![\\s\\S])"
+    },
+    "trialRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trial_id", "index", "status", "path", "sha256"],
+      "properties": {
+        "trial_id": { "type": "string", "minLength": 1 },
+        "index": { "type": "integer", "minimum": 1 },
+        "status": { "enum": ["valid", "invalid", "failed"] },
+        "path": { "$ref": "#/$defs/relativePath" },
+        "sha256": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "buildMetric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min", "median", "max", "trials"],
+      "properties": {
+        "min": { "type": "number", "minimum": 0 },
+        "median": { "type": "number", "minimum": 0 },
+        "max": { "type": "number", "minimum": 0 },
+        "trials": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["trial_id", "value"],
+            "properties": {
+              "trial_id": { "type": "string", "minLength": 1 },
+              "value": { "type": "number", "minimum": 0 }
+            }
+          }
+        }
+      }
+    }
+  },
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "run_set_id", "run_id", "manifest_digest", "cohort_fingerprint", "status", "trials"],
+  "required": [
+    "schema_version",
+    "run_set_id",
+    "run_id",
+    "manifest_digest",
+    "cohort_fingerprint",
+    "status",
+    "expected_trials",
+    "trials",
+    "summary"
+  ],
   "properties": {
     "schema_version": { "const": "1.0" },
     "run_set_id": { "type": "string", "minLength": 1 },
     "run_id": { "type": "string", "minLength": 1 },
-    "manifest_digest": { "type": "string", "pattern": "^[0-9a-f]{64}(?![\\s\\S])" },
-    "cohort_fingerprint": { "type": "string", "pattern": "^[0-9a-f]{64}(?![\\s\\S])" },
+    "manifest_digest": { "$ref": "#/$defs/digest" },
+    "cohort_fingerprint": { "$ref": "#/$defs/digest" },
     "status": { "const": "complete" },
+    "expected_trials": { "const": 3 },
     "trials": {
       "type": "array",
-      "minItems": 1,
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["trial_id", "index", "status"],
-        "properties": {
-          "trial_id": { "type": "string", "minLength": 1 },
-          "index": { "type": "integer", "minimum": 1 },
-          "status": { "enum": ["valid", "invalid", "failed"] }
+      "prefixItems": [
+        {
+          "allOf": [
+            { "$ref": "#/$defs/trialRef" },
+            { "properties": { "index": { "const": 1 } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/trialRef" },
+            { "properties": { "index": { "const": 2 } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/trialRef" },
+            { "properties": { "index": { "const": 3 } } }
+          ]
+        }
+      ],
+      "items": false,
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trial_count", "valid_trial_count", "build_metrics"],
+      "properties": {
+        "trial_count": { "const": 3 },
+        "valid_trial_count": { "const": 3 },
+        "build_metrics": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "gradle_clean_build_ms",
+            "gradle_incremental_rebuild_ms",
+            "image_package_ms",
+            "image_rebuild_ms"
+          ],
+          "properties": {
+            "gradle_clean_build_ms": { "$ref": "#/$defs/buildMetric" },
+            "gradle_incremental_rebuild_ms": { "$ref": "#/$defs/buildMetric" },
+            "image_package_ms": { "$ref": "#/$defs/buildMetric" },
+            "image_rebuild_ms": { "$ref": "#/$defs/buildMetric" }
+          }
         }
       }
     }

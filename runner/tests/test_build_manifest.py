@@ -4,6 +4,8 @@ import json
 import unittest
 from pathlib import Path
 
+from jsonschema import Draft202012Validator
+
 from hrw_runner.build_config import resolve_build_run_config
 from hrw_runner.build_manifest import (
     ManifestValidationError,
@@ -49,7 +51,9 @@ class BuildResolvedManifestTest(unittest.TestCase):
         )
         self.assertNotIn("scenario", manifest["selection"])
         self.assertNotIn("load_profile", manifest["selection"])
+        self.assertNotIn("runtime", manifest["execution"])
         self.assertEqual(manifest["cohort"]["contracts"], manifest["contracts"])
+        self.assertEqual(manifest["cohort"]["evidence_family"], "build")
         self.assertEqual(
             manifest["cohort"]["fingerprint"],
             _digest({key: value for key, value in manifest["cohort"].items() if key != "fingerprint"}),
@@ -78,6 +82,100 @@ class BuildResolvedManifestTest(unittest.TestCase):
             validate_resolved_build_manifest(tampered, PROJECT_ROOT)
 
         self.assertIn("$.contracts.variant", str(context.exception))
+
+    def test_build_evidence_schemas_require_three_ordered_trial_references_and_metrics(self):
+        trial = {
+            "schema_version": "1.0",
+            "run_id": "build-001",
+            "trial_id": "trial-1",
+            "manifest_digest": "a" * 64,
+            "cohort_fingerprint": "b" * 64,
+            "status": "valid",
+            "started_at": "2026-07-14T00:00:00Z",
+            "finished_at": "2026-07-14T00:01:00Z",
+            "metrics": self._trial_metrics(),
+        }
+        run_set = {
+            "schema_version": "1.0",
+            "run_set_id": "build-set-001",
+            "run_id": "build-001",
+            "manifest_digest": "a" * 64,
+            "cohort_fingerprint": "b" * 64,
+            "status": "complete",
+            "expected_trials": 3,
+            "trials": [
+                {
+                    "trial_id": f"trial-{index}",
+                    "index": index,
+                    "status": "valid",
+                    "path": f"trials/{index}/trial.json",
+                    "sha256": chr(96 + index) * 64,
+                }
+                for index in range(1, 4)
+            ],
+            "summary": {
+                "trial_count": 3,
+                "valid_trial_count": 3,
+                "build_metrics": self._build_metrics(),
+            },
+        }
+
+        self.assertEqual(self._schema_errors("build-trial.schema.json", trial), [])
+        self.assertEqual(self._schema_errors("build-run-set.schema.json", run_set), [])
+
+        incomplete = copy.deepcopy(run_set)
+        incomplete["trials"].pop()
+        errors = self._schema_errors("build-run-set.schema.json", incomplete)
+        self.assertTrue(errors)
+        self.assertTrue(any(list(error.absolute_path) == ["trials"] for error in errors))
+
+        wrong_expected_count = copy.deepcopy(run_set)
+        wrong_expected_count["expected_trials"] = 2
+        errors = self._schema_errors("build-run-set.schema.json", wrong_expected_count)
+        self.assertTrue(
+            any(list(error.absolute_path) == ["expected_trials"] for error in errors)
+        )
+
+        wrong_reference_index = copy.deepcopy(run_set)
+        wrong_reference_index["trials"][2]["index"] = 4
+        errors = self._schema_errors("build-run-set.schema.json", wrong_reference_index)
+        self.assertTrue(any(list(error.absolute_path) == ["trials", 2, "index"] for error in errors))
+
+        non_build_trial = copy.deepcopy(trial)
+        non_build_trial["time_series"] = {"runtime_ms": 1}
+        errors = self._schema_errors("build-trial.schema.json", non_build_trial)
+        self.assertTrue(any(list(error.absolute_path) == [] for error in errors))
+
+        non_build_run_set = copy.deepcopy(run_set)
+        non_build_run_set["scenario"] = "ping-api"
+        errors = self._schema_errors("build-run-set.schema.json", non_build_run_set)
+        self.assertTrue(any(list(error.absolute_path) == [] for error in errors))
+
+    def _trial_metrics(self):
+        return {
+            "gradle_clean_build_ms": 1,
+            "gradle_incremental_rebuild_ms": 1,
+            "image_package_ms": 1,
+            "image_rebuild_ms": 1,
+        }
+
+    def _build_metrics(self):
+        return {
+            name: {
+                "min": 1,
+                "median": 1,
+                "max": 1,
+                "trials": [
+                    {"trial_id": f"trial-{index}", "value": 1}
+                    for index in range(1, 4)
+                ],
+            }
+            for name in self._trial_metrics()
+        }
+
+    def _schema_errors(self, name: str, value: object):
+        schema = json.loads((PROJECT_ROOT / "contracts/schemas" / name).read_text())
+        return list(Draft202012Validator(schema).iter_errors(value))
 
 
 if __name__ == "__main__":
