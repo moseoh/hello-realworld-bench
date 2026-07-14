@@ -1,0 +1,142 @@
+{
+  "cohort_fingerprint": "d6ee0866d61e341008c1c592ef319ed4357f5f2276bd848bd5d404af66e59e0c",
+  "files": [
+    {
+      "path": "build.json",
+      "sha256": "69601aba2bf01e164f5cc4caa6fa755c7dc0c3d4664ce19f49fb7ca863cdac06",
+      "size_bytes": 339
+    },
+    {
+      "path": "image-prepull.json",
+      "sha256": "d74d0cdcb47d72274dc51c878b5f002302823eca13872d10050f07d4c2fc9a68",
+      "size_bytes": 12056
+    },
+    {
+      "path": "postflight.json",
+      "sha256": "3b9c863dfd7ce71408610135fef817769dd8f26a48c4afa2e1c6aeb487c17d30",
+      "size_bytes": 601
+    },
+    {
+      "path": "preflight.json",
+      "sha256": "3566ba852aa98e469bd416ba5b9748b3de629bb49f751ad51f9f49e5a4ea8f2f",
+      "size_bytes": 601
+    },
+    {
+      "path": "resolved-manifest.json",
+      "sha256": "55d544759432b827d5ccb484dcc6c2a0674a6a9f50e0b50728e7986236e3e44d",
+      "size_bytes": 5873
+    },
+    {
+      "path": "run-set.json",
+      "sha256": "5d2bdb17489896be6f52e11d54fd15ac270e1ba7e0e83140566c28f0fd51f581",
+      "size_bytes": 4614
+    },
+    {
+      "path": "trials/01/artifact-manifest.json",
+      "sha256": "1ad10bfb9e6cd122a3086d10428ac0312591e4ce6a106ba5b6a081313aecc1c6",
+      "size_bytes": 1321
+    },
+    {
+      "path": "trials/01/result.json",
+      "sha256": "7d4f29ea64e877547d44af7aad1fb134069f314bd4eb8919939266e33efbabd9",
+      "size_bytes": 2171
+    },
+    {
+      "path": "trials/01/time-series.json",
+      "sha256": "f295f1378792ab5cb221fe662e12c81b48e83803b491cce6df51907c07d47324",
+      "size_bytes": 101
+    },
+    {
+      "path": "trials/01/trial.json",
+      "sha256": "f93f5002219e0fe38a14ed067479008aa95886f1fb1075dad084f788fc93d534",
+      "size_bytes": 1390
+    },
+    {
+      "path": "trials/02/artifact-manifest.json",
+      "sha256": "c52b5936ab92e14fcf385850d85e45d61b55b1141de3207d57aac3bba9f9c51b",
+      "size_bytes": 1321
+    },
+    {
+      "path": "trials/02/result.json",
+      "sha256": "bebce6fc53596a6205516cee7b7bb77dc9df8543d557e2ef0091f6e4b6b9e1c8",
+      "size_bytes": 2171
+    },
+    {
+      "path": "trials/02/time-series.json",
+      "sha256": "59f281988d54e1d7301ebeca1b9108fd4f514a6a91beaff219950ad0db91b49a",
+      "size_bytes": 101
+    },
+    {
+      "path": "trials/02/trial.json",
+      "sha256": "b60ad9fdadde85bf78d6e3bbf81f9eb05a8c8c1b2b3ef45f7942b09cea5177bc",
+      "size_bytes": 1390
+    },
+    {
+      "path": "trials/03/artifact-manifest.json",
+      "sha256": "8118a4f94e488a82084877b0a3b4780f329ade51ca7f6a47a528847288a0fdbe",
+      "size_bytes": 1321
+    },
+    {
+      "path": "trials/03/result.json",
+      "sha256": "2820066e157acb899c93a4fdca641b770c153519eb3bfead1f99ffba83db33f3",
+      "size_bytes": 2171
+    },
+    {
+      "path": "trials/03/time-series.json",
+      "sha256": "dff66fbacac772a89136540fb118fe72bbcfd15f41b8b9828c5a7177f6ec54bb",
+      "size_bytes": 101
+    },
+    {
+      "path": "trials/03/trial.json",
+      "sha256": "fbfffa54ebd5b7fd83d7a6489be9026cc32b32a4c2617c7e1e93c164936b9997",
+      "size_bytes": 1390
+    },
+    {
+      "path": "trials/04/artifact-manifest.json",
+      "sha256": "e221c7ff2e3800cfec338f1e9bdf938d023a856745cef2e63e9225b0e5680af5",
+      "size_bytes": 1321
+    },
+    {
+      "path": "trials/04/result.json",
+      "sha256": "a5afa096e0a75a06bcb71147f0a738ae6b7d33515219e313ec01152e660c6c34",
+      "size_bytes": 2171
+    },
+    {
+      "path": "trials/04/time-series.json",
+      "sha256": "1d445a66f5868ee11556d687064f80408307b55e4be3fb265e7f8241f71aef38",
+      "size_bytes": 101
+    },
+    {
+      "path": "trials/04/trial.json",
+      "sha256": "155da056bc4d00d113e6d1591a1be81eebc71b202178fe02c2e9f20145119b79",
+      "size_bytes": 1390
+    },
+    {
+      "path": "trials/05/artifact-manifest.json",
+      "sha256": "028a2341d643b90e53a5d3568ed0dbcca25f2250644e2fba6cec4c3c1902fa4d",
+      "size_bytes": 1321
+    },
+    {
+      "path": "trials/05/result.json",
+      "sha256": "cf6d21d4f0f883d223239aa1722207199d4e37453bc85b10bba16cfed13fbf27",
+      "size_bytes": 2171
+    },
+    {
+      "path": "trials/05/time-series.json",
+      "sha256": "892edb10a93081c9c16322e1f95a8701d9dca786e3b7c1aeb1f63451947e071b",
+      "size_bytes": 101
+    },
+    {
+      "path": "trials/05/trial.json",
+      "sha256": "448ca6d82ccb5ba439078cc84292b3b3d103633aeb899b37676b0b25f24af3dd",
+      "size_bytes": 1390
+    }
+  ],
+  "image_digest": "sha256:39a0cf0ede33e0b334880270d6ef6f22f2aa685486523b7c2c75e63ad30dada6",
+  "raw_artifact_sha256": "cb2d7e0228d99a1ffd68c21bdb097c76898df09e96b6df7025abc56bcdaee0d5",
+  "raw_artifact_url": "https://github.com/moseoh/hello-realworld-bench/releases/download/benchmark-evidence-2026-07-14T00-03-28_java_quarkus_jvm-java25_cold-start-api_run-set/raw-evidence.tar.gz",
+  "run_set_id": "2026-07-14T00-03-28_java_quarkus_jvm-java25_cold-start-api_run-set",
+  "schema_version": "1.0",
+  "source_commit": "8913ed3e0073c4b0d6b4df21db7d576ffd90fcf9",
+  "workflow_url": "https://github.com/moseoh/hello-realworld-bench-ops/actions/runs/29294280624"
+}

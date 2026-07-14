@@ -1,0 +1,8 @@
+{
+  "image": "ghcr.io/moseoh/hello-realworld-bench/quarkus@sha256:39a0cf0ede33e0b334880270d6ef6f22f2aa685486523b7c2c75e63ad30dada6",
+  "digest": "sha256:39a0cf0ede33e0b334880270d6ef6f22f2aa685486523b7c2c75e63ad30dada6",
+  "platform": "linux/amd64",
+  "distribution": "prebuilt-import",
+  "clean_build_ms": null,
+  "image_build_ms": null
+}

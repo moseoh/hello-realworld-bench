@@ -1,0 +1,52 @@
+{
+  "schema_version": "1.0",
+  "trial_id": "trial-04",
+  "run_id": "2026-07-14T00-03-28_java_quarkus_jvm-java25_cold-start-api_run-set",
+  "status": "valid",
+  "started_at": "2026-07-14T00:06:10.370089Z",
+  "finished_at": "2026-07-14T00:06:46.449608Z",
+  "manifest_digest": "6845c2bb7063a13e4718c9a87026af9961db8c3c8eeadc8f267317ec8a9a8f7f",
+  "cohort_fingerprint": "d6ee0866d61e341008c1c592ef319ed4357f5f2276bd848bd5d404af66e59e0c",
+  "summary": [
+    {
+      "name": "dependency_ready_ms",
+      "unit": "milliseconds",
+      "value": 0,
+      "source_artifacts": [
+        "startup.json"
+      ]
+    },
+    {
+      "name": "ready_ms",
+      "unit": "milliseconds",
+      "value": 1279,
+      "source_artifacts": [
+        "startup.json"
+      ]
+    },
+    {
+      "name": "entrypoint_pre_exec_to_first_valid_response_ms",
+      "unit": "milliseconds",
+      "value": 1279,
+      "source_artifacts": [
+        "startup.json"
+      ]
+    },
+    {
+      "name": "first_request_ms",
+      "unit": "milliseconds",
+      "value": 69.0,
+      "source_artifacts": [
+        "startup.json"
+      ]
+    }
+  ],
+  "time_series": {
+    "path": "time-series.json",
+    "sha256": "1d445a66f5868ee11556d687064f80408307b55e4be3fb265e7f8241f71aef38"
+  },
+  "artifact_manifest": {
+    "path": "artifact-manifest.json",
+    "sha256": "e221c7ff2e3800cfec338f1e9bdf938d023a856745cef2e63e9225b0e5680af5"
+  }
+}
