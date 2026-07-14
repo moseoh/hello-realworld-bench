@@ -38,12 +38,66 @@ class WorkflowTrustBoundaryTest(unittest.TestCase):
         checkout = next(
             step for step in publish["steps"] if step.get("uses") == "actions/checkout@v4"
         )
-        self.assertEqual(checkout["with"]["token"], "${{ secrets.PUBLIC_REPO_TOKEN }}")
+        self.assertEqual(checkout["with"]["persist-credentials"], "false")
+        self.assertNotIn("token", checkout["with"])
+        publish_uv = [
+            step
+            for step in publish["steps"]
+            if step.get("uses") == "astral-sh/setup-uv@v6"
+        ]
+        self.assertEqual(len(publish_uv), 1)
+        self.assertNotEqual(publish_uv[0].get("with", {}).get("enable-cache"), "true")
+        install = next(
+            step for step in publish["steps"] if step.get("name") == "Install frozen publisher dependencies"
+        )
+        self.assertIn("uv sync --project runner --frozen --no-cache", install["run"])
         validate = next(
             step for step in publish["steps"] if step.get("name") == "Revalidate build evidence"
         )
         self.assertIn('git rev-parse "$SOURCE_SHA"', validate["run"])
-        self.assertIn("validate_build_publication_evidence", validate["run"])
+        self.assertIn("create_deterministic_build_archive", validate["run"])
+        self.assertIn("EXPECTED_IMPLEMENTATION", validate["env"])
+        self.assertIn("EXPECTED_VARIANT", validate["env"])
+
+    def test_official_build_workflow_recovers_exact_resources_and_uses_attempt_identity(self):
+        workflow = self._load("official-build-benchmark.yml")
+        benchmark = workflow["jobs"]["benchmark"]
+        publish = workflow["jobs"]["publish"]
+        recover = next(
+            step for step in benchmark["steps"] if step.get("name") == "Recover interrupted build campaign"
+        )
+        cleanup = next(
+            step for step in benchmark["steps"] if step.get("name") == "Cleanup build campaign resources"
+        )
+        self.assertEqual(cleanup["if"], "${{ always() }}")
+        self.assertIn("build-cleanup", recover["run"])
+        self.assertIn("build-cleanup", cleanup["run"])
+
+        identity = next(
+            step for step in benchmark["steps"] if step.get("name") == "Select raw artifact identity"
+        )
+        self.assertEqual(identity["env"]["RUN_ATTEMPT"], "${{ github.run_attempt }}")
+        self.assertEqual(
+            benchmark["outputs"]["raw_artifact_name"],
+            "${{ steps.artifact.outputs.name }}",
+        )
+        download = next(
+            step for step in publish["steps"] if step.get("uses") == "actions/download-artifact@v4"
+        )
+        self.assertEqual(download["with"]["name"], "${{ needs.benchmark.outputs.raw_artifact_name }}")
+
+    def test_official_build_workflow_creates_archive_from_validated_allowlist(self):
+        workflow = self._load("official-build-benchmark.yml")
+        publish = workflow["jobs"]["publish"]
+        validate = next(
+            step for step in publish["steps"] if step.get("name") == "Revalidate build evidence"
+        )
+        prepare = next(
+            step for step in publish["steps"] if step.get("name") == "Prepare raw evidence release"
+        )
+        self.assertIn("create_deterministic_build_archive", validate["run"])
+        self.assertNotIn("tar -C raw-run-set -czf", prepare["run"])
+        self.assertNotIn("PUBLIC_REPO_TOKEN", validate.get("env", {}))
 
     def test_official_build_workflow_requires_a_full_source_sha_before_checkout(self):
         workflow = self._load("official-build-benchmark.yml")

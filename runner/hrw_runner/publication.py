@@ -25,6 +25,12 @@ _OFFICIAL_SERVICE_SCENARIOS = {
     "read-heavy-query-api",
 }
 _OFFICIAL_SERVICE_LOAD_PROFILES = {"steady", "capacity-ramp", "burst-recovery"}
+_PUBLICATION_IDENTITY_FIELDS = {
+    "evidence_family",
+    "selection",
+    "started_at",
+    "finished_at",
+}
 
 
 class PublicationError(ValueError):
@@ -59,6 +65,8 @@ def publish_run_set(
     relative_entry = _entry_path(family, cohort, run_set_id)
     entry_dir = dataset_dir / relative_entry
     selected_files = _publication_files(run_set_dir, run_set, family)
+    started_at = _run_set_started_at(run_set_dir, run_set, family)
+    finished_at = _run_set_finished_at(run_set_dir, run_set, family)
 
     with tempfile.TemporaryDirectory(dir=dataset_dir.parent) as temp_dir:
         staged = Path(temp_dir) / "entry"
@@ -85,6 +93,10 @@ def publish_run_set(
             "workflow_url": workflow_url,
             "raw_artifact_url": raw_artifact_url,
             "raw_artifact_sha256": raw_artifact_sha256,
+            "evidence_family": family,
+            "selection": manifest["selection"],
+            "started_at": started_at,
+            "finished_at": finished_at,
             "files": published_files,
         }
         if family != "build":
@@ -105,8 +117,8 @@ def publish_run_set(
         "path": relative_entry.as_posix(),
         "publication_sha256": sha256_file(entry_dir / "publication.json"),
         "source_commit": source_commit,
-        "started_at": _run_set_started_at(run_set_dir, run_set, family),
-        "finished_at": _run_set_finished_at(run_set_dir, run_set, family),
+        "started_at": started_at,
+        "finished_at": finished_at,
         "evidence_family": family,
         "selection": manifest["selection"],
     }
@@ -307,7 +319,7 @@ def _verify_existing_entry(entry_dir: Path, expected: dict[str, Any]) -> None:
     if not publication_path.is_file():
         raise PublicationError("Existing append-only entry has no publication manifest")
     existing = _read_object(publication_path)
-    if existing != expected:
+    if existing != expected and not _legacy_publication_matches(existing, expected):
         raise PublicationError("Existing append-only entry conflicts with this publication")
     for file_entry in existing.get("files", []):
         path = entry_dir / file_entry["path"]
@@ -377,7 +389,26 @@ def _validate_catalog_entries(dataset_dir: Path, catalog: dict[str, Any]) -> Non
         ):
             raise PublicationError("Existing catalog publication digest is invalid")
         publication = _read_object(publication_path)
-        if family == "build":
+        _verify_existing_entry(entry_dir, publication)
+        compact_identity = _compact_evidence_identity(entry_dir)
+        if family is None:
+            if not _is_official_legacy_service_entry(
+                entry,
+                publication,
+                compact_identity,
+            ):
+                raise PublicationError(
+                    "Dataset catalog legacy entry is not an official service shape"
+                )
+            effective_family = "service"
+        else:
+            effective_family = family
+            _validate_modern_catalog_identity(
+                entry,
+                publication,
+                compact_identity,
+            )
+        if effective_family == "build":
             if "image_digest" in entry or "image_digest" in publication:
                 raise PublicationError("Build catalog entries cannot have image digests")
         else:
@@ -401,7 +432,138 @@ def _validate_catalog_entries(dataset_dir: Path, catalog: dict[str, Any]) -> Non
             or publication.get("source_commit") != entry.get("source_commit")
         ):
             raise PublicationError("Existing catalog publication identity is invalid")
-        _verify_existing_entry(entry_dir, publication)
+
+
+def _compact_evidence_identity(entry_dir: Path) -> dict[str, Any]:
+    build_manifest_path = entry_dir / "build-resolved-manifest.json"
+    if build_manifest_path.is_file():
+        manifest = _read_object(build_manifest_path)
+        run_set = _read_object(entry_dir / "build-run-set.json")
+        family = "build"
+    else:
+        manifest = _read_object(entry_dir / "resolved-manifest.json")
+        run_set = _read_object(entry_dir / "run-set.json")
+        cohort = manifest.get("cohort")
+        family = cohort.get("evidence_family") if isinstance(cohort, dict) else None
+        if family not in {"service", "lifecycle"}:
+            raise PublicationError("Existing compact evidence family is invalid")
+    cohort = manifest.get("cohort")
+    source = manifest.get("source")
+    if not isinstance(cohort, dict) or not isinstance(source, dict):
+        raise PublicationError("Existing compact evidence identity is invalid")
+    return {
+        "run_set_id": run_set.get("run_set_id"),
+        "cohort_fingerprint": cohort.get("fingerprint"),
+        "source_commit": source.get("git_commit"),
+        "started_at": _run_set_started_at(entry_dir, run_set, family),
+        "finished_at": _run_set_finished_at(entry_dir, run_set, family),
+        "evidence_family": family,
+        "selection": manifest.get("selection"),
+    }
+
+
+def _validate_modern_catalog_identity(
+    entry: dict[str, Any],
+    publication: dict[str, Any],
+    compact_identity: dict[str, Any],
+) -> None:
+    publication_identity = {
+        field: publication.get(field)
+        for field in compact_identity
+    }
+    catalog_identity = {
+        field: entry.get(field)
+        for field in compact_identity
+    }
+    if publication_identity != compact_identity or catalog_identity != compact_identity:
+        raise PublicationError(
+            "Dataset catalog does not match compact evidence identity"
+        )
+
+
+def _is_official_legacy_service_entry(
+    entry: dict[str, Any],
+    publication: dict[str, Any],
+    compact_identity: dict[str, Any],
+) -> bool:
+    expected_catalog_fields = {
+        "run_set_id",
+        "cohort_fingerprint",
+        "path",
+        "publication_sha256",
+        "source_commit",
+        "started_at",
+        "finished_at",
+        "selection",
+        "image_digest",
+    }
+    expected_publication_fields = {
+        "schema_version",
+        "run_set_id",
+        "cohort_fingerprint",
+        "source_commit",
+        "workflow_url",
+        "raw_artifact_url",
+        "raw_artifact_sha256",
+        "files",
+        "image_digest",
+    }
+    if (
+        set(entry) != expected_catalog_fields
+        or set(publication) != expected_publication_fields
+        or compact_identity.get("evidence_family") != "service"
+        or not _official_service_selection(compact_identity.get("selection"))
+    ):
+        return False
+    for field in (
+        "run_set_id",
+        "cohort_fingerprint",
+        "source_commit",
+        "started_at",
+        "finished_at",
+        "selection",
+    ):
+        if entry.get(field) != compact_identity.get(field):
+            return False
+    return all(
+        publication.get(field) == compact_identity.get(field)
+        for field in ("run_set_id", "cohort_fingerprint", "source_commit")
+    )
+
+
+def _official_service_selection(value: object) -> bool:
+    if not isinstance(value, dict):
+        return False
+    scenario = value.get("scenario")
+    load_profile = value.get("load_profile")
+    if (
+        value.get("environment_profile") != "home-k3s-v1"
+        or value.get("measurement_protocol") != "official-service-v1"
+    ):
+        return False
+    return (
+        scenario == "ping-api" and load_profile == "platform-qualification-v1"
+    ) or (
+        scenario in _OFFICIAL_SERVICE_SCENARIOS
+        and load_profile in _OFFICIAL_SERVICE_LOAD_PROFILES
+    )
+
+
+def _legacy_publication_matches(
+    existing: dict[str, Any],
+    expected: dict[str, Any],
+) -> bool:
+    if (
+        expected.get("evidence_family") != "service"
+        or not _official_service_selection(expected.get("selection"))
+        or any(field in existing for field in _PUBLICATION_IDENTITY_FIELDS)
+    ):
+        return False
+    return existing == {
+        key: value
+        for key, value in expected.items()
+        if key not in _PUBLICATION_IDENTITY_FIELDS
+    }
 
 
 def _catalog_entries_match(existing: dict[str, Any], entry: dict[str, Any]) -> bool:

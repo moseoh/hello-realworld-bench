@@ -215,6 +215,15 @@ class DatasetPublicationTest(unittest.TestCase):
                 catalog_path = dataset_dir / "catalog.json"
                 catalog = json.loads(catalog_path.read_text())
                 catalog["entries"][0].pop("evidence_family")
+                legacy_entry_dir = dataset_dir / catalog["entries"][0]["path"]
+                publication_path = legacy_entry_dir / "publication.json"
+                publication = json.loads(publication_path.read_text())
+                for field in ("evidence_family", "selection", "started_at", "finished_at"):
+                    publication.pop(field)
+                publication_path.write_text(json.dumps(publication))
+                catalog["entries"][0]["publication_sha256"] = hashlib.sha256(
+                    publication_path.read_bytes()
+                ).hexdigest()
                 catalog_path.write_text(json.dumps(catalog))
                 publish_run_set(
                     legacy, dataset_dir, PROJECT_ROOT, source_commit="c" * 40
@@ -234,6 +243,56 @@ class DatasetPublicationTest(unittest.TestCase):
             )
             self.assertNotIn("evidence_family", legacy_entry)
             self.assertEqual(build_entry["path"], "build-run-sets/" + DIGEST_B + "/build-001")
+
+    def test_catalog_identity_is_bound_to_hashed_compact_evidence(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            run_set_dir = self._write_build_run_set(root / "source", "build-001")
+            dataset_dir = root / "dataset"
+
+            with patch("hrw_runner.publication.validate_build_publication_evidence"):
+                entry_dir = publish_run_set(
+                    run_set_dir,
+                    dataset_dir,
+                    PROJECT_ROOT,
+                    source_commit="c" * 40,
+                )
+
+            publication_path = entry_dir / "publication.json"
+            publication = json.loads(publication_path.read_text())
+            publication["selection"]["implementation"] = "java/quarkus"
+            publication_path.write_text(json.dumps(publication))
+            catalog_path = dataset_dir / "catalog.json"
+            catalog = json.loads(catalog_path.read_text())
+            catalog["entries"][0]["selection"]["implementation"] = "java/quarkus"
+            catalog["entries"][0]["publication_sha256"] = hashlib.sha256(
+                publication_path.read_bytes()
+            ).hexdigest()
+
+            with self.assertRaisesRegex(PublicationError, "compact evidence identity"):
+                _validate_catalog_entries(dataset_dir, catalog)
+
+    def test_family_omission_is_rejected_for_modern_publication_shape(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            run_set_dir = self._write_run_set(root / "source", "service-001")
+            dataset_dir = root / "dataset"
+
+            with (
+                patch("hrw_runner.publication.validate_run_set_evidence"),
+                patch("hrw_runner.publication.validate_resolved_manifest"),
+            ):
+                publish_run_set(
+                    run_set_dir,
+                    dataset_dir,
+                    PROJECT_ROOT,
+                    source_commit="c" * 40,
+                )
+            catalog = json.loads((dataset_dir / "catalog.json").read_text())
+            catalog["entries"][0].pop("evidence_family")
+
+            with self.assertRaisesRegex(PublicationError, "legacy"):
+                _validate_catalog_entries(dataset_dir, catalog)
 
     def test_rejects_tampered_build_catalog_entry(self):
         with tempfile.TemporaryDirectory() as temp_dir:

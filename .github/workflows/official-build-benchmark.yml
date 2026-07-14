@@ -26,6 +26,8 @@ jobs:
     timeout-minutes: 90
     permissions:
       contents: read
+    outputs:
+      raw_artifact_name: ${{ steps.artifact.outputs.name }}
     strategy:
       max-parallel: 1
     steps:
@@ -73,12 +75,27 @@ jobs:
         run: |
           test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
           test -z "$(git status --porcelain)"
+      - name: Recover interrupted build campaign
+        working-directory: source
+        env:
+          MARKER_DIR: ${{ runner.temp }}/../hrw-build-campaigns
+        run: PYTHONPATH=runner uv run --project runner python -m hrw_runner build-cleanup "$MARKER_DIR"
+      - name: Select raw artifact identity
+        id: artifact
+        env:
+          ARTIFACT_KEY: ${{ steps.allowlist.outputs.artifact_key }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: printf 'name=official-build-%s-%s-%s-%s\n' "$ARTIFACT_KEY" "$SOURCE_SHA" "$RUN_ID" "$RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
       - name: Run official build set
         id: benchmark
         working-directory: source
         env:
           IMPLEMENTATION: ${{ steps.allowlist.outputs.implementation }}
           VARIANT: ${{ steps.allowlist.outputs.variant }}
+          MARKER_DIR: ${{ runner.temp }}/../hrw-build-campaigns
+          ARTIFACT_KEY: ${{ steps.allowlist.outputs.artifact_key }}
         run: |
           set -o pipefail
           PYTHONPATH=runner uv run --project runner python -m hrw_runner build-set \
@@ -86,15 +103,22 @@ jobs:
             --environment-profile home-build-v1 \
             --measurement-protocol official-build-v1 \
             --build-profile official-gradle-docker-v1 \
+            --resource-marker "$MARKER_DIR/${{ github.run_id }}-${{ github.run_attempt }}-$ARTIFACT_KEY.json" \
             | tee ../official-build.log
           result_dir="$(sed -n 's/^Build run set directory: //p' ../official-build.log | tail -1)"
           test -n "$result_dir"
           test -f "$result_dir/build-run-set.json"
           printf 'result_dir=%s\n' "$result_dir" >> "$GITHUB_OUTPUT"
+      - name: Cleanup build campaign resources
+        if: ${{ always() }}
+        working-directory: source
+        env:
+          MARKER_DIR: ${{ runner.temp }}/../hrw-build-campaigns
+        run: PYTHONPATH=runner uv run --project runner python -m hrw_runner build-cleanup "$MARKER_DIR"
       - name: Transfer raw build evidence
         uses: actions/upload-artifact@v4
         with:
-          name: official-build-${{ steps.allowlist.outputs.artifact_key }}-${{ inputs.source_sha }}-${{ github.run_id }}
+          name: ${{ steps.artifact.outputs.name }}
           path: ${{ steps.benchmark.outputs.result_dir }}
           if-no-files-found: error
           retention-days: 90
@@ -119,43 +143,59 @@ jobs:
           case "$IMPLEMENTATION" in
             java/spring-boot)
               artifact_key=spring-boot
+              variant=jvm-java25
               ;;
             java/quarkus)
               artifact_key=quarkus
+              variant=jvm-java25
               ;;
             *)
               exit 1
               ;;
           esac
-          printf 'artifact_key=%s\n' "$artifact_key" >> "$GITHUB_OUTPUT"
+          {
+            printf 'artifact_key=%s\n' "$artifact_key"
+            printf 'variant=%s\n' "$variant"
+          } >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v4
         with:
           repository: moseoh/hello-realworld-bench
           ref: ${{ inputs.source_sha }}
-          token: ${{ secrets.PUBLIC_REPO_TOKEN }}
+          persist-credentials: false
           path: source
       - uses: astral-sh/setup-uv@v6
         with:
-          enable-cache: true
-          cache-dependency-glob: source/runner/uv.lock
+          enable-cache: false
+      - name: Install frozen publisher dependencies
+        working-directory: source
+        run: uv sync --project runner --frozen --no-cache
       - uses: actions/download-artifact@v4
         with:
-          name: official-build-${{ steps.allowlist.outputs.artifact_key }}-${{ inputs.source_sha }}-${{ github.run_id }}
+          name: ${{ needs.benchmark.outputs.raw_artifact_name }}
           path: raw-run-set
       - name: Revalidate build evidence
         working-directory: source
         env:
           SOURCE_SHA: ${{ inputs.source_sha }}
+          EXPECTED_IMPLEMENTATION: ${{ inputs.implementation }}
+          EXPECTED_VARIANT: ${{ steps.allowlist.outputs.variant }}
         run: |
           test "$(git rev-parse "$SOURCE_SHA")" = "$SOURCE_SHA"
           test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
           test -z "$(git status --porcelain)"
-          PYTHONPATH=runner uv run --project runner python -c '
+          PYTHONPATH=runner uv run --project runner --offline --no-sync python -c '
+          import os
           import sys
           from pathlib import Path
-          from hrw_runner.build_evidence import validate_build_publication_evidence
-          validate_build_publication_evidence(Path(sys.argv[1]), Path.cwd())
-          ' ../raw-run-set
+          from hrw_runner.build_evidence import create_deterministic_build_archive
+          create_deterministic_build_archive(
+              Path(sys.argv[1]),
+              Path.cwd(),
+              Path(sys.argv[2]),
+              expected_implementation=os.environ["EXPECTED_IMPLEMENTATION"],
+              expected_variant=os.environ["EXPECTED_VARIANT"],
+          )
+          ' ../raw-run-set ../raw-build-evidence.tar.gz
       - name: Prepare append-only data branch
         working-directory: source
         run: |
@@ -175,7 +215,6 @@ jobs:
           if [[ ! "$run_set_id" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
             exit 1
           fi
-          tar -C raw-run-set -czf raw-build-evidence.tar.gz .
           raw_sha="$(sha256sum raw-build-evidence.tar.gz | cut -d' ' -f1)"
           printf '%s  raw-build-evidence.tar.gz\n' "$raw_sha" > raw-build-evidence.tar.gz.sha256
           release_tag="build-benchmark-evidence-${run_set_id}"
@@ -193,7 +232,7 @@ jobs:
           SOURCE_SHA: ${{ inputs.source_sha }}
           WORKFLOW_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          PYTHONPATH=runner uv run --project runner python -m hrw_runner publish \
+          PYTHONPATH=runner uv run --project runner --offline --no-sync python -m hrw_runner publish \
             ../raw-run-set ../dataset \
             --source-commit "$SOURCE_SHA" \
             --workflow-url "$WORKFLOW_URL" \
@@ -224,6 +263,7 @@ jobs:
         working-directory: dataset
         env:
           SOURCE_SHA: ${{ inputs.source_sha }}
+          PUBLIC_REPO_TOKEN: ${{ secrets.PUBLIC_REPO_TOKEN }}
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
@@ -232,4 +272,6 @@ jobs:
             exit 0
           fi
           git commit -m "Publish build benchmark ${SOURCE_SHA}"
-          git push origin HEAD:benchmark-data
+          auth="$(printf 'x-access-token:%s' "$PUBLIC_REPO_TOKEN" | base64 -w0)"
+          git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $auth" \
+            push https://github.com/moseoh/hello-realworld-bench.git HEAD:benchmark-data

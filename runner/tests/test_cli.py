@@ -264,6 +264,26 @@ class CliTest(unittest.TestCase):
                 self.assertEqual(exit_code, 2)
                 self.assertIn("build-set", errors.getvalue())
 
+    def test_build_set_rejects_each_duplicate_profile_flag(self):
+        required = {
+            "--environment-profile": "home-build-v1",
+            "--measurement-protocol": "official-build-v1",
+            "--build-profile": "official-gradle-docker-v1",
+        }
+        for duplicate_flag in required:
+            with self.subTest(duplicate_flag=duplicate_flag):
+                arguments = ["build-set", "java/spring-boot", "jvm-java25"]
+                for flag, value in required.items():
+                    arguments.extend([flag, value])
+                    if flag == duplicate_flag:
+                        arguments.extend([flag, value])
+                errors = io.StringIO()
+                with redirect_stderr(errors):
+                    exit_code = main(arguments)
+
+                self.assertEqual(exit_code, 2)
+                self.assertIn("build-set", errors.getvalue())
+
     def test_run_passes_all_profile_flags_after_the_optional_variant(self):
         config = object()
         output = io.StringIO()

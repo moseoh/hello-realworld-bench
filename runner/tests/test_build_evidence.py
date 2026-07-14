@@ -4,6 +4,7 @@ import copy
 import hashlib
 import importlib
 import json
+import os
 import shutil
 import tempfile
 import unittest
@@ -686,6 +687,70 @@ class BuildEvidenceValidationTest(unittest.TestCase):
             shutil.copytree(original, relocated)
 
             module.validate_build_publication_evidence(relocated, PROJECT_ROOT)
+
+    def test_binds_hosted_validation_to_expected_implementation_and_variant(self):
+        module = _evidence_module()
+        with tempfile.TemporaryDirectory() as directory:
+            run_set_dir = _fixture(Path(directory))
+            module.validate_build_publication_evidence(
+                run_set_dir,
+                PROJECT_ROOT,
+                expected_implementation="java/spring-boot",
+                expected_variant="jvm-java25",
+            )
+
+            with self.assertRaisesRegex(ValueError, "expected implementation"):
+                module.validate_build_publication_evidence(
+                    run_set_dir,
+                    PROJECT_ROOT,
+                    expected_implementation="java/quarkus",
+                    expected_variant="jvm-java25",
+                )
+
+    def test_rejects_extra_regular_files_and_symlinks_in_raw_run_set(self):
+        module = _evidence_module()
+        with tempfile.TemporaryDirectory() as directory:
+            run_set_dir = _fixture(Path(directory))
+            (run_set_dir / "unvalidated.txt").write_text("extra\n")
+
+            with self.assertRaisesRegex(ValueError, "closed file set"):
+                module.validate_build_publication_evidence(run_set_dir, PROJECT_ROOT)
+
+        with tempfile.TemporaryDirectory() as directory:
+            run_set_dir = _fixture(Path(directory))
+            (run_set_dir / "unvalidated-link").symlink_to(
+                run_set_dir / "preflight.json"
+            )
+
+            with self.assertRaisesRegex(ValueError, "symlink"):
+                module.validate_build_publication_evidence(run_set_dir, PROJECT_ROOT)
+
+    def test_deterministic_raw_archive_is_stable_across_retry_and_mtime_changes(self):
+        module = _evidence_module()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            run_set_dir = _fixture(root / "raw")
+            first = root / "first.tar.gz"
+            second = root / "second.tar.gz"
+            module.create_deterministic_build_archive(
+                run_set_dir,
+                PROJECT_ROOT,
+                first,
+                expected_implementation="java/spring-boot",
+                expected_variant="jvm-java25",
+            )
+            for path in run_set_dir.rglob("*"):
+                if path.is_file():
+                    os.utime(path, (2_000_000_000, 2_000_000_000))
+            module.create_deterministic_build_archive(
+                run_set_dir,
+                PROJECT_ROOT,
+                second,
+                expected_implementation="java/spring-boot",
+                expected_variant="jvm-java25",
+            )
+
+            self.assertEqual(first.read_bytes(), second.read_bytes())
 
     def test_rejects_operation_argv_contract_tampering_after_rehash(self):
         module = _evidence_module()

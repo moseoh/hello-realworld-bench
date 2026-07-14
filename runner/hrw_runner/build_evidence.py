@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import gzip
 import hashlib
 import json
 import math
 import re
+import tarfile
 from pathlib import Path
 from pathlib import PurePosixPath
 from statistics import median
@@ -55,13 +57,22 @@ def validate_build_document(
 
 
 def validate_build_publication_evidence(
-    run_set_dir: Path, root_dir: Path
-) -> None:
+    run_set_dir: Path,
+    root_dir: Path,
+    *,
+    expected_implementation: str | None = None,
+    expected_variant: str | None = None,
+) -> list[str]:
     run_set = _read_object(run_set_dir / "build-run-set.json")
     validate_build_document(run_set, "build-run-set", root_dir)
     manifest = _read_object(run_set_dir / "build-resolved-manifest.json")
     validate_resolved_build_manifest(manifest, root_dir)
-    _validate_manifest_identity(run_set, manifest)
+    _validate_manifest_identity(
+        run_set,
+        manifest,
+        expected_implementation=expected_implementation,
+        expected_variant=expected_variant,
+    )
 
     references = _object_list(run_set.get("trials"), "Run set trials")
     if len(references) != 3 or run_set.get("expected_trials") != 3:
@@ -117,6 +128,44 @@ def validate_build_publication_evidence(
     expected_summary = summarize_build_trials(trials)
     if run_set.get("summary") != expected_summary:
         raise ValueError("Build run-set summary is inconsistent with raw evidence")
+    return _validate_closed_run_set_files(run_set_dir, run_set, cache_seed)
+
+
+def create_deterministic_build_archive(
+    run_set_dir: Path,
+    root_dir: Path,
+    output_path: Path,
+    *,
+    expected_implementation: str | None = None,
+    expected_variant: str | None = None,
+) -> str:
+    relative_paths = validate_build_publication_evidence(
+        run_set_dir,
+        root_dir,
+        expected_implementation=expected_implementation,
+        expected_variant=expected_variant,
+    )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("wb") as compressed:
+        with gzip.GzipFile(filename="", mode="wb", fileobj=compressed, mtime=0) as gzip_file:
+            with tarfile.open(
+                fileobj=gzip_file,
+                mode="w",
+                format=tarfile.PAX_FORMAT,
+            ) as archive:
+                for relative_path in relative_paths:
+                    path = run_set_dir / relative_path
+                    info = tarfile.TarInfo(relative_path)
+                    info.size = path.stat().st_size
+                    info.mtime = 0
+                    info.mode = 0o644
+                    info.uid = 0
+                    info.gid = 0
+                    info.uname = ""
+                    info.gname = ""
+                    with path.open("rb") as source:
+                        archive.addfile(info, source)
+    return _sha256_file(output_path)
 
 
 def summarize_build_trials(trials: list[dict[str, Any]]) -> dict[str, object]:
@@ -144,7 +193,11 @@ def summarize_build_trials(trials: list[dict[str, Any]]) -> dict[str, object]:
 
 
 def _validate_manifest_identity(
-    run_set: dict[str, Any], manifest: dict[str, Any]
+    run_set: dict[str, Any],
+    manifest: dict[str, Any],
+    *,
+    expected_implementation: str | None,
+    expected_variant: str | None,
 ) -> None:
     cohort = _object(manifest.get("cohort"), "Resolved build cohort")
     selection = _object(manifest.get("selection"), "Resolved build selection")
@@ -158,6 +211,14 @@ def _validate_manifest_identity(
     for field, expected in expected_profiles.items():
         if selection.get(field) != expected:
             raise ValueError(f"Unsupported resolved build {field}")
+    for field, expected in (
+        ("implementation", expected_implementation),
+        ("variant", expected_variant),
+    ):
+        if expected is not None and selection.get(field) != expected:
+            raise ValueError(
+                f"Resolved build selection does not match expected {field}"
+            )
     if run_set.get("run_set_id") != run_set.get("run_id"):
         raise ValueError("Build run set run_set_id does not match run_id")
     checks = (
@@ -540,8 +601,8 @@ def _validate_artifact_manifest(
     paths = [str(artifact.get("path", "")) for artifact in artifacts]
     if len(paths) != len(set(paths)):
         raise ValueError("Build artifact manifest paths must be unique")
-    if not required_paths.issubset(paths):
-        raise ValueError("Build artifact manifest is missing referenced raw evidence")
+    if set(paths) != required_paths:
+        raise ValueError("Build artifact manifest does not match referenced raw evidence")
     for artifact, relative_path in zip(artifacts, paths):
         if relative_path.endswith(".oci"):
             raise ValueError("OCI archives must not be retained in build evidence")
@@ -783,6 +844,69 @@ def _validate_cache_seed(
         raise ValueError("BuildKit seed tree path is invalid") from None
     if cache_seed.get("buildkit_seed_tree_sha256") != _hash_directory(seed_tree):
         raise ValueError("BuildKit seed tree digest does not match the trusted checkout")
+
+
+def _validate_closed_run_set_files(
+    run_set_dir: Path,
+    run_set: dict[str, Any],
+    cache_seed: dict[str, Any],
+) -> list[str]:
+    if run_set_dir.is_symlink() or not run_set_dir.is_dir():
+        raise ValueError("Build raw run set directory is invalid")
+    allowed = {
+        "build-run-set.json",
+        "build-resolved-manifest.json",
+    }
+    campaign_evidence = _object(
+        run_set.get("campaign_evidence"),
+        "Campaign evidence",
+    )
+    for name in ("preflight", "postflight", "cache_seed"):
+        reference = _object(
+            campaign_evidence.get(name),
+            f"Campaign evidence {name}",
+        )
+        allowed.add(str(reference["path"]))
+
+    seed_operation_reference = _object(
+        cache_seed.get("buildkit_seed_operation"),
+        "BuildKit seed operation reference",
+    )
+    allowed.add(str(seed_operation_reference["path"]))
+    seed_operation = _read_object(run_set_dir / str(seed_operation_reference["path"]))
+    seed_log = _object(
+        seed_operation.get("combined_log"),
+        "BuildKit seed operation combined log",
+    )
+    allowed.add(str(seed_log["path"]))
+
+    for trial_reference in _object_list(run_set.get("trials"), "Build trials"):
+        trial_path = str(trial_reference["path"])
+        allowed.add(trial_path)
+        trial = _read_object(run_set_dir / trial_path)
+        trial_dir = PurePosixPath(trial_path).parent
+        artifact_reference = _object(
+            trial.get("artifact_manifest"),
+            "Build artifact manifest reference",
+        )
+        artifact_path = (trial_dir / str(artifact_reference["path"])).as_posix()
+        allowed.add(artifact_path)
+        artifact_manifest = _read_object(run_set_dir / artifact_path)
+        for artifact in _object_list(
+            artifact_manifest.get("artifacts"),
+            "Build artifacts",
+        ):
+            allowed.add((trial_dir / str(artifact["path"])).as_posix())
+
+    actual: set[str] = set()
+    for path in run_set_dir.rglob("*"):
+        if path.is_symlink():
+            raise ValueError("Build raw run set contains a symlink")
+        if path.is_file():
+            actual.add(path.relative_to(run_set_dir).as_posix())
+    if actual != allowed:
+        raise ValueError("Build raw run set does not match the closed file set")
+    return sorted(allowed)
 
 
 def _validate_source_probe(
