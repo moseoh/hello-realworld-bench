@@ -28,7 +28,9 @@ environment, measurement, and build profile contracts match. Official build
 evidence also pins rootless Docker Engine 29.6.1, Docker Buildx 0.35.0,
 effective UID 1000, and `unix:///run/user/1000/docker.sock`. This daemon is
 separate from k3s containerd, and its `systemd` cgroup driver enforces the
-BuildKit CPU and memory limits declared by the build profile.
+BuildKit CPU and memory limits declared by the build profile. The frozen Java
+executor user is container `0:0`, which rootless Docker maps to host UID 1000
+for writable bind mounts without granting host-root access.
 
 ### Startup Metrics
 

@@ -322,7 +322,7 @@ class BuildRunnerTest(unittest.TestCase):
                 self.assertEqual(call[call.index("--memory-swap") + 1], "4g")
                 self.assertIn(EXPECTED_GRADLE_IMAGE, call)
                 self.assertEqual(
-                    call[call.index("--user") + 1], f"{os.getuid()}:{os.getgid()}"
+                    call[call.index("--user") + 1], "0:0"
                 )
             create_calls = [call for call in calls if call[:3] == ["docker", "buildx", "create"]]
             self.assertEqual(len(create_calls), 4)
@@ -368,7 +368,7 @@ class BuildRunnerTest(unittest.TestCase):
             self.assertIn("build", seed_call)
             self.assertEqual(
                 seed_call[seed_call.index("--user") + 1],
-                f"{os.getuid()}:{os.getgid()}",
+                "0:0",
             )
             for timed_call in docker_runs[1:]:
                 self.assertIn("--offline", timed_call)

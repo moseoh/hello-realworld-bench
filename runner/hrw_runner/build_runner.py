@@ -281,7 +281,10 @@ def _run_trial(
     state_volume_removed = False
     try:
         clean_argv = _gradle_argv(
-            app_dir, dependency_cache, list(config.build["clean_command"])
+            config,
+            app_dir,
+            dependency_cache,
+            list(config.build["clean_command"]),
         )
         clean_record = _measure_operation(
             "gradle_clean_build",
@@ -333,7 +336,10 @@ def _run_trial(
         if mutation_before != source_before:
             raise ValueError("Source probe changed before deterministic mutation")
         incremental_argv = _gradle_argv(
-            app_dir, dependency_cache, list(config.build["incremental_command"])
+            config,
+            app_dir,
+            dependency_cache,
+            list(config.build["incremental_command"]),
         )
         incremental_record = _measure_operation(
             "gradle_incremental_rebuild",
@@ -499,7 +505,10 @@ def _measure_operation(
 
 
 def _gradle_argv(
-    app_dir: Path, dependency_cache: Path, gradle_command: list[str]
+    config: BuildRunConfig,
+    app_dir: Path,
+    dependency_cache: Path,
+    gradle_command: list[str],
 ) -> list[str]:
     return [
         "docker",
@@ -512,7 +521,7 @@ def _gradle_argv(
         "--memory-swap",
         "4g",
         "--user",
-        f"{os.getuid()}:{os.getgid()}",
+        _java_executor_user(config),
         "--network",
         "none",
         "--mount",
@@ -643,7 +652,7 @@ def _resolve_dependency_seed(
             "--memory-swap",
             "4g",
             "--user",
-            f"{os.getuid()}:{os.getgid()}",
+            _java_executor_user(config),
             "--mount",
             f"type=bind,src={app_dir},target=/workspace",
             "--mount",
@@ -670,6 +679,14 @@ def _resolve_dependency_seed(
     if not all(cleanup.values()):
         raise ValueError("Dependency seed cleanup failed")
     return seed, "prepared", cleanup
+
+
+def _java_executor_user(config: BuildRunConfig) -> str:
+    build = config.build_profile_config["build"]
+    assert isinstance(build, dict)
+    java_executor = build["java_executor"]
+    assert isinstance(java_executor, dict)
+    return str(java_executor["user"])
 
 
 def clean_gradle_seed_state(seed: Path) -> None:

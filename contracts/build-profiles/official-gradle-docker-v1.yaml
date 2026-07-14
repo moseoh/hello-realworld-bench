@@ -1,6 +1,6 @@
 schema_version: "1.0"
 id: official-gradle-docker-v1
-contract_version: "1.0"
+contract_version: "1.1"
 status: frozen
 description: "Frozen Gradle build and Docker Buildx OCI archive profile."
 build_tool: gradle
@@ -25,6 +25,7 @@ build:
     cpu: "2"
     memory: 4GiB
     extra_swap: none
+    user: "0:0"
   buildkit:
     image: moby/buildkit:buildx-stable-1@sha256:0168606be2315b7c807a03b3d8aa79beefdb31c98740cebdffdfeebf31190c9f
     builder: per-trial-fresh

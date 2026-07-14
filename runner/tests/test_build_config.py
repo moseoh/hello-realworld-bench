@@ -100,6 +100,7 @@ class ResolveBuildRunConfigTest(unittest.TestCase):
                 "cpu": "2",
                 "memory": "4GiB",
                 "extra_swap": "none",
+                "user": "0:0",
             },
         )
         self.assertEqual(

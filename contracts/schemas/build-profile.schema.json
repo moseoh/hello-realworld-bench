@@ -79,12 +79,13 @@
         "java_executor": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["image", "cpu", "memory", "extra_swap"],
+          "required": ["image", "cpu", "memory", "extra_swap", "user"],
           "properties": {
             "image": { "const": "eclipse-temurin:25-jdk@sha256:68868d04fa9cfd5f5c6abec0b5cef86d8de2bf9c62c37c7d3e4f0f80f5cfd7ff" },
             "cpu": { "const": "2" },
             "memory": { "const": "4GiB" },
-            "extra_swap": { "const": "none" }
+            "extra_swap": { "const": "none" },
+            "user": { "const": "0:0" }
           }
         },
         "buildkit": {
