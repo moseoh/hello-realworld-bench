@@ -9,9 +9,9 @@ and one repeatable benchmark runner.
 
 ## What This Is
 
-Hello Real World Bench is an experimental benchmark automation platform for backend runtimes and frameworks. It focuses on service-pattern scenarios and repeatable measurement workflows.
+Hello Real World Bench is an open-source benchmark automation platform for backend runtimes and frameworks. It focuses on service-pattern scenarios and repeatable measurement workflows.
 
-The first milestone validates the runner itself:
+The platform records:
 
 - build measurement
 - Docker image build measurement
@@ -24,11 +24,16 @@ The first milestone validates the runner itself:
 
 This is not a final performance ranking. It is not a replacement for large benchmark suites such as TechEmpower. It is not intended to claim that one runtime is universally faster than another.
 
-Early results should be read only as trade-offs under the exact scenario, host, resource limits, and load profile used for that run.
+Published results should be read only as trade-offs under the exact scenario,
+host, resource limits, and load profile used for that run.
 
 ## Current Status
 
-Experimental MVP.
+Public v1 baseline. The canonical dataset contains the complete core comparison
+matrix: two implementations, three service scenarios, three load profiles, and
+three trials per cell, using the `jvm-java25` baseline variant for both
+implementations. Cold-start and build measurements are published as separate
+evidence families.
 
 Supported implementations:
 
@@ -62,6 +67,9 @@ checksummed GitHub Release asset. See [Continuous Benchmark
 Automation](docs/automation.md) for the trust boundary and publication model.
 
 ## Public Dashboard
+
+View the published results at
+[moseoh.github.io/hello-realworld-bench](https://moseoh.github.io/hello-realworld-bench/).
 
 The static dashboard separates complete comparable evidence into `Service`,
 `Cold start`, and `Build` views. Service retains APM-style trial timelines for
