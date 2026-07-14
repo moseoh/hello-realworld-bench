@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import {
   buildComparison,
   createDataSource,
+  isCompleteBuildRunSet,
   normalizeTimeline,
   type CatalogEntry,
   type RunSet,
@@ -174,7 +175,10 @@ describe('createDataSource', () => {
     const requested: string[] = []
     const documents = new Map<string, unknown>([
       ['catalog.json', { schema_version: '1.0', entries: [] }],
-      ['run-sets/cohort/run/run-set.json', runSet('run')],
+      [
+        'run-sets/cohort/run/run-set.json',
+        { ...runSet('run'), cohort_fingerprint: 'cohort' },
+      ],
       [
         'run-sets/cohort/run/trials/01/time-series.json',
         { schema_version: '1.0', trial_id: 'trial-01', samples: [] },
@@ -229,14 +233,7 @@ describe('createDataSource', () => {
       fetcher: async (input) => {
         const url = String(input)
         requested.push(url)
-        return new Response(JSON.stringify({
-          cohort_fingerprint: 'build-cohort',
-          expected_trials: 3,
-          run_set_id: 'build-run',
-          status: 'complete',
-          summary: { build_metrics: {}, trial_count: 3, valid_trial_count: 3 },
-          trials: [],
-        }))
+        return new Response(JSON.stringify(buildRunSet('build-run', 'build-cohort')))
       },
       repository: 'owner/repository',
       revision,
@@ -249,15 +246,118 @@ describe('createDataSource', () => {
     ])
   })
 
-  it('rejects unsafe dataset paths before fetching', async () => {
+  it.each([
+    '../main/README.md',
+    '%2e%2e/%2e%2e/attacker/repo/main/catalog.json',
+    'run-sets/cohort%2frun/run-set.json',
+    'run-sets/cohort%5crun/run-set.json',
+    'run-sets/cohort/run-set.json?raw=1',
+    'run-sets/cohort/run-set.json#fragment',
+    'run-sets/cohort/\u0000run-set.json',
+  ])('rejects unsafe dataset path %j before fetching', async (unsafePath) => {
+    const fetcher = vi.fn(async () => new Response('{}'))
     const source = createDataSource({
-      fetcher: async () => new Response('{}'),
+      fetcher,
       repository: 'owner/repository',
       revision: 'benchmark-data',
     })
 
-    await expect(source.document('../main/README.md')).rejects.toThrow(
+    await expect(source.document(unsafePath)).rejects.toThrow(
       'Unsafe dataset path',
     )
+    expect(fetcher).not.toHaveBeenCalled()
+  })
+
+  it('filters malformed catalog entries and binds run sets to catalog identity', async () => {
+    const valid = entry('java/spring-boot', 'run', 'cohort')
+    const encodedIdentity = {
+      ...valid,
+      cohort_fingerprint: '%2e%2e',
+      path: 'run-sets/%2e%2e/run',
+    }
+    const source = createDataSource({
+      fetcher: async (input) => {
+        const path = String(input).split('/benchmark-data/')[1]
+        const body = path === 'catalog.json'
+          ? {
+              schema_version: '1.0',
+              entries: [valid, encodedIdentity, { evidence_family: 'build' }],
+            }
+          : { ...runSet('other-run'), cohort_fingerprint: 'cohort' }
+        return new Response(JSON.stringify(body))
+      },
+      repository: 'owner/repository',
+      revision: 'benchmark-data',
+    })
+
+    await expect(source.catalog()).resolves.toEqual([valid])
+    await expect(source.runSet(valid)).rejects.toThrow('does not match catalog entry')
   })
 })
+
+describe('isCompleteBuildRunSet', () => {
+  it('requires exactly three ordered trials and recomputed non-negative summaries', () => {
+    const valid = buildRunSet('build-run', 'build-cohort')
+    expect(isCompleteBuildRunSet(valid, 'build-cohort')).toBe(true)
+
+    const oneTrial = structuredClone(valid)
+    oneTrial.expected_trials = 1
+    oneTrial.trials = oneTrial.trials.slice(0, 1)
+    oneTrial.summary.trial_count = 1
+    oneTrial.summary.valid_trial_count = 1
+    expect(isCompleteBuildRunSet(oneTrial, 'build-cohort')).toBe(false)
+
+    const duplicate = structuredClone(valid)
+    duplicate.trials[1] = { ...duplicate.trials[0] }
+    expect(isCompleteBuildRunSet(duplicate, 'build-cohort')).toBe(false)
+
+    const wrongSummary = structuredClone(valid)
+    wrongSummary.summary.build_metrics.image_rebuild_ms.median += 1
+    expect(isCompleteBuildRunSet(wrongSummary, 'build-cohort')).toBe(false)
+
+    const negative = structuredClone(valid)
+    negative.summary.build_metrics.image_package_ms.trials[0].value = -1
+    expect(isCompleteBuildRunSet(negative, 'build-cohort')).toBe(false)
+
+    expect(() => isCompleteBuildRunSet({ summary: null } as never, 'build-cohort')).not.toThrow()
+    expect(isCompleteBuildRunSet({ summary: null } as never, 'build-cohort')).toBe(false)
+  })
+})
+
+function buildRunSet(runSetId: string, cohort: string) {
+  const metric = (value: number) => ({
+    min: value - 1,
+    median: value,
+    max: value + 1,
+    trials: [
+      { trial_id: 'trial-01', value: value - 1 },
+      { trial_id: 'trial-02', value },
+      { trial_id: 'trial-03', value: value + 1 },
+    ],
+  })
+  return {
+    cohort_fingerprint: cohort,
+    expected_trials: 3,
+    manifest_digest: 'c'.repeat(64),
+    run_set_id: runSetId,
+    schema_version: '1.0',
+    status: 'complete',
+    summary: {
+      build_metrics: {
+        gradle_clean_build_ms: metric(10),
+        gradle_incremental_rebuild_ms: metric(20),
+        image_package_ms: metric(30),
+        image_rebuild_ms: metric(40),
+      },
+      trial_count: 3,
+      valid_trial_count: 3,
+    },
+    trials: [1, 2, 3].map((index) => ({
+      index,
+      path: `trials/0${index}/build-trial.json`,
+      sha256: 'd'.repeat(64),
+      status: 'valid',
+      trial_id: `trial-0${index}`,
+    })),
+  }
+}

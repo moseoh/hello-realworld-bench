@@ -299,6 +299,17 @@ describe('family-specific comparison groups', () => {
     expect(groups).toEqual([])
   })
 
+  it('isolates malformed build summaries without throwing', () => {
+    expect(() => listBuildGroups(
+      [buildEntry()],
+      new Map([['build-run', { summary: null } as unknown as EvidenceRunSet]]),
+    )).not.toThrow()
+    expect(listBuildGroups(
+      [buildEntry()],
+      new Map([['build-run', { summary: null } as unknown as EvidenceRunSet]]),
+    )).toEqual([])
+  })
+
   it.each([
     ['empty', {}],
     ['partial', { ready_ms: { min: 900, median: 1_000 } }],

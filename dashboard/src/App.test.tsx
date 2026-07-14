@@ -203,10 +203,14 @@ const fixture = vi.hoisted(() => {
   let serviceEvidencePromise: Promise<void> | null = null
   let releaseServiceEvidence: (() => void) | null = null
   let completedDelayedEvidence = 0
+  const failedPaths = new Set<string>()
   const fetcher = vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input)
     requested.push(url)
     const path = url.split(`/${revision}/`)[1]
+    if (failedPaths.has(path)) {
+      return new Response('{}', { status: 404 })
+    }
     if (path === 'catalog.json' && catalogPromise) await catalogPromise
     if (hasServiceEvidenceRequest([url]) && serviceEvidencePromise) {
       await serviceEvidencePromise
@@ -230,6 +234,9 @@ const fixture = vi.hoisted(() => {
       })
     },
     fetcher,
+    failPath(path: string) {
+      failedPaths.add(path)
+    },
     get completedDelayedEvidence() {
       return completedDelayedEvidence
     },
@@ -252,8 +259,10 @@ const fixture = vi.hoisted(() => {
       serviceEvidencePromise = null
       releaseServiceEvidence = null
       completedDelayedEvidence = 0
+      failedPaths.clear()
     },
     revision,
+    lifecycleRunSetPath: `${lifecycle.path}/run-set.json`,
   }
 })
 
@@ -379,6 +388,34 @@ describe('App family views', () => {
     expect(screen.queryByRole('heading', { name: 'Traffic' })).toBeNull()
     expect(screen.getByRole('heading', { name: 'Cold start' })).toBeTruthy()
     expect(hasServiceEvidenceRequest(fixture.requested.slice(requestCount))).toBe(false)
+  })
+
+  it('isolates a failed non-service entry and preserves the service dataset', async () => {
+    fixture.failPath(fixture.lifecycleRunSetPath)
+    render(<App />)
+
+    await screen.findByRole('heading', { name: 'Read Heavy Query Api' })
+    expect(screen.queryByText('Dataset unavailable')).toBeNull()
+    expect(screen.getAllByText('Spring Boot').length).toBeGreaterThan(0)
+  })
+
+  it('synchronizes family state from browser popstate navigation', async () => {
+    render(<App />)
+    await screen.findByRole('heading', { name: 'Read Heavy Query Api' })
+
+    window.history.pushState(null, '', '/?family=build&cohort=build-cohort')
+    window.dispatchEvent(new PopStateEvent('popstate'))
+    await screen.findByRole('heading', { name: 'Build' })
+    expect(screen.getByRole('button', { name: 'Build' }).getAttribute('aria-pressed')).toBe('true')
+
+    window.history.pushState(
+      null,
+      '',
+      '/?family=service&scenario=read-heavy-query-api&profile=steady&cohort=service-cohort',
+    )
+    window.dispatchEvent(new PopStateEvent('popstate'))
+    await screen.findByRole('heading', { name: 'Read Heavy Query Api' })
+    expect(screen.getByRole('button', { name: 'Service' }).getAttribute('aria-pressed')).toBe('true')
   })
 })
 

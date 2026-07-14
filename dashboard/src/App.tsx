@@ -91,11 +91,13 @@ function App() {
     async function load() {
       try {
         const entries = await source.catalog()
-        const loaded = await Promise.all(
+        const settled = await Promise.allSettled(
           entries.map(async (entry) => [entry.run_set_id, await source.runSet(entry)] as const),
         )
         if (cancelled) return
-        const runSets = new Map(loaded)
+        const runSets = new Map(
+          settled.flatMap((result) => result.status === 'fulfilled' ? [result.value] : []),
+        )
         const groups = listComparisonGroups(entries, runSets)
         const lifecycleGroups = listLifecycleGroups(entries, runSets)
         const buildGroups = listBuildGroups(entries, runSets)
@@ -137,6 +139,24 @@ function App() {
     return () => {
       cancelled = true
     }
+  }, [])
+
+  useEffect(() => {
+    function synchronizeFromHistory() {
+      const query = new URLSearchParams(window.location.search)
+      setFamily(familyFromSearch())
+      const requestedScenario = query.get('scenario')
+      const requestedProfile = query.get('profile')
+      const requestedCohort = query.get('cohort')
+      if (requestedScenario !== null) setScenario(requestedScenario)
+      if (requestedProfile !== null) setLoadProfile(requestedProfile)
+      if (requestedCohort !== null) {
+        setCohort(requestedCohort)
+        setFamilyCohort(requestedCohort)
+      }
+    }
+    window.addEventListener('popstate', synchronizeFromHistory)
+    return () => window.removeEventListener('popstate', synchronizeFromHistory)
   }, [])
 
   const scenarioOptions = useMemo(

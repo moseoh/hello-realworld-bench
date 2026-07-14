@@ -190,9 +190,19 @@ export function createDataSource({
   }
 
   const baseUrl = `https://raw.githubusercontent.com/${repository}/${revision}`
+  const base = new URL(`${baseUrl}/`)
   const document = async (path: string): Promise<unknown> => {
     assertSafePath(path)
-    const response = await fetcher(`${baseUrl}/${path}`)
+    const url = new URL(path, base)
+    if (
+      url.origin !== base.origin ||
+      !url.pathname.startsWith(base.pathname) ||
+      url.search !== '' ||
+      url.hash !== ''
+    ) {
+      throw new Error(`Unsafe dataset URL: ${path}`)
+    }
+    const response = await fetcher(url.toString())
     if (!response.ok) {
       throw new Error(`Dataset request failed (${response.status}): ${path}`)
     }
@@ -202,19 +212,23 @@ export function createDataSource({
   return {
     async catalog() {
       const raw = await document('catalog.json')
-      if (!isRecord(raw) || !Array.isArray(raw.entries)) {
+      if (
+        !isRecord(raw) ||
+        raw.schema_version !== '1.0' ||
+        !Array.isArray(raw.entries)
+      ) {
         throw new Error('Invalid benchmark catalog')
       }
-      return raw.entries as CatalogEntry[]
+      return raw.entries.filter(isCatalogEntry)
     },
     document,
     async runSet(entry: CatalogEntry) {
       const filename = isBuildCatalogEntry(entry) ? 'build-run-set.json' : 'run-set.json'
       const raw = await document(`${entry.path}/${filename}`)
-      if (!isRecord(raw) || typeof raw.run_set_id !== 'string') {
-        throw new Error(`Invalid run set: ${entry.path}`)
+      if (!isRunSetForCatalogEntry(raw, entry)) {
+        throw new Error(`Run set does not match catalog entry: ${entry.path}`)
       }
-      return raw as unknown as EvidenceRunSet
+      return raw
     },
   }
 }
@@ -315,12 +329,11 @@ export function isCompleteBuildRunSet(
     isBuildRunSet(runSet) &&
     runSet.cohort_fingerprint === cohort &&
     runSet.status === 'complete' &&
-    runSet.expected_trials > 0 &&
-    runSet.summary.trial_count === runSet.expected_trials &&
-    runSet.summary.valid_trial_count === runSet.expected_trials &&
-    runSet.trials.length === runSet.expected_trials &&
-    runSet.trials.every((trial) => trial.status === 'valid') &&
-    isBuildMetricGroup(runSet.summary.build_metrics, runSet.expected_trials)
+    runSet.expected_trials === 3 &&
+    runSet.summary.trial_count === 3 &&
+    runSet.summary.valid_trial_count === 3 &&
+    isExactTrialReferences(runSet.trials, 3, 'build-trial.json') &&
+    isBuildMetricGroup(runSet.summary.build_metrics, 3)
   )
 }
 
@@ -356,8 +369,19 @@ export function isBuildCatalogEntry(
   return entry.evidence_family === 'build'
 }
 
-function isBuildRunSet(runSet: EvidenceRunSet): runSet is BuildRunSet {
-  return 'build_metrics' in runSet.summary
+function isBuildRunSet(runSet: unknown): runSet is BuildRunSet {
+  return (
+    isRecord(runSet) &&
+    typeof runSet.cohort_fingerprint === 'string' &&
+    Number.isInteger(runSet.expected_trials) &&
+    typeof runSet.run_set_id === 'string' &&
+    typeof runSet.status === 'string' &&
+    Array.isArray(runSet.trials) &&
+    isRecord(runSet.summary) &&
+    'build_metrics' in runSet.summary &&
+    Number.isInteger(runSet.summary.trial_count) &&
+    Number.isInteger(runSet.summary.valid_trial_count)
+  )
 }
 
 function isBuildMetricGroup(value: unknown, expectedTrials: number): value is BuildMetrics {
@@ -383,20 +407,136 @@ function isMetricGroup(
 }
 
 function isMetricSummary(value: unknown, expectedTrials: number): value is MetricSummary {
+  if (
+    !isRecord(value) ||
+    !isFiniteNumber(value.min) ||
+    !isFiniteNumber(value.median) ||
+    !isFiniteNumber(value.max) ||
+    value.min < 0 ||
+    value.median < 0 ||
+    value.max < 0 ||
+    !Array.isArray(value.trials) ||
+    value.trials.length !== expectedTrials
+  ) {
+    return false
+  }
+  const trialValues: number[] = []
+  for (let index = 0; index < expectedTrials; index += 1) {
+    const trial = value.trials[index]
+    if (
+      !isRecord(trial) ||
+      trial.trial_id !== `trial-${String(index + 1).padStart(2, '0')}` ||
+      !isFiniteNumber(trial.value) ||
+      trial.value < 0
+    ) {
+      return false
+    }
+    trialValues.push(trial.value)
+  }
+  const sorted = [...trialValues].sort((left, right) => left - right)
+  const middle = Math.floor(sorted.length / 2)
+  const recomputedMedian = sorted.length % 2 === 1
+    ? sorted[middle]
+    : (sorted[middle - 1] + sorted[middle]) / 2
   return (
-    isRecord(value) &&
-    isFiniteNumber(value.min) &&
-    isFiniteNumber(value.median) &&
-    isFiniteNumber(value.max) &&
-    Array.isArray(value.trials) &&
-    value.trials.length === expectedTrials &&
-    value.trials.every(
-      (trial) =>
-        isRecord(trial) &&
-        typeof trial.trial_id === 'string' &&
-        trial.trial_id.length > 0 &&
-        isFiniteNumber(trial.value),
+    value.min === sorted[0] &&
+    value.median === recomputedMedian &&
+    value.max === sorted[sorted.length - 1]
+  )
+}
+
+function isExactTrialReferences(
+  value: unknown,
+  expectedTrials: number,
+  filename: string,
+): boolean {
+  if (!Array.isArray(value) || value.length !== expectedTrials) return false
+  return value.every((trial, offset) => {
+    const index = offset + 1
+    const directory = String(index).padStart(2, '0')
+    return (
+      isRecord(trial) &&
+      trial.index === index &&
+      trial.trial_id === `trial-${directory}` &&
+      trial.path === `trials/${directory}/${filename}` &&
+      typeof trial.sha256 === 'string' &&
+      trial.status === 'valid'
     )
+  })
+}
+
+function isCatalogEntry(value: unknown): value is CatalogEntry {
+  if (!isRecord(value) || !isRecord(value.selection)) return false
+  const commonStrings = [
+    value.cohort_fingerprint,
+    value.finished_at,
+    value.path,
+    value.publication_sha256,
+    value.run_set_id,
+    value.source_commit,
+    value.started_at,
+    value.selection.build_profile,
+    value.selection.environment_profile,
+    value.selection.implementation,
+    value.selection.measurement_protocol,
+    value.selection.variant,
+  ]
+  if (commonStrings.some((field) => typeof field !== 'string' || field.length === 0)) {
+    return false
+  }
+  if (
+    !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(String(value.cohort_fingerprint)) ||
+    !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(String(value.run_set_id))
+  ) {
+    return false
+  }
+  try {
+    assertSafePath(String(value.path))
+  } catch {
+    return false
+  }
+  const family = value.evidence_family
+  if (family === 'build') {
+    return value.path === `build-run-sets/${value.cohort_fingerprint}/${value.run_set_id}`
+  }
+  if (family !== undefined && family !== 'service' && family !== 'lifecycle') {
+    return false
+  }
+  if (
+    typeof value.image_digest !== 'string' ||
+    typeof value.selection.load_profile !== 'string' ||
+    typeof value.selection.scenario !== 'string'
+  ) {
+    return false
+  }
+  if (
+    family === undefined &&
+    value.selection.measurement_protocol !== 'official-service-v1'
+  ) {
+    return false
+  }
+  return value.path === `run-sets/${value.cohort_fingerprint}/${value.run_set_id}`
+}
+
+function isRunSetForCatalogEntry(
+  value: unknown,
+  entry: CatalogEntry,
+): value is EvidenceRunSet {
+  if (!isRecord(value)) return false
+  if (
+    value.run_set_id !== entry.run_set_id ||
+    value.cohort_fingerprint !== entry.cohort_fingerprint
+  ) {
+    return false
+  }
+  if (isBuildCatalogEntry(entry)) return isBuildRunSet(value)
+  return (
+    typeof value.status === 'string' &&
+    Number.isInteger(value.expected_trials) &&
+    Array.isArray(value.trials) &&
+    isRecord(value.summary) &&
+    isRecord(value.summary.runtime_metrics) &&
+    isRecord(value.summary.startup_metrics)
   )
 }
 
@@ -413,7 +553,13 @@ function assertSafePath(path: string): void {
     !path ||
     path.startsWith('/') ||
     path.includes('\\') ||
-    path.split('/').some((segment) => !segment || segment === '.' || segment === '..')
+    path.split('/').some(
+      (segment) =>
+        !segment ||
+        segment === '.' ||
+        segment === '..' ||
+        !/^[A-Za-z0-9._-]+$/.test(segment),
+    )
   ) {
     throw new Error(`Unsafe dataset path: ${path}`)
   }

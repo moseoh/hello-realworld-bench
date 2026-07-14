@@ -749,3 +749,27 @@ main {
     border-bottom: 0;
   }
 }
+
+@media (max-width: 360px) {
+  .topbar {
+    gap: 8px;
+  }
+
+  .brand-copy {
+    min-width: 0;
+  }
+
+  .brand-copy h1 {
+    overflow-wrap: anywhere;
+  }
+
+  .family-tabs button {
+    padding-right: 4px;
+    padding-left: 4px;
+  }
+
+  .comparison-table-wrap,
+  .summary-table-wrap {
+    max-width: calc(100vw - 32px);
+  }
+}
