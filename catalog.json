@@ -709,6 +709,26 @@
       },
       "source_commit": "c2a700b3122a78b3f2dc9225c16293cef6380896",
       "started_at": "2026-07-14T05:43:43.863180Z"
+    },
+    {
+      "cohort_fingerprint": "d6ee0866d61e341008c1c592ef319ed4357f5f2276bd848bd5d404af66e59e0c",
+      "evidence_family": "lifecycle",
+      "finished_at": "2026-07-14T05:53:06.477493Z",
+      "image_digest": "sha256:b2273b012f28bcc1561720f916f8536791c4f59e6614a19b7b9fb232404463f9",
+      "path": "run-sets/d6ee0866d61e341008c1c592ef319ed4357f5f2276bd848bd5d404af66e59e0c/2026-07-14T05-48-55_java_quarkus_jvm-java25_cold-start-api_run-set",
+      "publication_sha256": "508cbc0a9489bfe3605788765e3bf60c0b1f88ba46b69e0c2b0097b40d116db2",
+      "run_set_id": "2026-07-14T05-48-55_java_quarkus_jvm-java25_cold-start-api_run-set",
+      "selection": {
+        "build_profile": "local-gradle-docker",
+        "environment_profile": "home-k3s-lifecycle-v1",
+        "implementation": "java/quarkus",
+        "load_profile": "none",
+        "measurement_protocol": "official-cold-start-v1",
+        "scenario": "cold-start-api",
+        "variant": "jvm-java25"
+      },
+      "source_commit": "c2a700b3122a78b3f2dc9225c16293cef6380896",
+      "started_at": "2026-07-14T05:48:56.328888Z"
     }
   ],
   "schema_version": "1.0"
