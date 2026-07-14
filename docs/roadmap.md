@@ -16,7 +16,8 @@ The project does not produce universal runtime rankings. A result is comparable 
 
 ## Current Baseline
 
-The current repository is an experimental prototype baseline, not an official result producer.
+The current repository is the public v1 baseline and an official result
+producer for its frozen home-k3s profiles.
 
 It already provides:
 
@@ -25,17 +26,22 @@ It already provides:
 - Spring Boot 4 and Quarkus `3.33.2.1` LTS reference implementations on Java 25;
 - JVM and Spring virtual-thread variants;
 - `ping-api`, `cold-start-api`, `transactional-command-api`, `read-heavy-query-api`, `io-aggregation-api`, and `io-aggregation-timeout-api`;
-- build, startup, k6, and Docker resource measurements; and
-- normalized local result JSON.
+- build, startup, k6, and Docker resource measurements;
+- normalized local result JSON;
 - a frozen home k3s platform with three-trial and time-series evidence;
-- trusted-main GitHub Actions automation; and
-- append-only compact dataset and checksummed raw-evidence publication.
+- trusted-main GitHub Actions automation;
+- append-only compact dataset and checksummed raw-evidence publication;
+- a complete 18-cell core service matrix across nine compatible comparison
+  cohorts, containing 54 valid trials;
+- separate published cold-start and build cohorts; and
+- a static comparison and APM-style run-detail dashboard.
 
 `ping-api` remains a runner smoke test. Existing local results remain development evidence and must not be promoted as official benchmark data.
 
 The automated `ping-api` qualification campaign validates the official platform
-and publication path. Core scenario campaigns remain unfinished, so the project
-does not yet have a comparative public dataset.
+and publication path. The canonical dataset also contains all combinations of
+the two baseline implementations, three core service scenarios, and three load
+profiles. Every comparison cell contains three valid trials.
 
 Environment contract version `1.2` starts a new comparison cohort because target
 image repository ownership moved from the Spring-specific environment profile to
@@ -186,9 +192,9 @@ Exit criteria:
 - each comparison uses equivalent work, dependency behavior, resources, and measurement rules; and
 - framework-specific optimizations appear only as documented variants.
 
-The Quarkus implementation and two-implementation workflow are present, but the
-36-trial qualification campaign has not been completed. This milestone remains
-open until every required trial is valid.
+The Quarkus implementation and two-implementation workflow are present. The
+36-trial qualification campaign for `transactional-command-api` and
+`io-aggregation-api` is complete.
 
 ## Milestone 6: Core Scenario Suite v1
 
@@ -202,9 +208,9 @@ Core service scenarios:
 
 `read-heavy-query-api` excludes application caching in v1. Its dataset, schema, indexes, selectivity, pagination, response size, and cache-temperature policy must be fixed by the scenario contract.
 
-The implementation, local runner path, home-k3s arrival-rate calibration, and
-contract promotion are complete. The remaining work is the trusted 54-trial
-campaign.
+The implementation, local runner path, home-k3s arrival-rate calibration,
+contract promotion, and trusted 54-trial campaign are complete. Cold-start and
+build evidence are published as separate comparable cohorts.
 
 Exit criteria:
 
@@ -215,7 +221,8 @@ Exit criteria:
 
 ## Milestone 7: Public Static Web
 
-Build the public product only after a complete comparative dataset exists.
+The public static web is deployed from an exact `benchmark-data` commit after a
+complete comparative dataset exists.
 
 Scope:
 
