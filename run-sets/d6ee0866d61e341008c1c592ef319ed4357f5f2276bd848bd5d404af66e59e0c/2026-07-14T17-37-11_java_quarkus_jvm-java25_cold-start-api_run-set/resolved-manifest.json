@@ -1,0 +1,169 @@
+{
+  "assets": [
+    {
+      "path": "infra/k8s/cold-start-api.yaml",
+      "role": "kubernetes-template",
+      "sha256": "18c0e39ce34dae4d272b9aaf203b53e8382c8a21fad4131b888c8730c486088f"
+    }
+  ],
+  "cohort": {
+    "assets": [
+      {
+        "path": "infra/k8s/cold-start-api.yaml",
+        "role": "kubernetes-template",
+        "sha256": "18c0e39ce34dae4d272b9aaf203b53e8382c8a21fad4131b888c8730c486088f"
+      }
+    ],
+    "contracts": {
+      "environment_profile": {
+        "contract_version": "1.0",
+        "digest": "aa1bbda7acb38815022fd8a7e7024eb80b1b20c02ffd539302ea1348beebbe38",
+        "id": "home-k3s-lifecycle-v1",
+        "kind": "environment-profile",
+        "path": "contracts/environment-profiles/home-k3s-lifecycle-v1.yaml",
+        "schema_version": "1.0"
+      },
+      "load_profile": {
+        "contract_version": "1.0",
+        "digest": "6664e986745281e1895bc42ff724d934861d47f5697dc277ec22144fb7721d8c",
+        "id": "none",
+        "kind": "load-profile",
+        "path": "contracts/load-profiles/none.yaml",
+        "schema_version": "1.0"
+      },
+      "measurement_protocol": {
+        "contract_version": "1.0",
+        "digest": "13960abb7bf1192eaeeb0bdd0126f4b4b56a7abc3ef4a1c4b2096d866da949e1",
+        "id": "official-cold-start-v1",
+        "kind": "measurement-protocol",
+        "path": "contracts/measurement-protocols/official-cold-start-v1.yaml",
+        "schema_version": "1.0"
+      },
+      "scenario": {
+        "contract_version": "1.1",
+        "digest": "09b048e3ca02b1feb96968571b1eae33bfdebee33593b5e9454f3477a1c45153",
+        "id": "cold-start-api",
+        "kind": "scenario",
+        "path": "scenarios/cold-start-api/scenario.yaml",
+        "schema_version": "1.0"
+      }
+    },
+    "evidence_family": "lifecycle",
+    "fingerprint": "d6ee0866d61e341008c1c592ef319ed4357f5f2276bd848bd5d404af66e59e0c"
+  },
+  "contracts": {
+    "build_profile": {
+      "contract_version": "1.0",
+      "digest": "b849ffb37b07c0abb209e9ef78c9a49afdf3087901e986b14c0f9d5a5612d828",
+      "id": "local-gradle-docker",
+      "kind": "build-profile",
+      "path": "contracts/build-profiles/local-gradle-docker.yaml",
+      "schema_version": "1.0"
+    },
+    "environment_profile": {
+      "contract_version": "1.0",
+      "digest": "aa1bbda7acb38815022fd8a7e7024eb80b1b20c02ffd539302ea1348beebbe38",
+      "id": "home-k3s-lifecycle-v1",
+      "kind": "environment-profile",
+      "path": "contracts/environment-profiles/home-k3s-lifecycle-v1.yaml",
+      "schema_version": "1.0"
+    },
+    "implementation": {
+      "contract_version": "1.1",
+      "digest": "28d77a035839152fcf63eb03309b6ebff2d714c2f4ac8353056c8813e344772e",
+      "id": "java/quarkus",
+      "kind": "implementation",
+      "path": "implementations/java/quarkus/implementation.yaml",
+      "schema_version": "1.0"
+    },
+    "load_profile": {
+      "contract_version": "1.0",
+      "digest": "6664e986745281e1895bc42ff724d934861d47f5697dc277ec22144fb7721d8c",
+      "id": "none",
+      "kind": "load-profile",
+      "path": "contracts/load-profiles/none.yaml",
+      "schema_version": "1.0"
+    },
+    "measurement_protocol": {
+      "contract_version": "1.0",
+      "digest": "13960abb7bf1192eaeeb0bdd0126f4b4b56a7abc3ef4a1c4b2096d866da949e1",
+      "id": "official-cold-start-v1",
+      "kind": "measurement-protocol",
+      "path": "contracts/measurement-protocols/official-cold-start-v1.yaml",
+      "schema_version": "1.0"
+    },
+    "scenario": {
+      "contract_version": "1.1",
+      "digest": "09b048e3ca02b1feb96968571b1eae33bfdebee33593b5e9454f3477a1c45153",
+      "id": "cold-start-api",
+      "kind": "scenario",
+      "path": "scenarios/cold-start-api/scenario.yaml",
+      "schema_version": "1.0"
+    },
+    "variant": {
+      "contract_version": "1.1",
+      "digest": "848c9be75752ac961ca64160f9ed07642dec813fb06ae9d9c0256d6a47289589",
+      "id": "jvm-java25",
+      "kind": "variant",
+      "path": "implementations/java/quarkus/variants/jvm-java25.yaml",
+      "schema_version": "1.0"
+    }
+  },
+  "execution": {
+    "compose_profile": "quarkus",
+    "image_tag": "ghcr.io/moseoh/hello-realworld-bench/quarkus@sha256:1feb453bed5bb818eac7ce6ea76479bfef65edca155b2b5b77c990e24ab26628",
+    "load": {
+      "enabled": false
+    },
+    "runtime": {
+      "build_mode": "jvm",
+      "framework": "quarkus",
+      "framework_version": "3.33.2.1",
+      "java_version": "25",
+      "language": "java",
+      "native_image": false,
+      "otel": false,
+      "virtual_threads": false
+    },
+    "services": {
+      "kafka": false,
+      "mock_upstream": false,
+      "postgres": false,
+      "redis": false
+    },
+    "startup": {
+      "between_trials_seconds": 5,
+      "completion_boundary": "first-valid-response-complete",
+      "image_pull_policy": "Never",
+      "iterations": 5,
+      "observer_transport": "pod-localhost",
+      "poll_interval_ms": 10,
+      "poll_interval_seconds": 0.25,
+      "request_timeout_ms": 250,
+      "start_boundary": "image-entrypoint-pre-exec",
+      "timeout_seconds": 120,
+      "trial_timeout_seconds": 120
+    },
+    "target": {
+      "base_url": "http://localhost:8080",
+      "endpoint": "/ping"
+    }
+  },
+  "manifest_digest": "5ea59094effd68583a33a4d150e8b38cd325f443c8b94c817f2f7ee6903e1216",
+  "run_id": "2026-07-14T17-37-11_java_quarkus_jvm-java25_cold-start-api_run-set",
+  "schema_version": "1.0",
+  "selection": {
+    "build_profile": "local-gradle-docker",
+    "environment_profile": "home-k3s-lifecycle-v1",
+    "implementation": "java/quarkus",
+    "load_profile": "none",
+    "measurement_protocol": "official-cold-start-v1",
+    "scenario": "cold-start-api",
+    "variant": "jvm-java25"
+  },
+  "source": {
+    "git_commit": "ac25fe58ffca5d43975afe52656fe1c0ebb53a1a",
+    "git_dirty": false,
+    "worktree_digest": "b92f0ec60b9fb3cf2fa0daf2637d08bfa891efd96c005f439df8aadc1918e9e9"
+  }
+}

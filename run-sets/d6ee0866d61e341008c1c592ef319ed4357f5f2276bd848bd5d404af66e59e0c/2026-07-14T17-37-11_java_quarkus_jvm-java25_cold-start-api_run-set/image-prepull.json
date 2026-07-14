@@ -1,0 +1,358 @@
+{
+  "status": "valid",
+  "reasons": [],
+  "pod": {
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+      "annotations": {
+        "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"v1\",\"kind\":\"Pod\",\"metadata\":{\"annotations\":{},\"labels\":{\"app.kubernetes.io/component\":\"target\",\"app.kubernetes.io/name\":\"cold-start-api\",\"app.kubernetes.io/part-of\":\"hello-realworld-bench\",\"hello-real-world/run-set\":\"hrw-20260714t173711-ac25fe5\"},\"name\":\"target-image-prepull\",\"namespace\":\"hrw-20260714t173711-ac25fe5\"},\"spec\":{\"automountServiceAccountToken\":false,\"containers\":[{\"command\":[\"/bin/sh\",\"-c\",\"true\"],\"image\":\"grafana/k6@sha256:68e78d94140704ec4ee0cb7c5cf6cd12a32b7d310a6f98d94931ee9b0b9dc629\",\"imagePullPolicy\":\"IfNotPresent\",\"name\":\"observer\",\"resources\":{\"limits\":{\"cpu\":\"1\",\"memory\":\"256Mi\"},\"requests\":{\"cpu\":\"1\",\"memory\":\"256Mi\"}},\"securityContext\":{\"allowPrivilegeEscalation\":false,\"capabilities\":{\"drop\":[\"ALL\"]},\"privileged\":false,\"readOnlyRootFilesystem\":true},\"volumeMounts\":[{\"mountPath\":\"/scripts\",\"name\":\"script\",\"readOnly\":true},{\"mountPath\":\"/evidence\",\"name\":\"evidence\"},{\"mountPath\":\"/tmp\",\"name\":\"tmp\"}]},{\"command\":[\"/bin/sh\",\"-c\",\"true\"],\"env\":[{\"name\":\"JAVA_TOOL_OPTIONS\",\"value\":\"-XX:MaxRAMPercentage=75\"}],\"image\":\"ghcr.io/moseoh/hello-realworld-bench/quarkus@sha256:1feb453bed5bb818eac7ce6ea76479bfef65edca155b2b5b77c990e24ab26628\",\"imagePullPolicy\":\"IfNotPresent\",\"name\":\"target\",\"ports\":[{\"containerPort\":8080,\"name\":\"http\"}],\"resources\":{\"limits\":{\"cpu\":\"2\",\"memory\":\"1Gi\"},\"requests\":{\"cpu\":\"2\",\"memory\":\"1Gi\"}},\"securityContext\":{\"allowPrivilegeEscalation\":false,\"capabilities\":{\"drop\":[\"ALL\"]},\"privileged\":false,\"readOnlyRootFilesystem\":true},\"volumeMounts\":[{\"mountPath\":\"/tmp\",\"name\":\"tmp\"}]}],\"nodeSelector\":{\"kubernetes.io/hostname\":\"homlab\"},\"restartPolicy\":\"Never\",\"securityContext\":{\"runAsNonRoot\":true,\"seccompProfile\":{\"type\":\"RuntimeDefault\"}},\"volumes\":[{\"configMap\":{\"name\":\"first-success-observer\"},\"name\":\"script\"},{\"emptyDir\":{},\"name\":\"evidence\"},{\"emptyDir\":{},\"name\":\"tmp\"}]}}\n"
+      },
+      "creationTimestamp": "2026-07-14T17:37:48Z",
+      "generation": 1,
+      "labels": {
+        "app.kubernetes.io/component": "target",
+        "app.kubernetes.io/name": "cold-start-api",
+        "app.kubernetes.io/part-of": "hello-realworld-bench",
+        "hello-real-world/run-set": "hrw-20260714t173711-ac25fe5"
+      },
+      "name": "target-image-prepull",
+      "namespace": "hrw-20260714t173711-ac25fe5",
+      "resourceVersion": "153381",
+      "uid": "a6943813-b3f6-404c-a1b5-f6f57090ba51"
+    },
+    "spec": {
+      "automountServiceAccountToken": false,
+      "containers": [
+        {
+          "command": [
+            "/bin/sh",
+            "-c",
+            "true"
+          ],
+          "image": "grafana/k6@sha256:68e78d94140704ec4ee0cb7c5cf6cd12a32b7d310a6f98d94931ee9b0b9dc629",
+          "imagePullPolicy": "IfNotPresent",
+          "name": "observer",
+          "resources": {
+            "limits": {
+              "cpu": "1",
+              "memory": "256Mi"
+            },
+            "requests": {
+              "cpu": "1",
+              "memory": "256Mi"
+            }
+          },
+          "securityContext": {
+            "allowPrivilegeEscalation": false,
+            "capabilities": {
+              "drop": [
+                "ALL"
+              ]
+            },
+            "privileged": false,
+            "readOnlyRootFilesystem": true
+          },
+          "terminationMessagePath": "/dev/termination-log",
+          "terminationMessagePolicy": "File",
+          "volumeMounts": [
+            {
+              "mountPath": "/scripts",
+              "name": "script",
+              "readOnly": true
+            },
+            {
+              "mountPath": "/evidence",
+              "name": "evidence"
+            },
+            {
+              "mountPath": "/tmp",
+              "name": "tmp"
+            }
+          ]
+        },
+        {
+          "command": [
+            "/bin/sh",
+            "-c",
+            "true"
+          ],
+          "env": [
+            {
+              "name": "JAVA_TOOL_OPTIONS",
+              "value": "-XX:MaxRAMPercentage=75"
+            }
+          ],
+          "image": "ghcr.io/moseoh/hello-realworld-bench/quarkus@sha256:1feb453bed5bb818eac7ce6ea76479bfef65edca155b2b5b77c990e24ab26628",
+          "imagePullPolicy": "IfNotPresent",
+          "name": "target",
+          "ports": [
+            {
+              "containerPort": 8080,
+              "name": "http",
+              "protocol": "TCP"
+            }
+          ],
+          "resources": {
+            "limits": {
+              "cpu": "2",
+              "memory": "1Gi"
+            },
+            "requests": {
+              "cpu": "2",
+              "memory": "1Gi"
+            }
+          },
+          "securityContext": {
+            "allowPrivilegeEscalation": false,
+            "capabilities": {
+              "drop": [
+                "ALL"
+              ]
+            },
+            "privileged": false,
+            "readOnlyRootFilesystem": true
+          },
+          "terminationMessagePath": "/dev/termination-log",
+          "terminationMessagePolicy": "File",
+          "volumeMounts": [
+            {
+              "mountPath": "/tmp",
+              "name": "tmp"
+            }
+          ]
+        }
+      ],
+      "dnsPolicy": "ClusterFirst",
+      "enableServiceLinks": true,
+      "nodeName": "homlab",
+      "nodeSelector": {
+        "kubernetes.io/hostname": "homlab"
+      },
+      "preemptionPolicy": "PreemptLowerPriority",
+      "priority": 0,
+      "restartPolicy": "Never",
+      "schedulerName": "default-scheduler",
+      "securityContext": {
+        "runAsNonRoot": true,
+        "seccompProfile": {
+          "type": "RuntimeDefault"
+        }
+      },
+      "serviceAccount": "default",
+      "serviceAccountName": "default",
+      "terminationGracePeriodSeconds": 30,
+      "tolerations": [
+        {
+          "effect": "NoExecute",
+          "key": "node.kubernetes.io/not-ready",
+          "operator": "Exists",
+          "tolerationSeconds": 300
+        },
+        {
+          "effect": "NoExecute",
+          "key": "node.kubernetes.io/unreachable",
+          "operator": "Exists",
+          "tolerationSeconds": 300
+        }
+      ],
+      "volumes": [
+        {
+          "configMap": {
+            "defaultMode": 420,
+            "name": "first-success-observer"
+          },
+          "name": "script"
+        },
+        {
+          "emptyDir": {},
+          "name": "evidence"
+        },
+        {
+          "emptyDir": {},
+          "name": "tmp"
+        }
+      ]
+    },
+    "status": {
+      "allocatedResources": {
+        "cpu": "3",
+        "memory": "1280Mi"
+      },
+      "conditions": [
+        {
+          "lastProbeTime": null,
+          "lastTransitionTime": "2026-07-14T17:37:51Z",
+          "observedGeneration": 1,
+          "status": "False",
+          "type": "PodReadyToStartContainers"
+        },
+        {
+          "lastProbeTime": null,
+          "lastTransitionTime": "2026-07-14T17:37:48Z",
+          "observedGeneration": 1,
+          "reason": "PodCompleted",
+          "status": "True",
+          "type": "Initialized"
+        },
+        {
+          "lastProbeTime": null,
+          "lastTransitionTime": "2026-07-14T17:37:48Z",
+          "observedGeneration": 1,
+          "reason": "PodCompleted",
+          "status": "False",
+          "type": "Ready"
+        },
+        {
+          "lastProbeTime": null,
+          "lastTransitionTime": "2026-07-14T17:37:48Z",
+          "observedGeneration": 1,
+          "reason": "PodCompleted",
+          "status": "False",
+          "type": "ContainersReady"
+        },
+        {
+          "lastProbeTime": null,
+          "lastTransitionTime": "2026-07-14T17:37:48Z",
+          "observedGeneration": 1,
+          "status": "True",
+          "type": "PodScheduled"
+        }
+      ],
+      "containerStatuses": [
+        {
+          "allocatedResources": {
+            "cpu": "1",
+            "memory": "256Mi"
+          },
+          "containerID": "containerd://29a659d95a765f3a539d43d8a26e280f3155c313c73f7ab3bac30db9f7e22c11",
+          "image": "sha256:9ea12698143c8ac6fbbfc578df4977c136d5baffd434305d080555b1b2cf6c06",
+          "imageID": "docker.io/grafana/k6@sha256:68e78d94140704ec4ee0cb7c5cf6cd12a32b7d310a6f98d94931ee9b0b9dc629",
+          "lastState": {},
+          "name": "observer",
+          "ready": false,
+          "resources": {
+            "limits": {
+              "cpu": "1",
+              "memory": "256Mi"
+            },
+            "requests": {
+              "cpu": "1",
+              "memory": "256Mi"
+            }
+          },
+          "restartCount": 0,
+          "started": false,
+          "state": {
+            "terminated": {
+              "containerID": "containerd://29a659d95a765f3a539d43d8a26e280f3155c313c73f7ab3bac30db9f7e22c11",
+              "exitCode": 0,
+              "finishedAt": "2026-07-14T17:37:49Z",
+              "reason": "Completed",
+              "startedAt": "2026-07-14T17:37:49Z"
+            }
+          },
+          "user": {
+            "linux": {
+              "gid": 12345,
+              "supplementalGroups": [
+                12345
+              ],
+              "uid": 12345
+            }
+          },
+          "volumeMounts": [
+            {
+              "mountPath": "/scripts",
+              "name": "script",
+              "readOnly": true,
+              "recursiveReadOnly": "Disabled"
+            },
+            {
+              "mountPath": "/evidence",
+              "name": "evidence"
+            },
+            {
+              "mountPath": "/tmp",
+              "name": "tmp"
+            }
+          ]
+        },
+        {
+          "allocatedResources": {
+            "cpu": "2",
+            "memory": "1Gi"
+          },
+          "containerID": "containerd://bf99751b24ef77572c03de0a80fed483fe96e7dec887f45f73e90c942e03563b",
+          "image": "ghcr.io/moseoh/hello-realworld-bench/quarkus:ac25fe58ffca5d43975afe52656fe1c0ebb53a1a",
+          "imageID": "ghcr.io/moseoh/hello-realworld-bench/quarkus@sha256:1feb453bed5bb818eac7ce6ea76479bfef65edca155b2b5b77c990e24ab26628",
+          "lastState": {},
+          "name": "target",
+          "ready": false,
+          "resources": {
+            "limits": {
+              "cpu": "2",
+              "memory": "1Gi"
+            },
+            "requests": {
+              "cpu": "2",
+              "memory": "1Gi"
+            }
+          },
+          "restartCount": 0,
+          "started": false,
+          "state": {
+            "terminated": {
+              "containerID": "containerd://bf99751b24ef77572c03de0a80fed483fe96e7dec887f45f73e90c942e03563b",
+              "exitCode": 0,
+              "finishedAt": "2026-07-14T17:37:49Z",
+              "reason": "Completed",
+              "startedAt": "2026-07-14T17:37:49Z"
+            }
+          },
+          "user": {
+            "linux": {
+              "gid": 10001,
+              "supplementalGroups": [
+                10001
+              ],
+              "uid": 10001
+            }
+          },
+          "volumeMounts": [
+            {
+              "mountPath": "/tmp",
+              "name": "tmp"
+            }
+          ]
+        }
+      ],
+      "hostIP": "192.168.0.101",
+      "hostIPs": [
+        {
+          "ip": "192.168.0.101"
+        }
+      ],
+      "observedGeneration": 1,
+      "phase": "Succeeded",
+      "podIP": "10.42.0.222",
+      "podIPs": [
+        {
+          "ip": "10.42.0.222"
+        }
+      ],
+      "qosClass": "Guaranteed",
+      "resources": {
+        "limits": {
+          "cpu": "3",
+          "memory": "1280Mi"
+        },
+        "requests": {
+          "cpu": "2998m",
+          "memory": "1280Mi"
+        }
+      },
+      "startTime": "2026-07-14T17:37:48Z"
+    }
+  }
+}
