@@ -151,7 +151,7 @@ class ResolveBuildRunConfigTest(unittest.TestCase):
                 "--no-build-cache",
             ],
             "incremental_input": {
-                "path": "src/main/java/org/hellorealworld/build/BuildBenchmarkProbe.java",
+                "path": "src/main/java/org/hellorealworld/benchmark/BuildBenchmarkProbe.java",
                 "from": "public static final int VALUE = 0;",
                 "to": "public static final int VALUE = 1;",
             },
@@ -161,6 +161,17 @@ class ResolveBuildRunConfigTest(unittest.TestCase):
 
         for framework in ("spring-boot", "quarkus"):
             with self.subTest(framework=framework):
+                framework_expected = {
+                    **expected,
+                    "application_artifact": {
+                        "type": "glob" if framework == "spring-boot" else "directory",
+                        "path": (
+                            "build/libs/*.jar"
+                            if framework == "spring-boot"
+                            else "build/quarkus-app"
+                        ),
+                    },
+                }
                 variant = yaml.safe_load(
                     (
                         PROJECT_ROOT
@@ -169,7 +180,7 @@ class ResolveBuildRunConfigTest(unittest.TestCase):
                         / "variants/jvm-java25.yaml"
                     ).read_text()
                 )
-                self.assertEqual(variant["build"], expected)
+                self.assertEqual(variant["build"], framework_expected)
 
     def test_non_host_build_official_profile_keeps_platform_requirements_with_build_block(self):
         root = self._temporary_contract_root()

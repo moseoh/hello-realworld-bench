@@ -23,6 +23,15 @@
         "sha256": { "$ref": "#/$defs/digest" }
       }
     },
+    "evidenceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "$ref": "#/$defs/relativePath" },
+        "sha256": { "$ref": "#/$defs/digest" }
+      }
+    },
     "buildMetric": {
       "type": "object",
       "additionalProperties": false,
@@ -80,6 +89,7 @@
     "status",
     "expected_trials",
     "trials",
+    "campaign_evidence",
     "summary"
   ],
   "properties": {
@@ -136,6 +146,16 @@
       "items": false,
       "minItems": 3,
       "maxItems": 3
+    },
+    "campaign_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["preflight", "postflight", "cache_seed"],
+      "properties": {
+        "preflight": { "$ref": "#/$defs/evidenceRef" },
+        "postflight": { "$ref": "#/$defs/evidenceRef" },
+        "cache_seed": { "$ref": "#/$defs/evidenceRef" }
+      }
     },
     "summary": {
       "type": "object",

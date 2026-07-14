@@ -1,6 +1,6 @@
 schema_version: "1.0"
 id: jvm-java25
-contract_version: "1.0"
+contract_version: "1.1"
 description: "Quarkus JVM variant using Java 25."
 implementation: java/quarkus
 
@@ -30,8 +30,11 @@ build:
     - --no-daemon
     - --no-build-cache
   incremental_input:
-    path: src/main/java/org/hellorealworld/build/BuildBenchmarkProbe.java
+    path: src/main/java/org/hellorealworld/benchmark/BuildBenchmarkProbe.java
     from: "public static final int VALUE = 0;"
     to: "public static final int VALUE = 1;"
+  application_artifact:
+    type: directory
+    path: build/quarkus-app
   dockerfile: Dockerfile
   context: .

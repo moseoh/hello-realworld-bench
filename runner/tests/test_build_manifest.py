@@ -94,6 +94,35 @@ class BuildResolvedManifestTest(unittest.TestCase):
             "started_at": "2026-07-14T00:00:00Z",
             "finished_at": "2026-07-14T00:01:00Z",
             "metrics": self._trial_metrics(),
+            "operations": [
+                {
+                    "name": name,
+                    "path": f"operations/{index:02d}-{name}.json",
+                    "sha256": chr(96 + index) * 64,
+                }
+                for index, name in enumerate(
+                    (
+                        "gradle_clean_build",
+                        "image_package",
+                        "gradle_incremental_rebuild",
+                        "image_rebuild",
+                    ),
+                    1,
+                )
+            ],
+            "evidence": {
+                name: {"path": f"{name}.json", "sha256": "e" * 64}
+                for name in (
+                    "source_probe",
+                    "application_artifacts",
+                    "image_artifacts",
+                    "trial_inputs",
+                )
+            },
+            "artifact_manifest": {
+                "path": "artifact-manifest.json",
+                "sha256": "f" * 64,
+            },
         }
         run_set = {
             "schema_version": "1.0",
@@ -113,6 +142,10 @@ class BuildResolvedManifestTest(unittest.TestCase):
                 }
                 for index in range(1, 4)
             ],
+            "campaign_evidence": {
+                name: {"path": f"{name}.json", "sha256": "d" * 64}
+                for name in ("preflight", "postflight", "cache_seed")
+            },
             "summary": {
                 "trial_count": 3,
                 "valid_trial_count": 3,

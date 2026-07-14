@@ -7,7 +7,37 @@
       "type": "string",
       "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
     },
-    "duration": { "type": "number", "minimum": 0 }
+    "duration": { "type": "number", "minimum": 0 },
+    "relativePath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*[\\u0000-\\u001f\\u007f])(?!\\.{1,2}(?:/|(?![\\s\\S])))(?!.*[/]\\.{1,2}(?:/|(?![\\s\\S])))[^/]+(?:/[^/]+)*(?![\\s\\S])"
+    },
+    "evidenceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "$ref": "#/$defs/relativePath" },
+        "sha256": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "operationRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "path", "sha256"],
+      "properties": {
+        "name": {
+          "enum": [
+            "gradle_clean_build",
+            "image_package",
+            "gradle_incremental_rebuild",
+            "image_rebuild"
+          ]
+        },
+        "path": { "$ref": "#/$defs/relativePath" },
+        "sha256": { "$ref": "#/$defs/digest" }
+      }
+    }
   },
   "type": "object",
   "additionalProperties": false,
@@ -20,7 +50,10 @@
     "status",
     "started_at",
     "finished_at",
-    "metrics"
+    "metrics",
+    "operations",
+    "evidence",
+    "artifact_manifest"
   ],
   "properties": {
     "schema_version": { "const": "1.0" },
@@ -46,6 +79,35 @@
         "image_package_ms": { "$ref": "#/$defs/duration" },
         "image_rebuild_ms": { "$ref": "#/$defs/duration" }
       }
-    }
+    },
+    "operations": {
+      "type": "array",
+      "items": false,
+      "minItems": 4,
+      "maxItems": 4,
+      "prefixItems": [
+        { "allOf": [{ "$ref": "#/$defs/operationRef" }, { "properties": { "name": { "const": "gradle_clean_build" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/operationRef" }, { "properties": { "name": { "const": "image_package" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/operationRef" }, { "properties": { "name": { "const": "gradle_incremental_rebuild" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/operationRef" }, { "properties": { "name": { "const": "image_rebuild" } } }] }
+      ]
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_probe",
+        "application_artifacts",
+        "image_artifacts",
+        "trial_inputs"
+      ],
+      "properties": {
+        "source_probe": { "$ref": "#/$defs/evidenceRef" },
+        "application_artifacts": { "$ref": "#/$defs/evidenceRef" },
+        "image_artifacts": { "$ref": "#/$defs/evidenceRef" },
+        "trial_inputs": { "$ref": "#/$defs/evidenceRef" }
+      }
+    },
+    "artifact_manifest": { "$ref": "#/$defs/evidenceRef" }
   }
 }
