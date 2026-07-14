@@ -197,6 +197,8 @@ class WorkflowTrustBoundaryTest(unittest.TestCase):
             "post-merge trusted-home smoke",
         ):
             self.assertIn(required, automation)
+        self.assertIn("The build `publish` command", automation)
+        self.assertNotIn("`publish-build`", automation)
         for required in (
             "gradle_clean_build_ms",
             "gradle_incremental_rebuild_ms",

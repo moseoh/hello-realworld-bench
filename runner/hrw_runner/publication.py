@@ -319,7 +319,7 @@ def _verify_existing_entry(entry_dir: Path, expected: dict[str, Any]) -> None:
     if not publication_path.is_file():
         raise PublicationError("Existing append-only entry has no publication manifest")
     existing = _read_object(publication_path)
-    if existing != expected and not _legacy_publication_matches(existing, expected):
+    if existing != expected and not _previous_publication_matches(existing, expected):
         raise PublicationError("Existing append-only entry conflicts with this publication")
     for file_entry in existing.get("files", []):
         path = entry_dir / file_entry["path"]
@@ -466,15 +466,22 @@ def _validate_modern_catalog_identity(
     publication: dict[str, Any],
     compact_identity: dict[str, Any],
 ) -> None:
-    publication_identity = {
-        field: publication.get(field)
-        for field in compact_identity
-    }
     catalog_identity = {
         field: entry.get(field)
         for field in compact_identity
     }
-    if publication_identity != compact_identity or catalog_identity != compact_identity:
+    publication_fields = _PUBLICATION_IDENTITY_FIELDS.intersection(publication)
+    previous_shape = not publication_fields
+    if catalog_identity != compact_identity or (
+        not previous_shape
+        and (
+            publication_fields != _PUBLICATION_IDENTITY_FIELDS
+            or any(
+                publication.get(field) != compact_identity[field]
+                for field in _PUBLICATION_IDENTITY_FIELDS
+            )
+        )
+    ):
         raise PublicationError(
             "Dataset catalog does not match compact evidence identity"
         )
@@ -548,13 +555,12 @@ def _official_service_selection(value: object) -> bool:
     )
 
 
-def _legacy_publication_matches(
+def _previous_publication_matches(
     existing: dict[str, Any],
     expected: dict[str, Any],
 ) -> bool:
     if (
-        expected.get("evidence_family") != "service"
-        or not _official_service_selection(expected.get("selection"))
+        expected.get("evidence_family") not in {"service", "lifecycle", "build"}
         or any(field in existing for field in _PUBLICATION_IDENTITY_FIELDS)
     ):
         return False

@@ -137,7 +137,7 @@ and the compact `publication.json` records both the public asset URL and digest.
 The Actions artifact is only the job-to-job transport and a 90-day operational
 copy.
 
-The build `publish-build` command independently recalculates the raw evidence
+The build `publish` command independently recalculates the raw evidence
 hash chain, enforces the workflow-requested implementation and variant, and
 accepts only the frozen `home-build-v1`, `official-build-v1`, and
 `official-gradle-docker-v1` profile triple. Raw input is a closed regular-file

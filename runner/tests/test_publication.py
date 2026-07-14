@@ -244,6 +244,106 @@ class DatasetPublicationTest(unittest.TestCase):
             self.assertNotIn("evidence_family", legacy_entry)
             self.assertEqual(build_entry["path"], "build-run-sets/" + DIGEST_B + "/build-001")
 
+    def test_previous_modern_publications_allow_republish_and_new_build(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            dataset_dir = root / "dataset"
+            service = self._write_run_set(root / "service", "service-old")
+            lifecycle = self._write_run_set(root / "lifecycle", "lifecycle-old")
+            lifecycle_manifest_path = lifecycle / "resolved-manifest.json"
+            lifecycle_manifest = json.loads(lifecycle_manifest_path.read_text())
+            lifecycle_manifest["selection"].update(
+                scenario="cold-start-api",
+                load_profile="none",
+                environment_profile="home-k3s-lifecycle-v1",
+                measurement_protocol="official-cold-start-v1",
+            )
+            lifecycle_manifest["cohort"]["evidence_family"] = "lifecycle"
+            lifecycle_manifest_path.write_text(json.dumps(lifecycle_manifest))
+            old_build = self._write_build_run_set(root / "old-build", "build-old")
+            new_build = self._write_build_run_set(root / "new-build", "build-new")
+
+            with (
+                patch("hrw_runner.publication.validate_run_set_evidence"),
+                patch("hrw_runner.publication.validate_resolved_manifest"),
+                patch("hrw_runner.publication.validate_lifecycle_publication_evidence"),
+                patch("hrw_runner.publication.validate_build_publication_evidence"),
+            ):
+                old_entries = [
+                    publish_run_set(
+                        source,
+                        dataset_dir,
+                        PROJECT_ROOT,
+                        source_commit="c" * 40,
+                    )
+                    for source in (service, lifecycle, old_build)
+                ]
+
+                catalog_path = dataset_dir / "catalog.json"
+                catalog = json.loads(catalog_path.read_text())
+                old_publication_bytes = {}
+                for entry in catalog["entries"]:
+                    publication_path = dataset_dir / entry["path"] / "publication.json"
+                    publication = json.loads(publication_path.read_text())
+                    for field in (
+                        "evidence_family",
+                        "selection",
+                        "started_at",
+                        "finished_at",
+                    ):
+                        publication.pop(field)
+                    publication_path.write_text(json.dumps(publication))
+                    entry["publication_sha256"] = hashlib.sha256(
+                        publication_path.read_bytes()
+                    ).hexdigest()
+                    old_publication_bytes[entry["run_set_id"]] = publication_path.read_bytes()
+                catalog_path.write_text(json.dumps(catalog))
+
+                first = publish_run_set(
+                    new_build,
+                    dataset_dir,
+                    PROJECT_ROOT,
+                    source_commit="c" * 40,
+                )
+                second = publish_run_set(
+                    new_build,
+                    dataset_dir,
+                    PROJECT_ROOT,
+                    source_commit="c" * 40,
+                )
+                for source, entry_dir in zip(
+                    (service, lifecycle, old_build), old_entries, strict=True
+                ):
+                    self.assertEqual(
+                        publish_run_set(
+                            source,
+                            dataset_dir,
+                            PROJECT_ROOT,
+                            source_commit="c" * 40,
+                        ),
+                        entry_dir,
+                    )
+
+            self.assertEqual(first, second)
+            for run_set_id, expected in old_publication_bytes.items():
+                entry = next(
+                    item
+                    for item in json.loads(catalog_path.read_text())["entries"]
+                    if item["run_set_id"] == run_set_id
+                )
+                self.assertEqual(
+                    (dataset_dir / entry["path"] / "publication.json").read_bytes(),
+                    expected,
+                )
+            new_publication = json.loads((first / "publication.json").read_text())
+            for field in (
+                "evidence_family",
+                "selection",
+                "started_at",
+                "finished_at",
+            ):
+                self.assertIn(field, new_publication)
+
     def test_catalog_identity_is_bound_to_hashed_compact_evidence(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
