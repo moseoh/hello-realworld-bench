@@ -5,8 +5,17 @@ measurement, compact publication, and raw evidence storage.
 
 ## Trust Boundary
 
-`.github/workflows/ci.yml` runs pull request checks on GitHub-hosted runners. It
-has read-only repository access and never targets the home runner.
+Pull request checks run on GitHub-hosted runners with read-only repository
+access and never target the home runner. CI is split by responsibility and uses
+path filters so unrelated checks do not run:
+
+- `.github/workflows/ci-runner.yml` validates contracts and the Python runner;
+- `.github/workflows/ci-spring-boot.yml` tests the Spring Boot implementation;
+- `.github/workflows/ci-quarkus.yml` tests the Quarkus implementation;
+- `.github/workflows/ci-dashboard.yml` validates the dashboard; and
+- `.github/workflows/ci-workflows.yml` runs actionlint for workflow changes.
+
+Documentation-only changes do not run code-test workflows.
 
 The public `.github/workflows/official-benchmark.yml` and
 `.github/workflows/official-build-benchmark.yml` files are reusable workers with

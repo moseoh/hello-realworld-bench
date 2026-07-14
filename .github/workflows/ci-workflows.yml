@@ -1,0 +1,22 @@
+name: Workflow CI
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/**
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/**
+
+permissions:
+  contents: read
+
+jobs:
+  actionlint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate GitHub Actions workflows
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
