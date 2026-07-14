@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import type { CatalogEntry, RunSet, ServiceCatalogEntry } from './benchmark'
+import type {
+  CatalogEntry,
+  EvidenceRunSet,
+  RunSet,
+  ServiceCatalogEntry,
+} from './benchmark'
 import {
   listBuildGroups,
   listComparisonGroups,
@@ -256,6 +261,80 @@ describe('family-specific comparison groups', () => {
       image_rebuild_ms: metric(1_000),
     })
   })
+
+  it.each([
+    ['empty', {}],
+    ['partial', { gradle_clean_build_ms: metric(10_000) }],
+    [
+      'non-finite',
+      {
+        gradle_clean_build_ms: metric(Number.NaN),
+        gradle_incremental_rebuild_ms: metric(2_000),
+        image_package_ms: metric(4_000),
+        image_rebuild_ms: metric(1_000),
+      },
+    ],
+    [
+      'invalid trial value',
+      {
+        gradle_clean_build_ms: {
+          ...metric(10_000),
+          trials: [{ trial_id: 'trial-01', value: 'broken' }],
+        },
+        gradle_incremental_rebuild_ms: metric(2_000),
+        image_package_ms: metric(4_000),
+        image_rebuild_ms: metric(1_000),
+      },
+    ],
+  ])('excludes %s build metric summaries', (_name, buildMetrics) => {
+    const build = buildEntry()
+
+    const groups = listBuildGroups(
+      [build],
+      new Map<string, EvidenceRunSet>([
+        ['build-run', buildRunSet(buildMetrics)],
+      ]),
+    )
+
+    expect(groups).toEqual([])
+  })
+
+  it.each([
+    ['empty', {}],
+    ['partial', { ready_ms: { min: 900, median: 1_000 } }],
+    ['non-numeric', { ready_ms: { ...metric(1_000), max: 'broken' } }],
+    [
+      'invalid trial value',
+      {
+        ready_ms: {
+          ...metric(1_000),
+          trials: [{ trial_id: 'trial-01', value: Number.POSITIVE_INFINITY }],
+        },
+      },
+    ],
+  ])('excludes %s lifecycle startup summaries', (_name, startupMetrics) => {
+    const lifecycle = {
+      ...entry('java/quarkus', 'lifecycle', 'cold-start-api', 'none', 'cold-cohort'),
+      evidence_family: 'lifecycle' as const,
+    }
+    const corrupted = {
+      ...runSet('lifecycle'),
+      cohort_fingerprint: 'cold-cohort',
+      summary: {
+        runtime_metrics: {},
+        startup_metrics: startupMetrics,
+        trial_count: 3,
+        valid_trial_count: 3,
+      },
+    } as unknown as EvidenceRunSet
+
+    const groups = listLifecycleGroups(
+      [lifecycle],
+      new Map([['lifecycle', corrupted]]),
+    )
+
+    expect(groups).toEqual([])
+  })
 })
 
 describe('summarizeTrialResources', () => {
@@ -303,4 +382,45 @@ function metric(value: number) {
       { trial_id: 'trial-03', value: value + 100 },
     ],
   }
+}
+
+function buildEntry(): CatalogEntry {
+  return {
+    cohort_fingerprint: 'build-cohort',
+    evidence_family: 'build',
+    finished_at: '2026-07-13T10:00:00Z',
+    path: 'build-run-sets/build-cohort/build-run',
+    publication_sha256: 'a'.repeat(64),
+    run_set_id: 'build-run',
+    selection: {
+      build_profile: 'official-gradle-docker-v1',
+      environment_profile: 'home-build-v1',
+      implementation: 'java/spring-boot',
+      measurement_protocol: 'official-build-v1',
+      variant: 'jvm-java25',
+    },
+    source_commit: 'b'.repeat(40),
+    started_at: '2026-07-13T09:00:00Z',
+  }
+}
+
+function buildRunSet(buildMetrics: unknown): EvidenceRunSet {
+  return {
+    cohort_fingerprint: 'build-cohort',
+    expected_trials: 3,
+    run_set_id: 'build-run',
+    status: 'complete',
+    summary: {
+      build_metrics: buildMetrics,
+      trial_count: 3,
+      valid_trial_count: 3,
+    },
+    trials: [1, 2, 3].map((index) => ({
+      index,
+      path: `trials/0${index}/build-trial.json`,
+      sha256: 'd'.repeat(64),
+      status: 'valid',
+      trial_id: `trial-0${index}`,
+    })),
+  } as unknown as EvidenceRunSet
 }

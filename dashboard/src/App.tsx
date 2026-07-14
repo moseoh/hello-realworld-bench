@@ -102,7 +102,6 @@ function App() {
         setDataset({ buildGroups, entries, groups, lifecycleGroups, runSets })
         const query = new URLSearchParams(window.location.search)
         const requestedFamily = familyFromSearch()
-        setFamily(requestedFamily)
         const requestedScenario = query.get('scenario')
         const requestedProfile = query.get('profile')
         const requestedCohort = query.get('cohort') ?? ''
@@ -245,6 +244,13 @@ function App() {
     (item) => comparisonItemKey(item.entry) === selectedTarget,
   )
 
+  function selectEvidenceFamily(nextFamily: EvidenceFamily) {
+    setFamily(nextFamily)
+    const query = new URLSearchParams(window.location.search)
+    query.set('family', nextFamily)
+    window.history.replaceState(null, '', `${window.location.pathname}?${query}`)
+  }
+
   useEffect(() => {
     if (family !== 'service' || !selectedItem) return
     const trial = selectedItem.runSet.trials.find((candidate) => candidate.index === selectedTrial)
@@ -313,9 +319,9 @@ function App() {
             <strong>{dataset ? `${dataset.entries.length} published run sets` : 'Loading published runs'}</strong>
           </div>
           <div className="family-tabs" aria-label="Evidence family">
-            <FamilyButton active={family === 'service'} onClick={() => setFamily('service')}>Service</FamilyButton>
-            <FamilyButton active={family === 'lifecycle'} onClick={() => setFamily('lifecycle')}>Cold start</FamilyButton>
-            <FamilyButton active={family === 'build'} onClick={() => setFamily('build')}>Build</FamilyButton>
+            <FamilyButton active={family === 'service'} onClick={() => selectEvidenceFamily('service')}>Service</FamilyButton>
+            <FamilyButton active={family === 'lifecycle'} onClick={() => selectEvidenceFamily('lifecycle')}>Cold start</FamilyButton>
+            <FamilyButton active={family === 'build'} onClick={() => selectEvidenceFamily('build')}>Build</FamilyButton>
           </div>
           {family === 'service' ? <>
             <label>

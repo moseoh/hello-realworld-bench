@@ -57,6 +57,16 @@ export interface MetricSummary {
   trials: Array<{ trial_id: string; value: number }>
 }
 
+export const BUILD_METRIC_KEYS = [
+  'gradle_clean_build_ms',
+  'gradle_incremental_rebuild_ms',
+  'image_package_ms',
+  'image_rebuild_ms',
+] as const
+
+export type BuildMetricKey = (typeof BUILD_METRIC_KEYS)[number]
+export type BuildMetrics = Record<BuildMetricKey, MetricSummary>
+
 export interface RunSet {
   cohort_fingerprint: string
   expected_trials: number
@@ -89,7 +99,7 @@ export interface BuildRunSet {
   schema_version?: string
   status: string
   summary: {
-    build_metrics: Record<string, MetricSummary>
+    build_metrics: BuildMetrics
     trial_count: number
     valid_trial_count: number
   }
@@ -309,7 +319,18 @@ export function isCompleteBuildRunSet(
     runSet.summary.trial_count === runSet.expected_trials &&
     runSet.summary.valid_trial_count === runSet.expected_trials &&
     runSet.trials.length === runSet.expected_trials &&
-    runSet.trials.every((trial) => trial.status === 'valid')
+    runSet.trials.every((trial) => trial.status === 'valid') &&
+    isBuildMetricGroup(runSet.summary.build_metrics, runSet.expected_trials)
+  )
+}
+
+export function isCompleteLifecycleRunSet(
+  runSet: EvidenceRunSet,
+  cohort: string,
+): runSet is RunSet {
+  return (
+    isCompleteRunSet(runSet, cohort) &&
+    isMetricGroup(runSet.summary.startup_metrics, runSet.expected_trials)
   )
 }
 
@@ -337,6 +358,46 @@ export function isBuildCatalogEntry(
 
 function isBuildRunSet(runSet: EvidenceRunSet): runSet is BuildRunSet {
   return 'build_metrics' in runSet.summary
+}
+
+function isBuildMetricGroup(value: unknown, expectedTrials: number): value is BuildMetrics {
+  if (!isRecord(value) || Object.keys(value).length !== BUILD_METRIC_KEYS.length) {
+    return false
+  }
+  return BUILD_METRIC_KEYS.every((key) =>
+    isMetricSummary(value[key], expectedTrials),
+  )
+}
+
+function isMetricGroup(
+  value: unknown,
+  expectedTrials: number,
+): value is Record<string, MetricSummary> {
+  return (
+    isRecord(value) &&
+    Object.keys(value).length > 0 &&
+    Object.values(value).every((metric) =>
+      isMetricSummary(metric, expectedTrials),
+    )
+  )
+}
+
+function isMetricSummary(value: unknown, expectedTrials: number): value is MetricSummary {
+  return (
+    isRecord(value) &&
+    isFiniteNumber(value.min) &&
+    isFiniteNumber(value.median) &&
+    isFiniteNumber(value.max) &&
+    Array.isArray(value.trials) &&
+    value.trials.length === expectedTrials &&
+    value.trials.every(
+      (trial) =>
+        isRecord(trial) &&
+        typeof trial.trial_id === 'string' &&
+        trial.trial_id.length > 0 &&
+        isFiniteNumber(trial.value),
+    )
+  )
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

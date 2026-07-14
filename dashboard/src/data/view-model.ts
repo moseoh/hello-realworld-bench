@@ -8,7 +8,7 @@ import {
   type EvidenceRunSet,
   isBuildCatalogEntry,
   isCompleteBuildRunSet,
-  isCompleteRunSet,
+  isCompleteLifecycleRunSet,
   isLifecycleCatalogEntry,
   isServiceCatalogEntry,
   type LifecycleCatalogEntry,
@@ -109,7 +109,7 @@ export function listLifecycleGroups(
   for (const entry of entries) {
     if (!isLifecycleCatalogEntry(entry)) continue
     const runSet = runSets.get(entry.run_set_id)
-    if (!runSet || !isCompleteRunSet(runSet, entry.cohort_fingerprint)) continue
+    if (!runSet || !isCompleteLifecycleRunSet(runSet, entry.cohort_fingerprint)) continue
     const items = groups.get(entry.cohort_fingerprint) ?? []
     upsertLatest(items, { entry, runSet })
     groups.set(entry.cohort_fingerprint, items)
