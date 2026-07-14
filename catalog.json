@@ -609,6 +609,26 @@
       },
       "source_commit": "8913ed3e0073c4b0d6b4df21db7d576ffd90fcf9",
       "started_at": "2026-07-14T00:03:29.348204Z"
+    },
+    {
+      "cohort_fingerprint": "d6ee0866d61e341008c1c592ef319ed4357f5f2276bd848bd5d404af66e59e0c",
+      "evidence_family": "lifecycle",
+      "finished_at": "2026-07-14T03:51:07.696416Z",
+      "image_digest": "sha256:7b24d81befbe372e1ecddbb987c4a3c6517c8646057b1e02b986d7c6471a7612",
+      "path": "run-sets/d6ee0866d61e341008c1c592ef319ed4357f5f2276bd848bd5d404af66e59e0c/2026-07-14T03-46-46_java_spring-boot_jvm-java25_cold-start-api_run-set",
+      "publication_sha256": "44018756bc10019c773b3942ef22a19fcd957d3bbfec30a6b8e765a96e8bf2de",
+      "run_set_id": "2026-07-14T03-46-46_java_spring-boot_jvm-java25_cold-start-api_run-set",
+      "selection": {
+        "build_profile": "local-gradle-docker",
+        "environment_profile": "home-k3s-lifecycle-v1",
+        "implementation": "java/spring-boot",
+        "load_profile": "none",
+        "measurement_protocol": "official-cold-start-v1",
+        "scenario": "cold-start-api",
+        "variant": "jvm-java25"
+      },
+      "source_commit": "87f4040df3200ee188f5a3159bddce898838fbc3",
+      "started_at": "2026-07-14T03:46:48.469970Z"
     }
   ],
   "schema_version": "1.0"
