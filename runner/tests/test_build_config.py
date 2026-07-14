@@ -171,13 +171,16 @@ class ResolveBuildRunConfigTest(unittest.TestCase):
                 )
                 self.assertEqual(variant["build"], expected)
 
-    def test_build_branch_cannot_bypass_service_environment_requirements(self):
+    def test_non_host_build_official_profile_keeps_platform_requirements_with_build_block(self):
         root = self._temporary_contract_root()
         value = yaml.safe_load(
             (PROJECT_ROOT / "contracts/environment-profiles/home-k3s-v1.yaml").read_text()
         )
-        del value["validity"]
-        value["build"] = {"runner": "github-hosted", "platform": "linux/amd64"}
+        for field in ("cluster", "resources", "images", "validity"):
+            del value[field]
+        value["build"] = yaml.safe_load(
+            (PROJECT_ROOT / "contracts/environment-profiles/home-build-v1.yaml").read_text()
+        )["build"]
         path = root / "contracts/environment-profiles/service.yaml"
         path.parent.mkdir(parents=True)
         path.write_text(yaml.safe_dump(value, sort_keys=False))
@@ -185,7 +188,23 @@ class ResolveBuildRunConfigTest(unittest.TestCase):
         with self.assertRaises(ContractValidationError) as context:
             read_contract(path, "environment-profile", root)
 
-        self.assertIn("host-build", str(context.exception))
+        self.assertIn("cluster", str(context.exception))
+
+    def test_host_build_environment_requires_build_block(self):
+        root = self._temporary_contract_root()
+        value = yaml.safe_load(
+            (PROJECT_ROOT / "contracts/environment-profiles/home-k3s-v1.yaml").read_text()
+        )
+        value["orchestrator"] = "host-build"
+        value["load_generator"] = "none"
+        path = root / "contracts/environment-profiles/host-build.yaml"
+        path.parent.mkdir(parents=True)
+        path.write_text(yaml.safe_dump(value, sort_keys=False))
+
+        with self.assertRaises(ContractValidationError) as context:
+            read_contract(path, "environment-profile", root)
+
+        self.assertIn("build", str(context.exception))
 
     def test_service_and_lifecycle_environment_profiles_keep_platform_blocks(self):
         root = self._temporary_contract_root()

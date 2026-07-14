@@ -33,17 +33,38 @@
         "max": { "type": "number", "minimum": 0 },
         "trials": {
           "type": "array",
+          "items": false,
           "minItems": 3,
           "maxItems": 3,
-          "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["trial_id", "value"],
-            "properties": {
-              "trial_id": { "type": "string", "minLength": 1 },
-              "value": { "type": "number", "minimum": 0 }
+          "prefixItems": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["trial_id", "value"],
+              "properties": {
+                "trial_id": { "const": "trial-01" },
+                "value": { "type": "number", "minimum": 0 }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["trial_id", "value"],
+              "properties": {
+                "trial_id": { "const": "trial-02" },
+                "value": { "type": "number", "minimum": 0 }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["trial_id", "value"],
+              "properties": {
+                "trial_id": { "const": "trial-03" },
+                "value": { "type": "number", "minimum": 0 }
+              }
             }
-          }
+          ]
         }
       }
     }
@@ -75,19 +96,40 @@
         {
           "allOf": [
             { "$ref": "#/$defs/trialRef" },
-            { "properties": { "index": { "const": 1 } } }
+            {
+              "properties": {
+                "trial_id": { "const": "trial-01" },
+                "index": { "const": 1 },
+                "status": { "const": "valid" },
+                "path": { "const": "trials/01/build-trial.json" }
+              }
+            }
           ]
         },
         {
           "allOf": [
             { "$ref": "#/$defs/trialRef" },
-            { "properties": { "index": { "const": 2 } } }
+            {
+              "properties": {
+                "trial_id": { "const": "trial-02" },
+                "index": { "const": 2 },
+                "status": { "const": "valid" },
+                "path": { "const": "trials/02/build-trial.json" }
+              }
+            }
           ]
         },
         {
           "allOf": [
             { "$ref": "#/$defs/trialRef" },
-            { "properties": { "index": { "const": 3 } } }
+            {
+              "properties": {
+                "trial_id": { "const": "trial-03" },
+                "index": { "const": 3 },
+                "status": { "const": "valid" },
+                "path": { "const": "trials/03/build-trial.json" }
+              }
+            }
           ]
         }
       ],

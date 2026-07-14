@@ -178,9 +178,11 @@
   "allOf": [
     {
       "if": {
-        "required": ["build"]
+        "properties": { "orchestrator": { "const": "host-build" } },
+        "required": ["orchestrator"]
       },
       "then": {
+        "required": ["build"],
         "properties": {
           "orchestrator": { "const": "host-build" },
           "official": { "const": true },

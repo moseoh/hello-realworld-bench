@@ -105,10 +105,10 @@ class BuildResolvedManifestTest(unittest.TestCase):
             "expected_trials": 3,
             "trials": [
                 {
-                    "trial_id": f"trial-{index}",
+                    "trial_id": f"trial-{index:02d}",
                     "index": index,
                     "status": "valid",
-                    "path": f"trials/{index}/trial.json",
+                    "path": f"trials/{index:02d}/build-trial.json",
                     "sha256": chr(96 + index) * 64,
                 }
                 for index in range(1, 4)
@@ -141,6 +141,39 @@ class BuildResolvedManifestTest(unittest.TestCase):
         errors = self._schema_errors("build-run-set.schema.json", wrong_reference_index)
         self.assertTrue(any(list(error.absolute_path) == ["trials", 2, "index"] for error in errors))
 
+        invalid_status = copy.deepcopy(run_set)
+        invalid_status["trials"][1]["status"] = "invalid"
+        errors = self._schema_errors("build-run-set.schema.json", invalid_status)
+        self.assertTrue(any(list(error.absolute_path) == ["trials", 1, "status"] for error in errors))
+
+        wrong_trial_id = copy.deepcopy(run_set)
+        wrong_trial_id["trials"][2]["trial_id"] = "trial-04"
+        errors = self._schema_errors("build-run-set.schema.json", wrong_trial_id)
+        self.assertTrue(any(list(error.absolute_path) == ["trials", 2, "trial_id"] for error in errors))
+
+        wrong_trial_path = copy.deepcopy(run_set)
+        wrong_trial_path["trials"][1]["path"] = "trials/02/trial.json"
+        errors = self._schema_errors("build-run-set.schema.json", wrong_trial_path)
+        self.assertTrue(any(list(error.absolute_path) == ["trials", 1, "path"] for error in errors))
+
+        wrong_summary_trial_id = copy.deepcopy(run_set)
+        wrong_summary_trial_id["summary"]["build_metrics"]["image_rebuild_ms"]["trials"][2]["trial_id"] = "trial-04"
+        errors = self._schema_errors("build-run-set.schema.json", wrong_summary_trial_id)
+        self.assertTrue(
+            any(
+                list(error.absolute_path)
+                == [
+                    "summary",
+                    "build_metrics",
+                    "image_rebuild_ms",
+                    "trials",
+                    2,
+                    "trial_id",
+                ]
+                for error in errors
+            )
+        )
+
         non_build_trial = copy.deepcopy(trial)
         non_build_trial["time_series"] = {"runtime_ms": 1}
         errors = self._schema_errors("build-trial.schema.json", non_build_trial)
@@ -166,7 +199,7 @@ class BuildResolvedManifestTest(unittest.TestCase):
                 "median": 1,
                 "max": 1,
                 "trials": [
-                    {"trial_id": f"trial-{index}", "value": 1}
+                    {"trial_id": f"trial-{index:02d}", "value": 1}
                     for index in range(1, 4)
                 ],
             }
