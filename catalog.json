@@ -860,6 +860,23 @@
       },
       "source_commit": "ac25fe58ffca5d43975afe52656fe1c0ebb53a1a",
       "started_at": "2026-07-14T17:43:32.850179Z"
+    },
+    {
+      "cohort_fingerprint": "5833a27294d9fc4a2ff5160cf641261ca2e9f50fdd2b1321e48ce781d2495290",
+      "evidence_family": "build",
+      "finished_at": "2026-07-14T17:53:29.895017Z",
+      "path": "build-run-sets/5833a27294d9fc4a2ff5160cf641261ca2e9f50fdd2b1321e48ce781d2495290/2026-07-14T17-46-11-422401_java_quarkus_jvm-java25_build",
+      "publication_sha256": "6fb549053bd5860303798833502d892cde04868b0974fd47b7d6e5c361d2e482",
+      "run_set_id": "2026-07-14T17-46-11-422401_java_quarkus_jvm-java25_build",
+      "selection": {
+        "build_profile": "official-gradle-docker-v1",
+        "environment_profile": "home-build-v1",
+        "implementation": "java/quarkus",
+        "measurement_protocol": "official-build-v1",
+        "variant": "jvm-java25"
+      },
+      "source_commit": "ac25fe58ffca5d43975afe52656fe1c0ebb53a1a",
+      "started_at": "2026-07-14T17:48:59.526519Z"
     }
   ],
   "schema_version": "1.0"

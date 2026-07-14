@@ -1,0 +1,86 @@
+{
+  "schema_version": "1.0",
+  "trial_id": "trial-02",
+  "artifacts": [
+    {
+      "path": "application-artifacts.json",
+      "size_bytes": 81160,
+      "sha256": "5dcc954a7eb424be47c85bafdbe56cbc04a11f0345dd06a56203f6f185996c7e"
+    },
+    {
+      "path": "image-artifacts.json",
+      "size_bytes": 1200,
+      "sha256": "442366ad9a07fc2e692c619a4deb809463b4cf0579873057806c65e1141c015e"
+    },
+    {
+      "path": "oci/image-package/index.json",
+      "size_bytes": 364,
+      "sha256": "69bd29d08459946ac80b3ef470e4cbcac7d495b3bc46de11509252b7a44fd313"
+    },
+    {
+      "path": "oci/image-package/manifest.json",
+      "size_bytes": 2190,
+      "sha256": "5b6a70ee2e261a74637c5682179ad158fd0d20b2272ce797b3aeb7f81f5f99d4"
+    },
+    {
+      "path": "oci/image-rebuild/index.json",
+      "size_bytes": 364,
+      "sha256": "a9626356d4c5b9415ab247d48675732a14a624dec1e22df16518bc3d06c7c285"
+    },
+    {
+      "path": "oci/image-rebuild/manifest.json",
+      "size_bytes": 2190,
+      "sha256": "ac367abcfd973b2e010a61be636e6b96ec1a19b0faa00342dc5a5346d441e262"
+    },
+    {
+      "path": "operations/01-gradle_clean_build.json",
+      "size_bytes": 1485,
+      "sha256": "97c697cfb41cfa25d1539a937796f490a0bd514e6f7374ba3920b62c5f3c76b0"
+    },
+    {
+      "path": "operations/01-gradle_clean_build.log",
+      "size_bytes": 1176,
+      "sha256": "6d5f7478351fba2c4bf5043335055899a91e28389c9b7a86bd0c5ab333e39ac8"
+    },
+    {
+      "path": "operations/02-image_package.json",
+      "size_bytes": 1885,
+      "sha256": "7e4e2a518a3574a23fe294a0ed985a22b5043ffdd29b9af609e0e137a6ff6764"
+    },
+    {
+      "path": "operations/02-image_package.log",
+      "size_bytes": 3622,
+      "sha256": "50dc6fb7b0eae02164bddffdb3e796b15c34a96db64bcfa6a11e184867e4f7c5"
+    },
+    {
+      "path": "operations/03-gradle_incremental_rebuild.json",
+      "size_bytes": 1489,
+      "sha256": "50214d0d4fdb4f0cee9b1ad2ea10801713b8c51daa77581be0dd466f979470ae"
+    },
+    {
+      "path": "operations/03-gradle_incremental_rebuild.log",
+      "size_bytes": 1227,
+      "sha256": "ebe3a10694d80a03efd0de8e8caeb6e4a15f09c972ff22b62d569001bec6b958"
+    },
+    {
+      "path": "operations/04-image_rebuild.json",
+      "size_bytes": 1632,
+      "sha256": "a9508292322e0a3791f2c180ad67430b84aefbf2f808837d6cbd8921e6d005d6"
+    },
+    {
+      "path": "operations/04-image_rebuild.log",
+      "size_bytes": 1612,
+      "sha256": "a19cb4eafa4c96273154f98961567ed9957f2d09976d23bfcc7d29706703d85a"
+    },
+    {
+      "path": "source-probe.json",
+      "size_bytes": 283,
+      "sha256": "5ce846c9dc4068c6392dfb08f9cc7397104fa481bfb304820e45609351fff81c"
+    },
+    {
+      "path": "trial-inputs.json",
+      "size_bytes": 2707,
+      "sha256": "de6976b863badbf7f482d7cfcd12202011c4ead2d19aa946f7b16d820a2d8c42"
+    }
+  ]
+}
