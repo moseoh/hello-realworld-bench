@@ -985,16 +985,17 @@ def _application_artifact(
     artifact_type = declaration["type"]
     artifact_path = str(declaration["path"])
     if artifact_type == "glob":
-        files = sorted(path for path in app_dir.glob(artifact_path) if path.is_file())
+        files = [path for path in app_dir.glob(artifact_path) if path.is_file()]
     elif artifact_type == "directory":
         directory = app_dir / artifact_path
         if not directory.is_dir():
             raise ValueError(f"Application artifact directory is missing: {artifact_path}")
-        files = sorted(path for path in directory.rglob("*") if path.is_file())
+        files = [path for path in directory.rglob("*") if path.is_file()]
     else:
         raise ValueError(f"Unsupported application artifact type: {artifact_type}")
     if not files:
         raise ValueError("Gradle produced no declared application artifact")
+    files.sort(key=lambda path: path.relative_to(app_dir).as_posix())
     entries = [
         {
             "path": path.relative_to(app_dir).as_posix(),

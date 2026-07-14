@@ -224,6 +224,31 @@ class BuildRunnerTest(unittest.TestCase):
             "Intel(R) Xeon(R) Gold 6430",
         )
 
+    def test_directory_application_artifacts_use_canonical_posix_order(self):
+        module = _runner_module()
+        with tempfile.TemporaryDirectory() as directory:
+            app_dir = Path(directory)
+            artifact_dir = app_dir / "build/quarkus-app"
+            (artifact_dir / "quarkus").mkdir(parents=True)
+            (artifact_dir / "quarkus/generated-bytecode.jar").write_bytes(b"nested")
+            (artifact_dir / "quarkus-run.jar").write_bytes(b"root")
+            config = replace(
+                self.config,
+                app_dir=app_dir,
+                build={
+                    **self.config.build,
+                    "application_artifact": {
+                        "type": "directory",
+                        "path": "build/quarkus-app",
+                    },
+                },
+            )
+
+            artifact = module._application_artifact(config, app_dir)
+
+            paths = [entry["path"] for entry in artifact["files"]]
+            self.assertEqual(paths, sorted(paths))
+
     def test_probe_sources_must_match_and_contain_exact_from_text_before_commands(self):
         module = _runner_module()
         with tempfile.TemporaryDirectory() as directory:
