@@ -668,32 +668,92 @@ class WorkflowTrustBoundaryTest(unittest.TestCase):
         )
         self.assertIn("${{ steps.allowlist.outputs.image_key }}", download["with"]["name"])
 
-    def test_pull_request_ci_uses_only_github_hosted_runner(self):
-        workflow = self._load("ci.yml")
+    def test_pull_request_ci_uses_only_github_hosted_runners(self):
+        workflow_names = (
+            "ci-runner.yml",
+            "ci-spring-boot.yml",
+            "ci-quarkus.yml",
+            "ci-dashboard.yml",
+            "ci-workflows.yml",
+        )
 
-        self.assertIn("pull_request", workflow["on"])
-        self.assertEqual(workflow["permissions"], {"contents": "read"})
-        self.assertEqual(workflow["jobs"]["check"]["runs-on"], "ubuntu-latest")
-        uses = [step.get("uses") for step in workflow["jobs"]["check"]["steps"]]
+        for name in workflow_names:
+            with self.subTest(workflow=name):
+                workflow = self._load(name)
+                self.assertIn("pull_request", workflow["on"])
+                self.assertEqual(workflow["permissions"], {"contents": "read"})
+                for job in workflow["jobs"].values():
+                    self.assertEqual(job["runs-on"], "ubuntu-latest")
+
+        runner = self._load("ci-runner.yml")["jobs"]["runner"]
+        uses = [step.get("uses") for step in runner["steps"]]
         self.assertIn("grafana/setup-k6-action@v1", uses)
         setup_k6 = next(
             step
-            for step in workflow["jobs"]["check"]["steps"]
+            for step in runner["steps"]
             if step.get("uses") == "grafana/setup-k6-action@v1"
         )
         self.assertEqual(setup_k6["with"]["k6-version"], "2.1.0")
+
+        quarkus = self._load("ci-quarkus.yml")["jobs"]["quarkus"]
         setup_java = next(
             step
-            for step in workflow["jobs"]["check"]["steps"]
+            for step in quarkus["steps"]
             if step.get("uses") == "actions/setup-java@v4"
         )
         self.assertEqual(setup_java["with"]["java-version"], "25")
-        implementation_tests = next(
+
+        spring_test = next(
             step
-            for step in workflow["jobs"]["check"]["steps"]
-            if step.get("name") == "Test implementations"
+            for step in self._load("ci-spring-boot.yml")["jobs"]["spring-boot"]["steps"]
+            if step.get("name") == "Test Spring Boot implementation"
         )
-        self.assertEqual(implementation_tests["run"], "make test-spring test-quarkus")
+        quarkus_test = next(
+            step
+            for step in quarkus["steps"]
+            if step.get("name") == "Test Quarkus implementation"
+        )
+        self.assertEqual(spring_test["run"], "make test-spring")
+        self.assertEqual(quarkus_test["run"], "make test-quarkus")
+
+    def test_ci_workflows_are_filtered_by_responsibility(self):
+        expected_paths = {
+            "ci-runner.yml": {
+                "runner/**",
+                "contracts/**",
+                "scenarios/**",
+                "infra/**",
+                "implementations/**/implementation.yaml",
+                "implementations/**/variants/**",
+                "implementations/**/benchmark-entrypoint.sh",
+                "Makefile",
+                ".github/workflows/ci-runner.yml",
+            },
+            "ci-spring-boot.yml": {
+                "implementations/java/spring-boot/**",
+                "Makefile",
+                ".github/workflows/ci-spring-boot.yml",
+            },
+            "ci-quarkus.yml": {
+                "implementations/java/quarkus/**",
+                "Makefile",
+                ".github/workflows/ci-quarkus.yml",
+            },
+            "ci-dashboard.yml": {
+                "dashboard/**",
+                "Makefile",
+                ".github/workflows/ci-dashboard.yml",
+            },
+            "ci-workflows.yml": {".github/workflows/**"},
+        }
+
+        for name, expected in expected_paths.items():
+            with self.subTest(workflow=name):
+                workflow = self._load(name)
+                self.assertEqual(set(workflow["on"]["pull_request"]["paths"]), expected)
+                self.assertEqual(set(workflow["on"]["push"]["paths"]), expected)
+                self.assertNotIn("README.md", expected)
+                self.assertFalse(any(path.startswith("docs/") for path in expected))
 
     def _load(self, name: str):
         with (ROOT / ".github/workflows" / name).open() as file:

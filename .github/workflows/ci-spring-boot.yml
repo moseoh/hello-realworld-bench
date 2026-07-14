@@ -1,0 +1,26 @@
+name: Spring Boot CI
+
+on:
+  pull_request:
+    paths:
+      - implementations/java/spring-boot/**
+      - Makefile
+      - .github/workflows/ci-spring-boot.yml
+  push:
+    branches: [main]
+    paths:
+      - implementations/java/spring-boot/**
+      - Makefile
+      - .github/workflows/ci-spring-boot.yml
+
+permissions:
+  contents: read
+
+jobs:
+  spring-boot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test Spring Boot implementation
+        run: make test-spring

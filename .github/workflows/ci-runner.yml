@@ -1,0 +1,44 @@
+name: Runner CI
+
+on:
+  pull_request:
+    paths:
+      - runner/**
+      - contracts/**
+      - scenarios/**
+      - infra/**
+      - implementations/**/implementation.yaml
+      - implementations/**/variants/**
+      - implementations/**/benchmark-entrypoint.sh
+      - Makefile
+      - .github/workflows/ci-runner.yml
+  push:
+    branches: [main]
+    paths:
+      - runner/**
+      - contracts/**
+      - scenarios/**
+      - infra/**
+      - implementations/**/implementation.yaml
+      - implementations/**/variants/**
+      - implementations/**/benchmark-entrypoint.sh
+      - Makefile
+      - .github/workflows/ci-runner.yml
+
+permissions:
+  contents: read
+
+jobs:
+  runner:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - uses: grafana/setup-k6-action@v1
+        with:
+          k6-version: "2.1.0"
+      - name: Validate contracts and runner
+        run: make validate-contracts test-runner
