@@ -78,7 +78,12 @@
         "machine_id": { "const": "f66cd2d134b94bb18eb7e531d1baf343" },
         "cpu_model": { "const": "AMD Ryzen 7 5825U" },
         "min_logical_cpus": { "const": 16 },
-        "min_memory_bytes": { "const": 29313151795 }
+        "min_memory_bytes": { "const": 29313151795 },
+        "container_engine": { "type": "string" },
+        "daemon_mode": { "type": "string" },
+        "runner_uid": { "type": "integer" },
+        "docker_version": { "type": "string" },
+        "buildx_version": { "type": "string" }
       }
     },
     "cluster": {
@@ -258,6 +263,47 @@
                 "minItems": 3,
                 "maxItems": 3
               }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "id": { "const": "home-build-v1" } },
+        "required": ["id"]
+      },
+      "then": {
+        "properties": {
+          "build": {
+            "required": [
+              "container_engine",
+              "daemon_mode",
+              "runner_uid",
+              "docker_version",
+              "buildx_version"
+            ],
+            "properties": {
+              "container_engine": { "const": "docker" },
+              "daemon_mode": { "const": "rootless" },
+              "runner_uid": { "const": 1000 },
+              "docker_version": { "const": "29.6.1" },
+              "buildx_version": { "const": "0.35.0" }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "build": {
+            "not": {
+              "anyOf": [
+                { "required": ["container_engine"] },
+                { "required": ["daemon_mode"] },
+                { "required": ["runner_uid"] },
+                { "required": ["docker_version"] },
+                { "required": ["buildx_version"] }
+              ]
             }
           }
         }

@@ -62,6 +62,11 @@ class ResolveBuildRunConfigTest(unittest.TestCase):
                 "cpu_model": "AMD Ryzen 7 5825U",
                 "min_logical_cpus": 16,
                 "min_memory_bytes": 29313151795,
+                "container_engine": "docker",
+                "daemon_mode": "rootless",
+                "runner_uid": 1000,
+                "docker_version": "29.6.1",
+                "buildx_version": "0.35.0",
             },
         )
         self.assertEqual(protocol["trials"], 3)

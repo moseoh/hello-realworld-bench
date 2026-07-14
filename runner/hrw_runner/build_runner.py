@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 import tarfile
@@ -1033,13 +1034,7 @@ def _collect_host_evidence(command_runner: CommandRunner) -> dict[str, Any]:
         "cpu_model": cpu_model,
         "logical_cpu_count": os.cpu_count() or 0,
         "memory_bytes": memory_bytes,
-        "docker_version": _execute(
-            command_runner,
-            ["docker", "version", "--format", "{{.Server.Version}}"],
-        ).stdout.strip(),
-        "buildx_version": _execute(
-            command_runner, ["docker", "buildx", "version"]
-        ).stdout.strip(),
+        **_collect_docker_evidence(command_runner),
         "running_containers": _execute(
             command_runner,
             ["docker", "ps", "--format", "{{.ID}} {{.Image}} {{.Names}}"],
@@ -1057,6 +1052,42 @@ def _collect_host_evidence(command_runner: CommandRunner) -> dict[str, Any]:
             if volume.startswith("buildx_buildkit_")
         ],
     }
+
+
+def _collect_docker_evidence(command_runner: CommandRunner) -> dict[str, Any]:
+    security_options = json.loads(
+        _execute(
+            command_runner,
+            ["docker", "info", "--format", "{{json .SecurityOptions}}"],
+        ).stdout
+    )
+    if not isinstance(security_options, list) or not all(
+        isinstance(option, str) for option in security_options
+    ):
+        raise ValueError("Docker SecurityOptions are invalid")
+    return {
+        "effective_uid": os.geteuid(),
+        "docker_version": _execute(
+            command_runner,
+            ["docker", "version", "--format", "{{.Server.Version}}"],
+        ).stdout.strip(),
+        "buildx_version": _buildx_semantic_version(
+            _execute(command_runner, ["docker", "buildx", "version"]).stdout
+        ),
+        "docker_security_options": security_options,
+        "cgroup_driver": _execute(
+            command_runner,
+            ["docker", "info", "--format", "{{.CgroupDriver}}"],
+        ).stdout.strip(),
+        "docker_host": os.environ.get("DOCKER_HOST", ""),
+    }
+
+
+def _buildx_semantic_version(output: str) -> str:
+    match = re.search(r"(?:^|\s)v?(\d+\.\d+\.\d+)(?:\s|$)", output.strip())
+    if match is None:
+        raise ValueError("Docker Buildx version is not semantic")
+    return match.group(1)
 
 
 def _normalized_host_evidence(value: dict[str, Any]) -> dict[str, Any]:
@@ -1081,6 +1112,19 @@ def _validate_preflight(
         raise ValueError("Build runner CPU count is below home-build-v1")
     if int(evidence.get("memory_bytes", 0)) < int(build["min_memory_bytes"]):
         raise ValueError("Build runner memory is below home-build-v1")
+    if evidence.get("effective_uid") != build["runner_uid"]:
+        raise ValueError("Build runner effective UID does not match home-build-v1")
+    if evidence.get("docker_version") != build["docker_version"]:
+        raise ValueError("Docker server version does not match home-build-v1")
+    if evidence.get("buildx_version") != build["buildx_version"]:
+        raise ValueError("Docker Buildx version does not match home-build-v1")
+    if "name=rootless" not in evidence.get("docker_security_options", []):
+        raise ValueError("Docker SecurityOptions do not enable rootless mode")
+    if evidence.get("cgroup_driver") != "systemd":
+        raise ValueError("Docker cgroup driver is not systemd")
+    expected_docker_host = f"unix:///run/user/{build['runner_uid']}/docker.sock"
+    if evidence.get("docker_host") != expected_docker_host:
+        raise ValueError("DOCKER_HOST does not match the rootless Docker socket")
     if any(
         str(builder).startswith("hrw-build-")
         for builder in evidence.get("builders", [])

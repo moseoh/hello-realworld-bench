@@ -9,6 +9,7 @@ import tempfile
 import unittest
 from dataclasses import replace
 from pathlib import Path
+from unittest.mock import patch
 
 from hrw_runner.build_config import resolve_build_run_config
 
@@ -95,9 +96,13 @@ class _FakeCommandRunner:
                     json.dumps({"containerimage.digest": f"sha256:{digest}"})
                 )
         elif argv == ["docker", "version", "--format", "{{.Server.Version}}"]:
-            stdout = "28.3.2\n"
+            stdout = "29.6.1\n"
         elif argv == ["docker", "buildx", "version"]:
-            stdout = "github.com/docker/buildx v0.25.0\n"
+            stdout = "github.com/docker/buildx v0.35.0 0123456\n"
+        elif argv == ["docker", "info", "--format", "{{json .SecurityOptions}}"]:
+            stdout = '["name=seccomp,profile=builtin", "name=rootless"]\n'
+        elif argv == ["docker", "info", "--format", "{{.CgroupDriver}}"]:
+            stdout = "systemd\n"
         elif argv == ["docker", "ps", "--format", "{{.ID}} {{.Image}} {{.Names}}"]:
             stdout = ""
         elif argv == ["docker", "buildx", "ls", "--format", "{{.Name}}"]:
@@ -158,8 +163,12 @@ def _host_evidence():
         "cpu_model": "AMD Ryzen 7 5825U",
         "logical_cpu_count": 16,
         "memory_bytes": 32_000_000_000,
-        "docker_version": "28.3.2",
-        "buildx_version": "github.com/docker/buildx v0.25.0",
+        "effective_uid": 1000,
+        "docker_version": "29.6.1",
+        "buildx_version": "0.35.0",
+        "docker_security_options": ["name=seccomp,profile=builtin", "name=rootless"],
+        "cgroup_driver": "systemd",
+        "docker_host": "unix:///run/user/1000/docker.sock",
         "running_containers": [],
     }
 
@@ -432,6 +441,92 @@ class BuildRunnerTest(unittest.TestCase):
                     ["docker", "pull", EXPECTED_GRADLE_IMAGE],
                     [argv for argv, _, _ in fake.calls],
                 )
+
+    def test_preflight_records_and_requires_the_frozen_rootless_docker_contract(self):
+        module = _runner_module()
+        with tempfile.TemporaryDirectory() as directory:
+            temp = Path(directory)
+            seed = temp / "dependency-seed"
+            seed.mkdir()
+            output = module.run_build_benchmark_set(
+                self.config,
+                command_runner=_FakeCommandRunner(PROJECT_ROOT, self.config.app_dir),
+                dependency_seed=seed,
+                results_root=temp / "results",
+                host_probe=_host_evidence,
+                monotonic_ns=_FakeClock().monotonic_ns,
+                utc_now=_FakeClock().utc_now,
+            )
+
+            preflight = json.loads((output / "preflight.json").read_text())
+            self.assertEqual(
+                {key: preflight[key] for key in (
+                    "effective_uid",
+                    "docker_version",
+                    "buildx_version",
+                    "docker_security_options",
+                    "cgroup_driver",
+                    "docker_host",
+                )},
+                {
+                    "effective_uid": 1000,
+                    "docker_version": "29.6.1",
+                    "buildx_version": "0.35.0",
+                    "docker_security_options": [
+                        "name=seccomp,profile=builtin",
+                        "name=rootless",
+                    ],
+                    "cgroup_driver": "systemd",
+                    "docker_host": "unix:///run/user/1000/docker.sock",
+                },
+            )
+
+    def test_preflight_rejects_rootless_docker_contract_mismatches_before_pull(self):
+        module = _runner_module()
+        cases = (
+            ("effective_uid", 1001, "effective UID"),
+            ("docker_version", "29.6.2", "Docker server version"),
+            ("buildx_version", "0.35.1", "Buildx version"),
+            ("docker_security_options", ["name=seccomp"], "rootless"),
+            ("cgroup_driver", "cgroupfs", "cgroup driver"),
+            ("docker_host", "unix:///var/run/docker.sock", "DOCKER_HOST"),
+        )
+        for field, invalid, message in cases:
+            with self.subTest(field=field), tempfile.TemporaryDirectory() as directory:
+                host = _host_evidence()
+                host[field] = invalid
+                fake = _FakeCommandRunner(PROJECT_ROOT, self.config.app_dir)
+                seed = Path(directory) / "dependency-seed"
+                seed.mkdir()
+                with self.assertRaisesRegex(ValueError, message):
+                    module.run_build_benchmark_set(
+                        self.config,
+                        command_runner=fake,
+                        dependency_seed=seed,
+                        results_root=Path(directory) / "results",
+                        host_probe=lambda: host,
+                    )
+                self.assertNotIn(
+                    ["docker", "pull", EXPECTED_GRADLE_IMAGE],
+                    [argv for argv, _, _ in fake.calls],
+                )
+
+    def test_collect_docker_evidence_normalizes_buildx_and_records_rootless_state(self):
+        module = _runner_module()
+        fake = _FakeCommandRunner(PROJECT_ROOT, self.config.app_dir)
+        with patch("hrw_runner.build_runner.os.geteuid", return_value=1000), patch.dict(
+            os.environ,
+            {"DOCKER_HOST": "unix:///run/user/1000/docker.sock"},
+            clear=False,
+        ):
+            evidence = module._collect_docker_evidence(fake)
+
+        self.assertEqual(evidence["effective_uid"], 1000)
+        self.assertEqual(evidence["docker_version"], "29.6.1")
+        self.assertEqual(evidence["buildx_version"], "0.35.0")
+        self.assertIn("name=rootless", evidence["docker_security_options"])
+        self.assertEqual(evidence["cgroup_driver"], "systemd")
+        self.assertEqual(evidence["docker_host"], "unix:///run/user/1000/docker.sock")
 
     def test_builder_resources_are_campaign_unique_and_cleanup_is_exact(self):
         module = _runner_module()

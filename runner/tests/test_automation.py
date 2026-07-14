@@ -86,6 +86,38 @@ class WorkflowTrustBoundaryTest(unittest.TestCase):
         )
         self.assertEqual(download["with"]["name"], "${{ needs.benchmark.outputs.raw_artifact_name }}")
 
+    def test_official_build_workflow_configures_only_the_trusted_rootless_docker_socket(self):
+        workflow = self._load("official-build-benchmark.yml")
+        benchmark = workflow["jobs"]["benchmark"]
+        publish = workflow["jobs"]["publish"]
+        steps = benchmark["steps"]
+        setup_index = next(
+            index
+            for index, step in enumerate(steps)
+            if step.get("name") == "Configure trusted rootless Docker"
+        )
+        setup = steps[setup_index]
+        recover_index = next(
+            index
+            for index, step in enumerate(steps)
+            if step.get("name") == "Recover interrupted build campaign"
+        )
+        run_index = next(
+            index
+            for index, step in enumerate(steps)
+            if step.get("name") == "Run official build set"
+        )
+
+        self.assertLess(setup_index, recover_index)
+        self.assertLess(setup_index, run_index)
+        self.assertIn('test "$(id -u)" = "1000"', setup["run"])
+        self.assertIn('"$HOME/.local/bin" >> "$GITHUB_PATH"', setup["run"])
+        self.assertIn(
+            "DOCKER_HOST=unix:///run/user/1000/docker.sock",
+            setup["run"],
+        )
+        self.assertNotIn("DOCKER_HOST", json.dumps(publish))
+
     def test_official_build_workflow_creates_archive_from_validated_allowlist(self):
         workflow = self._load("official-build-benchmark.yml")
         publish = workflow["jobs"]["publish"]
@@ -191,6 +223,12 @@ class WorkflowTrustBoundaryTest(unittest.TestCase):
         for required in (
             "Docker Engine",
             "Docker Buildx",
+            "29.6.1",
+            "0.35.0",
+            "UID 1000",
+            "unix:///run/user/1000/docker.sock",
+            "k3s containerd",
+            "`systemd` cgroup driver",
             "build-run-sets/<cohort-fingerprint>/<run-set-id>/",
             "raw-build-evidence.tar.gz",
             "persist-credentials: false",
@@ -207,6 +245,9 @@ class WorkflowTrustBoundaryTest(unittest.TestCase):
             "exactly three",
             "runtime-base",
             "fresh copy",
+            "effective UID 1000",
+            "unix:///run/user/1000/docker.sock",
+            "k3s containerd",
         ):
             self.assertIn(required, methodology)
         for required in (

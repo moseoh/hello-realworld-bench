@@ -725,6 +725,11 @@ def _validate_host_evidence(
     expected = {
         "machine_id": "f66cd2d134b94bb18eb7e531d1baf343",
         "cpu_model": "AMD Ryzen 7 5825U",
+        "effective_uid": 1000,
+        "docker_version": "29.6.1",
+        "buildx_version": "0.35.0",
+        "cgroup_driver": "systemd",
+        "docker_host": "unix:///run/user/1000/docker.sock",
     }
     for phase, evidence in (("preflight", preflight), ("postflight", postflight)):
         for field, value in expected.items():
@@ -738,16 +743,23 @@ def _validate_host_evidence(
             "memory_bytes"
         ] < 29_313_151_795:
             raise ValueError(f"Build host {phase} memory is invalid")
-        for field in ("docker_version", "buildx_version"):
-            if not isinstance(evidence.get(field), str) or not evidence[field]:
-                raise ValueError(f"Build host {phase} {field} is missing")
+        security_options = evidence.get("docker_security_options")
+        if (
+            not isinstance(security_options, list)
+            or "name=rootless" not in security_options
+        ):
+            raise ValueError(f"Build host {phase} Docker rootless evidence is invalid")
     stable_fields = (
         "machine_id",
         "cpu_model",
         "logical_cpu_count",
         "memory_bytes",
+        "effective_uid",
         "docker_version",
         "buildx_version",
+        "docker_security_options",
+        "cgroup_driver",
+        "docker_host",
     )
     for field in stable_fields:
         if preflight.get(field) != postflight.get(field):
