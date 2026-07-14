@@ -3,6 +3,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+from .build_config import resolve_build_run_config
+from .build_runner import run_build_benchmark_set
 from .config import resolve_run_config
 from .contracts import ContractValidationError, validate_repository_contracts
 from .publication import publish_run_set
@@ -25,6 +27,8 @@ _USAGE = (
     "       python -m hrw_runner run-set <implementation> <scenario> [variant] "
     "[--load-profile ID] [--environment-profile ID] "
     "[--measurement-protocol ID] [--build-profile ID]\n"
+    "       python -m hrw_runner build-set <implementation> [variant] "
+    "--environment-profile ID --measurement-protocol ID --build-profile ID\n"
     "       python -m hrw_runner publish <run-set-dir> <dataset-dir> "
     "--source-commit SHA [--workflow-url URL] "
     "[--raw-artifact-url URL --raw-artifact-sha256 SHA]\n"
@@ -87,6 +91,26 @@ def main(argv: list[str] | None = None) -> int:
             print(format_table(rows))
         return 0
 
+    if args and args[0] == "build-set":
+        parsed_build_args = _parse_build_args(args[1:])
+        if parsed_build_args is None:
+            print(_USAGE, file=sys.stderr)
+            return 2
+        implementation, variant, profile_overrides = parsed_build_args
+        try:
+            config = resolve_build_run_config(
+                implementation,
+                variant,
+                root_dir,
+                **profile_overrides,
+            )
+            result_dir = run_build_benchmark_set(config)
+        except Exception as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
+        print(f"Build run set directory: {result_dir}")
+        return 0
+
     run_set_mode = bool(args and args[0] == "run-set")
     run_args = args[1:] if run_set_mode else args
     parsed_run_args = _parse_run_args(run_args)
@@ -146,6 +170,39 @@ def _parse_run_args(
         index += 2
 
     return implementation, scenario, variant, profile_overrides
+
+
+def _parse_build_args(
+    args: list[str],
+) -> tuple[str, str | None, dict[str, str]] | None:
+    if not args or args[0].startswith("--"):
+        return None
+
+    implementation = args[0]
+    index = 1
+    variant = None
+    if index < len(args) and not args[index].startswith("--"):
+        variant = args[index]
+        index += 1
+
+    flags = {
+        "--environment-profile": "environment_profile",
+        "--measurement-protocol": "measurement_protocol",
+        "--build-profile": "build_profile",
+    }
+    profile_overrides: dict[str, str] = {}
+    while index < len(args):
+        flag = args[index]
+        if flag not in flags or flag in profile_overrides:
+            return None
+        if index + 1 >= len(args) or not args[index + 1] or args[index + 1].startswith("--"):
+            return None
+        profile_overrides[flags[flag]] = args[index + 1]
+        index += 2
+
+    if set(profile_overrides) != set(flags.values()):
+        return None
+    return implementation, variant, profile_overrides
 
 
 def _parse_publish_args(

@@ -83,6 +83,132 @@ class DatasetPublicationTest(unittest.TestCase):
             with self.subTest(field=field), self.assertRaises(PublicationError):
                 _validate_promotion(run_set, changed, "c" * 40)
 
+    def test_allows_only_the_frozen_official_build_combination(self):
+        run_set = {
+            "status": "complete",
+            "expected_trials": 3,
+            "trials": [{"status": "valid"}] * 3,
+            "summary": {"valid_trial_count": 3},
+        }
+        manifest = {
+            "source": {"git_commit": "c" * 40, "git_dirty": False},
+            "selection": {
+                "environment_profile": "home-build-v1",
+                "measurement_protocol": "official-build-v1",
+                "build_profile": "official-gradle-docker-v1",
+            },
+            "cohort": {"evidence_family": "build"},
+        }
+
+        _validate_promotion(run_set, manifest, "c" * 40)
+
+        for field, value in (
+            ("environment_profile", "home-k3s-v1"),
+            ("measurement_protocol", "official-service-v1"),
+            ("build_profile", "local-gradle-docker"),
+        ):
+            changed = json.loads(json.dumps(manifest))
+            changed["selection"][field] = value
+            with self.subTest(field=field), self.assertRaises(PublicationError):
+                _validate_promotion(run_set, changed, "c" * 40)
+
+    def test_publishes_compact_build_evidence_without_operation_logs(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            run_set_dir = self._write_build_run_set(root / "source", "build-001")
+            dataset_dir = root / "dataset"
+
+            with patch(
+                "hrw_runner.publication.validate_build_publication_evidence"
+            ) as validate:
+                entry_dir = publish_run_set(
+                    run_set_dir,
+                    dataset_dir,
+                    PROJECT_ROOT,
+                    source_commit="c" * 40,
+                )
+
+            validate.assert_called_once_with(run_set_dir.resolve(), PROJECT_ROOT)
+            self.assertEqual(
+                entry_dir,
+                dataset_dir / "build-run-sets" / DIGEST_B / "build-001",
+            )
+            self.assertTrue((entry_dir / "build-resolved-manifest.json").is_file())
+            self.assertTrue((entry_dir / "build-run-set.json").is_file())
+            self.assertTrue((entry_dir / "preflight.json").is_file())
+            self.assertTrue((entry_dir / "postflight.json").is_file())
+            self.assertTrue((entry_dir / "cache-seed.json").is_file())
+            self.assertTrue((entry_dir / "trials/01/build-trial.json").is_file())
+            self.assertTrue(
+                (entry_dir / "trials/01/artifact-manifest.json").is_file()
+            )
+            self.assertFalse((entry_dir / "trials/01/operation.log").exists())
+
+            catalog = json.loads((dataset_dir / "catalog.json").read_text())
+            entry = catalog["entries"][0]
+            self.assertEqual(entry["evidence_family"], "build")
+            self.assertEqual(entry["path"], "build-run-sets/" + DIGEST_B + "/build-001")
+            self.assertNotIn("image_digest", entry)
+            self.assertNotIn("scenario", entry["selection"])
+            self.assertNotIn("load_profile", entry["selection"])
+
+    def test_build_publication_is_idempotent_and_preserves_legacy_catalog_entries(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            dataset_dir = root / "dataset"
+            legacy = self._write_run_set(root / "legacy", "service-001")
+            build = self._write_build_run_set(root / "build", "build-001")
+
+            with (
+                patch("hrw_runner.publication.validate_run_set_evidence"),
+                patch("hrw_runner.publication.validate_resolved_manifest"),
+                patch("hrw_runner.publication.validate_build_publication_evidence"),
+            ):
+                publish_run_set(
+                    legacy, dataset_dir, PROJECT_ROOT, source_commit="c" * 40
+                )
+                catalog_path = dataset_dir / "catalog.json"
+                catalog = json.loads(catalog_path.read_text())
+                catalog["entries"][0].pop("evidence_family")
+                catalog_path.write_text(json.dumps(catalog))
+                publish_run_set(
+                    legacy, dataset_dir, PROJECT_ROOT, source_commit="c" * 40
+                )
+                first = publish_run_set(
+                    build, dataset_dir, PROJECT_ROOT, source_commit="c" * 40
+                )
+                second = publish_run_set(
+                    build, dataset_dir, PROJECT_ROOT, source_commit="c" * 40
+                )
+
+            self.assertEqual(first, second)
+            catalog = json.loads((dataset_dir / "catalog.json").read_text())
+            legacy_entry, build_entry = catalog["entries"]
+            self.assertEqual(
+                legacy_entry["path"], "run-sets/" + DIGEST_B + "/service-001"
+            )
+            self.assertNotIn("evidence_family", legacy_entry)
+            self.assertEqual(build_entry["path"], "build-run-sets/" + DIGEST_B + "/build-001")
+
+    def test_rejects_tampered_build_catalog_entry(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            run_set_dir = self._write_build_run_set(root / "source", "build-001")
+            dataset_dir = root / "dataset"
+
+            with patch("hrw_runner.publication.validate_build_publication_evidence"):
+                entry_dir = publish_run_set(
+                    run_set_dir, dataset_dir, PROJECT_ROOT, source_commit="c" * 40
+                )
+                (entry_dir / "build-run-set.json").write_text("tampered\n")
+                with self.assertRaisesRegex(PublicationError, "append-only"):
+                    publish_run_set(
+                        run_set_dir,
+                        dataset_dir,
+                        PROJECT_ROOT,
+                        source_commit="c" * 40,
+                    )
+
     def test_publishes_only_compact_evidence_and_updates_catalog(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -362,6 +488,70 @@ class DatasetPublicationTest(unittest.TestCase):
             },
         }
         (directory / "run-set.json").write_text(json.dumps(run_set))
+        return directory
+
+    def _write_build_run_set(self, directory: Path, run_set_id: str) -> Path:
+        directory.mkdir(parents=True)
+        for name in ("preflight.json", "postflight.json", "cache-seed.json"):
+            (directory / name).write_text(json.dumps({"name": name}))
+        for index in range(1, 4):
+            trial_dir = directory / "trials" / f"{index:02d}"
+            trial_dir.mkdir(parents=True)
+            (trial_dir / "operation.log").write_text("raw operation log\n")
+            (trial_dir / "artifact-manifest.json").write_text(
+                json.dumps({"trial_id": f"trial-{index:02d}", "artifacts": []})
+            )
+            (trial_dir / "build-trial.json").write_text(
+                json.dumps(
+                    {
+                        "trial_id": f"trial-{index:02d}",
+                        "started_at": f"2026-07-13T00:0{index}:00Z",
+                        "finished_at": f"2026-07-13T00:1{index}:00Z",
+                        "artifact_manifest": {"path": "artifact-manifest.json"},
+                    }
+                )
+            )
+        manifest = {
+            "run_id": run_set_id,
+            "manifest_digest": DIGEST_A,
+            "source": {"git_commit": "c" * 40, "git_dirty": False},
+            "selection": {
+                "implementation": "java/spring-boot",
+                "variant": "jvm-java25",
+                "environment_profile": "home-build-v1",
+                "measurement_protocol": "official-build-v1",
+                "build_profile": "official-gradle-docker-v1",
+            },
+            "cohort": {"fingerprint": DIGEST_B, "evidence_family": "build"},
+        }
+        (directory / "build-resolved-manifest.json").write_text(json.dumps(manifest))
+        run_set = {
+            "run_set_id": run_set_id,
+            "run_id": run_set_id,
+            "status": "complete",
+            "manifest_digest": DIGEST_A,
+            "cohort_fingerprint": DIGEST_B,
+            "expected_trials": 3,
+            "trials": [
+                {
+                    "trial_id": f"trial-{index:02d}",
+                    "index": index,
+                    "status": "valid",
+                    "path": f"trials/{index:02d}/build-trial.json",
+                    "sha256": "f" * 64,
+                }
+                for index in range(1, 4)
+            ],
+            "summary": {"trial_count": 3, "valid_trial_count": 3},
+            "campaign_evidence": {
+                name: {
+                    "path": f"{name.replace('_', '-')}.json",
+                    "sha256": "f" * 64,
+                }
+                for name in ("preflight", "postflight", "cache_seed")
+            },
+        }
+        (directory / "build-run-set.json").write_text(json.dumps(run_set))
         return directory
 
 

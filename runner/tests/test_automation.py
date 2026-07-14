@@ -12,6 +12,77 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class WorkflowTrustBoundaryTest(unittest.TestCase):
+    def test_official_build_workflow_has_only_frozen_build_inputs(self):
+        workflow = self._load("official-build-benchmark.yml")
+        inputs = workflow["on"]["workflow_call"]["inputs"]
+
+        self.assertEqual(set(workflow["on"]), {"workflow_call"})
+        self.assertEqual(set(inputs), {"source_sha", "implementation"})
+        self.assertEqual(
+            workflow["concurrency"],
+            {"group": "official-home-k3s", "cancel-in-progress": "false"},
+        )
+
+    def test_official_build_workflow_keeps_measurement_untrusted_and_publication_hosted(self):
+        workflow = self._load("official-build-benchmark.yml")
+        benchmark = workflow["jobs"]["benchmark"]
+        publish = workflow["jobs"]["publish"]
+
+        self.assertEqual(
+            benchmark["runs-on"], ["self-hosted", "linux", "x64", "hrw-home-k3s"]
+        )
+        self.assertEqual(benchmark["permissions"], {"contents": "read"})
+        self.assertEqual(benchmark["strategy"]["max-parallel"], "1")
+        self.assertNotIn("secrets", benchmark)
+        self.assertEqual(publish["runs-on"], "ubuntu-latest")
+        checkout = next(
+            step for step in publish["steps"] if step.get("uses") == "actions/checkout@v4"
+        )
+        self.assertEqual(checkout["with"]["token"], "${{ secrets.PUBLIC_REPO_TOKEN }}")
+        validate = next(
+            step for step in publish["steps"] if step.get("name") == "Revalidate build evidence"
+        )
+        self.assertIn('git rev-parse "$SOURCE_SHA"', validate["run"])
+        self.assertIn("validate_build_publication_evidence", validate["run"])
+
+    def test_official_build_workflow_requires_a_full_source_sha_before_checkout(self):
+        workflow = self._load("official-build-benchmark.yml")
+
+        for job_name in ("benchmark", "publish"):
+            with self.subTest(job_name=job_name):
+                validate = next(
+                    step
+                    for step in workflow["jobs"][job_name]["steps"]
+                    if step.get("name") == "Validate source SHA"
+                )
+                self.assertIn("^[0-9a-f]{40}$", validate["run"])
+
+    def test_official_build_workflow_allowlists_the_only_measurement_cells(self):
+        workflow = self._load("official-build-benchmark.yml")
+        allowlist = next(
+            step
+            for step in workflow["jobs"]["benchmark"]["steps"]
+            if step.get("name") == "Allowlist build implementation"
+        )
+        self.assertIn("java/spring-boot:jvm-java25", allowlist["run"])
+        self.assertIn("java/quarkus:jvm-java25", allowlist["run"])
+        run_build_set = next(
+            step
+            for step in workflow["jobs"]["benchmark"]["steps"]
+            if step.get("name") == "Run official build set"
+        )
+        self.assertIn("home-build-v1", run_build_set["run"])
+        self.assertIn("official-build-v1", run_build_set["run"])
+        self.assertIn("official-gradle-docker-v1", run_build_set["run"])
+
+    def test_makefile_exposes_frozen_build_set_command(self):
+        makefile = (ROOT / "Makefile").read_text()
+
+        self.assertIn("build-set:", makefile)
+        self.assertIn("python -m hrw_runner build-set $(IMPLEMENTATION)", makefile)
+        self.assertIn("--environment-profile home-build-v1", makefile)
+        self.assertIn("--measurement-protocol official-build-v1", makefile)
+        self.assertIn("--build-profile official-gradle-docker-v1", makefile)
     def test_worker_separates_official_publication_from_calibration(self):
         workflow = self._load("official-benchmark.yml")
         inputs = workflow["on"]["workflow_call"]["inputs"]

@@ -205,6 +205,65 @@ class CliTest(unittest.TestCase):
         run_set.assert_called_once_with(config, PROJECT_ROOT)
         self.assertIn("Run set directory:", output.getvalue())
 
+    def test_build_set_uses_only_build_selection_flags(self):
+        config = object()
+        output = io.StringIO()
+        with (
+            patch("pathlib.Path.cwd", return_value=PROJECT_ROOT),
+            patch(
+                "hrw_runner.__main__.resolve_build_run_config",
+                return_value=config,
+            ) as resolve,
+            patch(
+                "hrw_runner.__main__.run_build_benchmark_set",
+                return_value=PROJECT_ROOT / "results/build/run-set",
+            ) as run_set,
+            redirect_stdout(output),
+        ):
+            exit_code = main(
+                [
+                    "build-set",
+                    "java/spring-boot",
+                    "jvm-java25",
+                    "--environment-profile",
+                    "home-build-v1",
+                    "--measurement-protocol",
+                    "official-build-v1",
+                    "--build-profile",
+                    "official-gradle-docker-v1",
+                ]
+            )
+
+        self.assertEqual(exit_code, 0)
+        resolve.assert_called_once_with(
+            "java/spring-boot",
+            "jvm-java25",
+            PROJECT_ROOT,
+            environment_profile="home-build-v1",
+            measurement_protocol="official-build-v1",
+            build_profile="official-gradle-docker-v1",
+        )
+        run_set.assert_called_once_with(config)
+        self.assertIn("Build run set directory:", output.getvalue())
+
+    def test_build_set_rejects_scenario_and_load_profile_arguments(self):
+        for arguments in (
+            ["build-set", "java/spring-boot", "ping-api"],
+            [
+                "build-set",
+                "java/spring-boot",
+                "--load-profile",
+                "steady",
+            ],
+        ):
+            with self.subTest(arguments=arguments):
+                errors = io.StringIO()
+                with redirect_stderr(errors):
+                    exit_code = main(arguments)
+
+                self.assertEqual(exit_code, 2)
+                self.assertIn("build-set", errors.getvalue())
+
     def test_run_passes_all_profile_flags_after_the_optional_variant(self):
         config = object()
         output = io.StringIO()
