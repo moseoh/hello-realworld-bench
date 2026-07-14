@@ -1,0 +1,60 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-07-14T06-54-18-330781_java_spring-boot_jvm-java25_build",
+  "trial_id": "trial-03",
+  "manifest_digest": "6245d1ca87506d51e37d8a00e6f851f92eea8f68e4218be379157960a9252063",
+  "cohort_fingerprint": "5833a27294d9fc4a2ff5160cf641261ca2e9f50fdd2b1321e48ce781d2495290",
+  "status": "valid",
+  "started_at": "2026-07-14T06:56:36.972885Z",
+  "finished_at": "2026-07-14T06:57:12.631672Z",
+  "metrics": {
+    "gradle_clean_build_ms": 12271.895486,
+    "image_package_ms": 8242.105798,
+    "gradle_incremental_rebuild_ms": 11297.902019,
+    "image_rebuild_ms": 2729.595516
+  },
+  "operations": [
+    {
+      "name": "gradle_clean_build",
+      "path": "operations/01-gradle_clean_build.json",
+      "sha256": "1d6a8f9b6c18cca51d7ed6961a12b3c18d3072b0e8be2d979d8211ede4569152"
+    },
+    {
+      "name": "image_package",
+      "path": "operations/02-image_package.json",
+      "sha256": "f25cfb1ed230b0ae7168edc81e4d8cf781634ae3b70fb71ebd7cf2fe0296296c"
+    },
+    {
+      "name": "gradle_incremental_rebuild",
+      "path": "operations/03-gradle_incremental_rebuild.json",
+      "sha256": "7cccf333af72f33fe696a98e5dd80e372abfe3513ead4beed278ac359cef0d7e"
+    },
+    {
+      "name": "image_rebuild",
+      "path": "operations/04-image_rebuild.json",
+      "sha256": "39a76e69320b291d4d6be801ed2acd0832d8d76ed14618947df255ed8f44a4e2"
+    }
+  ],
+  "evidence": {
+    "source_probe": {
+      "path": "source-probe.json",
+      "sha256": "5ce846c9dc4068c6392dfb08f9cc7397104fa481bfb304820e45609351fff81c"
+    },
+    "application_artifacts": {
+      "path": "application-artifacts.json",
+      "sha256": "123995112da1c87b74996c4fd7ffdd80d592c38f18bfbce42cbf81ba59ad45fb"
+    },
+    "image_artifacts": {
+      "path": "image-artifacts.json",
+      "sha256": "284405a5e211ee3babf5c2844d96e3f2d3c5f07f97357431fd0f69b3c738e593"
+    },
+    "trial_inputs": {
+      "path": "trial-inputs.json",
+      "sha256": "0ddff42e6d6caa4fe966867aa8d5e316e2cd908b92e2e4b57cf4ab712001f9dd"
+    }
+  },
+  "artifact_manifest": {
+    "path": "artifact-manifest.json",
+    "sha256": "6983c1cf5a480dfeac3de3c9cbc1b18be451858f464ee59d81c5e1a56c262e75"
+  }
+}

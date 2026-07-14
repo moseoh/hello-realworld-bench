@@ -1,0 +1,24 @@
+{
+  "machine_id": "f66cd2d134b94bb18eb7e531d1baf343",
+  "cpu_model": "AMD Ryzen 7 5825U",
+  "logical_cpu_count": 16,
+  "memory_bytes": 29341941760,
+  "effective_uid": 1000,
+  "docker_version": "29.6.1",
+  "buildx_version": "0.35.0",
+  "docker_security_options": [
+    "name=seccomp,profile=builtin",
+    "name=rootless",
+    "name=cgroupns"
+  ],
+  "cgroup_driver": "systemd",
+  "docker_host": "unix:///run/user/1000/docker.sock",
+  "running_containers": [],
+  "builders": [
+    "default",
+    "default",
+    "rootless",
+    "rootless"
+  ],
+  "buildkit_state_volumes": []
+}
