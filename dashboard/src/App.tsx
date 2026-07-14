@@ -23,14 +23,19 @@ import {
   normalizeTimeline,
   type CatalogEntry,
   type ComparisonItem,
-  type RunSet,
+  type EvidenceRunSet,
   type TimelineSample,
 } from './data/benchmark'
 import {
+  listBuildGroups,
   listComparisonGroups,
+  listLifecycleGroups,
+  selectFamilyGroup,
   selectComparisonGroup,
   summarizeTrialResources,
+  type BuildGroup,
   type ComparisonGroup,
+  type LifecycleGroup,
 } from './data/view-model'
 
 const REPOSITORY =
@@ -38,10 +43,14 @@ const REPOSITORY =
 const DATA_REVISION = import.meta.env.VITE_DATA_COMMIT ?? 'benchmark-data'
 
 interface LoadedDataset {
+  buildGroups: BuildGroup[]
   entries: CatalogEntry[]
   groups: ComparisonGroup[]
-  runSets: Map<string, RunSet>
+  lifecycleGroups: LifecycleGroup[]
+  runSets: Map<string, EvidenceRunSet>
 }
+
+type EvidenceFamily = 'service' | 'lifecycle' | 'build'
 
 interface TrialDetail {
   manifest: unknown
@@ -66,6 +75,8 @@ function App() {
   const [dataset, setDataset] = useState<LoadedDataset | null>(null)
   const [datasetError, setDatasetError] = useState<string | null>(null)
   const [evidenceError, setEvidenceError] = useState<string | null>(null)
+  const [family, setFamily] = useState<EvidenceFamily>(() => familyFromSearch())
+  const [familyCohort, setFamilyCohort] = useState('')
   const [scenario, setScenario] = useState('')
   const [loadProfile, setLoadProfile] = useState('')
   const [cohort, setCohort] = useState('')
@@ -81,13 +92,17 @@ function App() {
       try {
         const entries = await source.catalog()
         const loaded = await Promise.all(
-          entries.map(async (entry) => [entry.run_set_id, await source.runSet(entry.path)] as const),
+          entries.map(async (entry) => [entry.run_set_id, await source.runSet(entry)] as const),
         )
         if (cancelled) return
         const runSets = new Map(loaded)
         const groups = listComparisonGroups(entries, runSets)
-        setDataset({ entries, groups, runSets })
+        const lifecycleGroups = listLifecycleGroups(entries, runSets)
+        const buildGroups = listBuildGroups(entries, runSets)
+        setDataset({ buildGroups, entries, groups, lifecycleGroups, runSets })
         const query = new URLSearchParams(window.location.search)
+        const requestedFamily = familyFromSearch()
+        setFamily(requestedFamily)
         const requestedScenario = query.get('scenario')
         const requestedProfile = query.get('profile')
         const requestedCohort = query.get('cohort') ?? ''
@@ -108,6 +123,11 @@ function App() {
           setLoadProfile(initial.loadProfile)
           setCohort(initial.cohort)
         }
+        const requestedFamilyCohort = query.get('cohort') ?? ''
+        const familyInitial = requestedFamily === 'lifecycle'
+          ? selectFamilyGroup(lifecycleGroups, requestedFamilyCohort)
+          : selectFamilyGroup(buildGroups, requestedFamilyCohort)
+        if (familyInitial) setFamilyCohort(familyInitial.cohort)
       } catch (error) {
         if (!cancelled) {
           setDatasetError(error instanceof Error ? error.message : String(error))
@@ -151,6 +171,15 @@ function App() {
       }),
     [cohort, dataset, loadProfile, scenario],
   )
+  const lifecycleGroup = useMemo(
+    () => selectFamilyGroup(dataset?.lifecycleGroups ?? [], familyCohort),
+    [dataset, familyCohort],
+  )
+  const buildGroup = useMemo(
+    () => selectFamilyGroup(dataset?.buildGroups ?? [], familyCohort),
+    [dataset, familyCohort],
+  )
+  const activeFamilyGroup = family === 'lifecycle' ? lifecycleGroup : buildGroup
 
   useEffect(() => {
     if (profileOptions.length > 0 && !profileOptions.includes(loadProfile)) {
@@ -165,8 +194,9 @@ function App() {
   }, [cohort, cohortOptions])
 
   useEffect(() => {
-    if (!group) return
+    if (family !== 'service' || !group) return
     const query = new URLSearchParams(window.location.search)
+    query.set('family', family)
     query.set('scenario', group.scenario)
     query.set('profile', group.loadProfile)
     query.set('cohort', group.cohort)
@@ -200,14 +230,23 @@ function App() {
     return () => {
       cancelled = true
     }
-  }, [group])
+  }, [family, group])
+
+  useEffect(() => {
+    if (family === 'service' || !activeFamilyGroup) return
+    const query = new URLSearchParams(window.location.search)
+    query.set('family', family)
+    query.set('cohort', activeFamilyGroup.cohort)
+    window.history.replaceState(null, '', `${window.location.pathname}?${query}`)
+    setFamilyCohort(activeFamilyGroup.cohort)
+  }, [activeFamilyGroup, family])
 
   const selectedItem = group?.items.find(
     (item) => comparisonItemKey(item.entry) === selectedTarget,
   )
 
   useEffect(() => {
-    if (!selectedItem) return
+    if (family !== 'service' || !selectedItem) return
     const trial = selectedItem.runSet.trials.find((candidate) => candidate.index === selectedTrial)
     if (!trial) return
     let cancelled = false
@@ -242,7 +281,7 @@ function App() {
     return () => {
       cancelled = true
     }
-  }, [selectedItem, selectedTrial])
+  }, [family, selectedItem, selectedTrial])
 
   return (
     <div className="app-shell">
@@ -273,28 +312,44 @@ function App() {
             <span className="eyebrow">Official dataset</span>
             <strong>{dataset ? `${dataset.entries.length} published run sets` : 'Loading published runs'}</strong>
           </div>
-          <label>
-            <span>Scenario</span>
-            <select value={scenario} onChange={(event) => setScenario(event.target.value)}>
-              {scenarioOptions.map((value) => <option key={value} value={value}>{label(value)}</option>)}
-            </select>
-          </label>
-          <label>
-            <span>Traffic profile</span>
-            <select value={loadProfile} onChange={(event) => setLoadProfile(event.target.value)}>
-              {profileOptions.map((value) => <option key={value} value={value}>{label(value)}</option>)}
-            </select>
-          </label>
-          <label>
+          <div className="family-tabs" aria-label="Evidence family">
+            <FamilyButton active={family === 'service'} onClick={() => setFamily('service')}>Service</FamilyButton>
+            <FamilyButton active={family === 'lifecycle'} onClick={() => setFamily('lifecycle')}>Cold start</FamilyButton>
+            <FamilyButton active={family === 'build'} onClick={() => setFamily('build')}>Build</FamilyButton>
+          </div>
+          {family === 'service' ? <>
+            <label>
+              <span>Scenario</span>
+              <select value={scenario} onChange={(event) => setScenario(event.target.value)}>
+                {scenarioOptions.map((value) => <option key={value} value={value}>{label(value)}</option>)}
+              </select>
+            </label>
+            <label>
+              <span>Traffic profile</span>
+              <select value={loadProfile} onChange={(event) => setLoadProfile(event.target.value)}>
+                {profileOptions.map((value) => <option key={value} value={value}>{label(value)}</option>)}
+              </select>
+            </label>
+            <label>
+              <span>Contract cohort</span>
+              <select value={cohort} onChange={(event) => setCohort(event.target.value)}>
+                {cohortOptions.map((value) => (
+                  <option key={value.cohort} value={value.cohort}>
+                    {shortDigest(value.cohort)} · {value.implementationCount} targets
+                  </option>
+                ))}
+              </select>
+            </label>
+          </> : <label>
             <span>Contract cohort</span>
-            <select value={cohort} onChange={(event) => setCohort(event.target.value)}>
-              {cohortOptions.map((value) => (
-                <option key={value.cohort} value={value.cohort}>
-                  {shortDigest(value.cohort)} · {value.implementationCount} targets
+            <select value={familyCohort} onChange={(event) => setFamilyCohort(event.target.value)}>
+              {(family === 'lifecycle' ? dataset?.lifecycleGroups : dataset?.buildGroups)?.map((item) => (
+                <option key={item.cohort} value={item.cohort}>
+                  {shortDigest(item.cohort)} · {item.implementationCount} targets
                 </option>
               ))}
             </select>
-          </label>
+          </label>}
           <div className="data-revision">
             <span>Data revision</span>
             <code title={DATA_REVISION}>{shortDigest(DATA_REVISION)}</code>
@@ -303,8 +358,9 @@ function App() {
 
         {datasetError ? <ErrorState message={datasetError} /> : null}
         {!dataset && !datasetError ? <LoadingState /> : null}
-        {dataset && !group && !datasetError ? <EmptyState /> : null}
-        {group ? (
+        {dataset && family === 'service' && !group && !datasetError ? <EmptyState /> : null}
+        {dataset && family !== 'service' && !activeFamilyGroup && !datasetError ? <EmptyState /> : null}
+        {family === 'service' && group ? (
           <>
             {evidenceError ? <div className="evidence-error" role="alert">Evidence request failed: {evidenceError}</div> : null}
             <ComparisonSection
@@ -325,6 +381,8 @@ function App() {
             ) : null}
           </>
         ) : null}
+        {family === 'lifecycle' && lifecycleGroup ? <LifecycleSection group={lifecycleGroup} /> : null}
+        {family === 'build' && buildGroup ? <BuildSection group={buildGroup} /> : null}
       </main>
     </div>
   )
@@ -400,6 +458,101 @@ function ComparisonSection({
                 </tr>
               )
             })}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )
+}
+
+function FamilyButton({
+  active,
+  children,
+  onClick,
+}: {
+  active: boolean
+  children: React.ReactNode
+  onClick: () => void
+}) {
+  return <button aria-pressed={active} className={active ? 'active' : ''} onClick={onClick} type="button">{children}</button>
+}
+
+function LifecycleSection({ group }: { group: LifecycleGroup }) {
+  return (
+    <SummarySection
+      description="Startup readiness across every valid lifecycle trial."
+      group={group}
+      metricLabel={label}
+      title="Cold start"
+    />
+  )
+}
+
+function BuildSection({ group }: { group: BuildGroup }) {
+  const metricLabels: Record<string, string> = {
+    gradle_clean_build_ms: 'Gradle clean build',
+    gradle_incremental_rebuild_ms: 'Gradle incremental rebuild',
+    image_package_ms: 'Image package',
+    image_rebuild_ms: 'Image rebuild',
+  }
+  return (
+    <SummarySection
+      description="Build duration summaries across three valid fresh-workspace trials."
+      group={group}
+      metricLabel={(name) => metricLabels[name] ?? label(name)}
+      title="Build"
+    />
+  )
+}
+
+function SummarySection({
+  description,
+  group,
+  metricLabel,
+  title,
+}: {
+  description: string
+  group: LifecycleGroup | BuildGroup
+  metricLabel: (name: string) => string
+  title: string
+}) {
+  const rows = group.items.flatMap((item) => {
+    const metrics = 'build_metrics' in item.runSet.summary
+      ? item.runSet.summary.build_metrics
+      : item.runSet.summary.startup_metrics
+    return Object.entries(metrics).map(([name, metric]) => ({ item, metric, name }))
+  })
+  return (
+    <section className="section summary-section">
+      <div className="section-heading">
+        <div>
+          <span className="eyebrow">Comparable cohort</span>
+          <h2>{title}</h2>
+          <p>{description}</p>
+        </div>
+        <div className="cohort-id"><span>Cohort</span><code title={group.cohort}>{shortDigest(group.cohort)}</code></div>
+      </div>
+      <div className="summary-table-wrap">
+        <table className="summary-table">
+          <thead>
+            <tr>
+              <th>Implementation</th>
+              <th>Metric</th>
+              <th>Median</th>
+              <th>Min / max</th>
+              <th>Trials</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(({ item, metric, name }) => (
+              <tr key={`${item.entry.run_set_id}\0${name}`}>
+                <td><strong>{implementationLabel(item.entry.selection.implementation)}</strong><span>{item.entry.selection.variant}</span></td>
+                <td>{metricLabel(name)}</td>
+                <td className="summary-number"><strong>{formatDuration(metric.median)}</strong></td>
+                <td className="summary-number">{formatDuration(metric.min)} / {formatDuration(metric.max)}</td>
+                <td className="summary-trials">{metric.trials.map((trial) => `${trial.trial_id}: ${formatDuration(trial.value)}`).join(' · ')}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
@@ -561,7 +714,7 @@ function unique(values: string[]): string[] {
 }
 
 function label(value: string): string {
-  return value.split('-').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ')
+  return value.split(/[-_]/).map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ')
 }
 
 function implementationLabel(value: string): string {
@@ -592,6 +745,15 @@ function formatBytes(value: number | undefined): string {
 function formatInterval(value: number | undefined): string {
   if (!value) return 'unknown'
   return value % 1000 === 0 ? `${value / 1000}-second` : `${value}-millisecond`
+}
+
+function formatDuration(value: number): string {
+  return value >= 1_000 ? `${(value / 1_000).toFixed(2)} s` : `${value.toFixed(0)} ms`
+}
+
+function familyFromSearch(): EvidenceFamily {
+  const value = new URLSearchParams(window.location.search).get('family')
+  return value === 'lifecycle' || value === 'build' ? value : 'service'
 }
 
 function datasetUrl(path: string): string {

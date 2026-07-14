@@ -1,25 +1,54 @@
-export interface Selection {
+export interface BaseSelection {
   build_profile: string
   environment_profile: string
   implementation: string
-  load_profile: string
   measurement_protocol: string
-  scenario: string
   variant: string
 }
 
-export interface CatalogEntry {
+export interface ServiceSelection extends BaseSelection {
+  load_profile: string
+  scenario: string
+}
+
+export interface BuildSelection extends BaseSelection {}
+
+interface StandardCatalogEntry {
   cohort_fingerprint: string
-  evidence_family?: string
   finished_at: string
   image_digest: string
   path: string
   publication_sha256: string
   run_set_id: string
-  selection: Selection
+  selection: ServiceSelection
   source_commit: string
   started_at: string
 }
+
+export interface ServiceCatalogEntry extends StandardCatalogEntry {
+  evidence_family?: 'service'
+}
+
+export interface LifecycleCatalogEntry extends StandardCatalogEntry {
+  evidence_family: 'lifecycle'
+}
+
+export interface BuildCatalogEntry {
+  cohort_fingerprint: string
+  evidence_family: 'build'
+  finished_at: string
+  path: string
+  publication_sha256: string
+  run_set_id: string
+  selection: BuildSelection
+  source_commit: string
+  started_at: string
+}
+
+export type CatalogEntry =
+  | ServiceCatalogEntry
+  | LifecycleCatalogEntry
+  | BuildCatalogEntry
 
 export interface MetricSummary {
   min: number
@@ -52,6 +81,29 @@ export interface RunSet {
   }>
 }
 
+export interface BuildRunSet {
+  cohort_fingerprint: string
+  expected_trials: number
+  manifest_digest?: string
+  run_set_id: string
+  schema_version?: string
+  status: string
+  summary: {
+    build_metrics: Record<string, MetricSummary>
+    trial_count: number
+    valid_trial_count: number
+  }
+  trials: Array<{
+    index: number
+    path: string
+    sha256: string
+    status: string
+    trial_id: string
+  }>
+}
+
+export type EvidenceRunSet = RunSet | BuildRunSet
+
 export interface ComparisonSelection {
   cohort: string
   loadProfile: string
@@ -59,7 +111,7 @@ export interface ComparisonSelection {
 }
 
 export interface ComparisonItem {
-  entry: CatalogEntry
+  entry: ServiceCatalogEntry
   runSet: RunSet
 }
 
@@ -89,7 +141,7 @@ export interface NormalizedTimeline {
 export interface DataSource {
   catalog: () => Promise<CatalogEntry[]>
   document: (path: string) => Promise<unknown>
-  runSet: (path: string) => Promise<RunSet>
+  runSet: (entry: CatalogEntry) => Promise<EvidenceRunSet>
 }
 
 interface DataSourceOptions {
@@ -146,25 +198,27 @@ export function createDataSource({
       return raw.entries as CatalogEntry[]
     },
     document,
-    async runSet(path: string) {
-      const raw = await document(`${path}/run-set.json`)
+    async runSet(entry: CatalogEntry) {
+      const filename = isBuildCatalogEntry(entry) ? 'build-run-set.json' : 'run-set.json'
+      const raw = await document(`${entry.path}/${filename}`)
       if (!isRecord(raw) || typeof raw.run_set_id !== 'string') {
-        throw new Error(`Invalid run set: ${path}`)
+        throw new Error(`Invalid run set: ${entry.path}`)
       }
-      return raw as unknown as RunSet
+      return raw as unknown as EvidenceRunSet
     },
   }
 }
 
 export function buildComparison(
   entries: CatalogEntry[],
-  runSets: ReadonlyMap<string, RunSet>,
+  runSets: ReadonlyMap<string, EvidenceRunSet>,
   selection: ComparisonSelection,
 ): ComparisonItem[] {
   const latestByTarget = new Map<string, ComparisonItem>()
 
   for (const entry of entries) {
     if (
+      !isServiceCatalogEntry(entry) ||
       entry.cohort_fingerprint !== selection.cohort ||
       entry.selection.load_profile !== selection.loadProfile ||
       entry.selection.scenario !== selection.scenario
@@ -227,8 +281,12 @@ export function normalizeTimeline(document: unknown): NormalizedTimeline {
   }
 }
 
-export function isCompleteRunSet(runSet: RunSet, cohort: string): boolean {
+export function isCompleteRunSet(
+  runSet: EvidenceRunSet,
+  cohort: string,
+): runSet is RunSet {
   return (
+    !isBuildRunSet(runSet) &&
     runSet.cohort_fingerprint === cohort &&
     runSet.status === 'complete' &&
     runSet.expected_trials > 0 &&
@@ -237,6 +295,48 @@ export function isCompleteRunSet(runSet: RunSet, cohort: string): boolean {
     runSet.trials.length === runSet.expected_trials &&
     runSet.trials.every((trial) => trial.status === 'valid')
   )
+}
+
+export function isCompleteBuildRunSet(
+  runSet: EvidenceRunSet,
+  cohort: string,
+): runSet is BuildRunSet {
+  return (
+    isBuildRunSet(runSet) &&
+    runSet.cohort_fingerprint === cohort &&
+    runSet.status === 'complete' &&
+    runSet.expected_trials > 0 &&
+    runSet.summary.trial_count === runSet.expected_trials &&
+    runSet.summary.valid_trial_count === runSet.expected_trials &&
+    runSet.trials.length === runSet.expected_trials &&
+    runSet.trials.every((trial) => trial.status === 'valid')
+  )
+}
+
+export function isServiceCatalogEntry(
+  entry: CatalogEntry,
+): entry is ServiceCatalogEntry {
+  return (
+    entry.evidence_family === 'service' ||
+    (entry.evidence_family === undefined &&
+      entry.selection.measurement_protocol === 'official-service-v1')
+  )
+}
+
+export function isLifecycleCatalogEntry(
+  entry: CatalogEntry,
+): entry is LifecycleCatalogEntry {
+  return entry.evidence_family === 'lifecycle'
+}
+
+export function isBuildCatalogEntry(
+  entry: CatalogEntry,
+): entry is BuildCatalogEntry {
+  return entry.evidence_family === 'build'
+}
+
+function isBuildRunSet(runSet: EvidenceRunSet): runSet is BuildRunSet {
+  return 'build_metrics' in runSet.summary
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

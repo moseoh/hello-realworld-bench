@@ -63,11 +63,13 @@ Automation](docs/automation.md) for the trust boundary and publication model.
 
 ## Public Dashboard
 
-The static dashboard compares only complete run sets from the same cohort and
-provides APM-style trial timelines for requested and achieved load, latency,
-errors, CPU, and memory. Every deployment resolves the `benchmark-data` branch
-to an exact commit, so the displayed dataset can be reproduced without a
-database or backend service.
+The static dashboard separates complete comparable evidence into `Service`,
+`Cold start`, and `Build` views. Service retains APM-style trial timelines for
+requested and achieved load, latency, errors, CPU, and memory. Cold start shows
+startup summary trials, and Build shows the four published build duration
+summaries; neither creates time-series data. Every deployment resolves the
+`benchmark-data` branch to an exact commit, so the displayed dataset can be
+reproduced without a database or backend service.
 
 Run it locally:
 

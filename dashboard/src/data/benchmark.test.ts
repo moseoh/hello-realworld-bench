@@ -195,13 +195,57 @@ describe('createDataSource', () => {
     })
 
     await source.catalog()
-    await source.runSet('run-sets/cohort/run')
+    await source.runSet(entry('java/spring-boot', 'run', 'cohort'))
     await source.document('run-sets/cohort/run/trials/01/time-series.json')
 
     expect(requested).toEqual([
       `https://raw.githubusercontent.com/owner/repository/${revision}/catalog.json`,
       `https://raw.githubusercontent.com/owner/repository/${revision}/run-sets/cohort/run/run-set.json`,
       `https://raw.githubusercontent.com/owner/repository/${revision}/run-sets/cohort/run/trials/01/time-series.json`,
+    ])
+  })
+
+  it('loads build entries from build-run-set.json without service-only fields', async () => {
+    const revision = 'e'.repeat(40)
+    const requested: string[] = []
+    const buildEntry = {
+      cohort_fingerprint: 'build-cohort',
+      evidence_family: 'build',
+      finished_at: '2026-07-13T10:00:00Z',
+      path: 'build-run-sets/build-cohort/build-run',
+      publication_sha256: 'a'.repeat(64),
+      run_set_id: 'build-run',
+      selection: {
+        build_profile: 'official-gradle-docker-v1',
+        environment_profile: 'home-build-v1',
+        implementation: 'java/spring-boot',
+        measurement_protocol: 'official-build-v1',
+        variant: 'jvm-java25',
+      },
+      source_commit: 'b'.repeat(40),
+      started_at: '2026-07-13T09:00:00Z',
+    } as unknown as CatalogEntry
+    const source = createDataSource({
+      fetcher: async (input) => {
+        const url = String(input)
+        requested.push(url)
+        return new Response(JSON.stringify({
+          cohort_fingerprint: 'build-cohort',
+          expected_trials: 3,
+          run_set_id: 'build-run',
+          status: 'complete',
+          summary: { build_metrics: {}, trial_count: 3, valid_trial_count: 3 },
+          trials: [],
+        }))
+      },
+      repository: 'owner/repository',
+      revision,
+    })
+
+    await (source.runSet as unknown as (entry: CatalogEntry) => Promise<unknown>)(buildEntry)
+
+    expect(requested).toEqual([
+      `https://raw.githubusercontent.com/owner/repository/${revision}/build-run-sets/build-cohort/build-run/build-run-set.json`,
     ])
   })
 
