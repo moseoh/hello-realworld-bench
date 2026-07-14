@@ -1,0 +1,52 @@
+{
+  "schema_version": "1.0",
+  "trial_id": "trial-04",
+  "run_id": "2026-07-14T17-31-45_java_spring-boot_jvm-java25_cold-start-api_run-set",
+  "status": "valid",
+  "started_at": "2026-07-14T17:34:32.174474Z",
+  "finished_at": "2026-07-14T17:35:09.218807Z",
+  "manifest_digest": "f77009e444cf2b300116bb763bf198fe0e094a0de7bb740905b86c773adeacc8",
+  "cohort_fingerprint": "d6ee0866d61e341008c1c592ef319ed4357f5f2276bd848bd5d404af66e59e0c",
+  "summary": [
+    {
+      "name": "dependency_ready_ms",
+      "unit": "milliseconds",
+      "value": 0,
+      "source_artifacts": [
+        "startup.json"
+      ]
+    },
+    {
+      "name": "ready_ms",
+      "unit": "milliseconds",
+      "value": 2537,
+      "source_artifacts": [
+        "startup.json"
+      ]
+    },
+    {
+      "name": "entrypoint_pre_exec_to_first_valid_response_ms",
+      "unit": "milliseconds",
+      "value": 2537,
+      "source_artifacts": [
+        "startup.json"
+      ]
+    },
+    {
+      "name": "first_request_ms",
+      "unit": "milliseconds",
+      "value": 91.0,
+      "source_artifacts": [
+        "startup.json"
+      ]
+    }
+  ],
+  "time_series": {
+    "path": "time-series.json",
+    "sha256": "1d445a66f5868ee11556d687064f80408307b55e4be3fb265e7f8241f71aef38"
+  },
+  "artifact_manifest": {
+    "path": "artifact-manifest.json",
+    "sha256": "e0b7f3a0a4745492ac8a2c168e9402881dd1084da39cfb16e0c84e43d441132f"
+  }
+}
