@@ -181,6 +181,45 @@ class WorkflowTrustBoundaryTest(unittest.TestCase):
         self.assertIn("--environment-profile home-build-v1", makefile)
         self.assertIn("--measurement-protocol official-build-v1", makefile)
         self.assertIn("--build-profile official-gradle-docker-v1", makefile)
+
+    def test_public_docs_match_the_official_build_contract_and_pending_smoke(self):
+        automation = (ROOT / "docs/automation.md").read_text()
+        methodology = (ROOT / "docs/methodology.md").read_text()
+        evidence = (ROOT / "docs/evidence-model.md").read_text()
+        manifest = (ROOT / "docs/resolved-run-manifest.md").read_text()
+
+        for required in (
+            "Docker Engine",
+            "Docker Buildx",
+            "build-run-sets/<cohort-fingerprint>/<run-set-id>/",
+            "raw-build-evidence.tar.gz",
+            "persist-credentials: false",
+            "post-merge trusted-home smoke",
+        ):
+            self.assertIn(required, automation)
+        for required in (
+            "gradle_clean_build_ms",
+            "gradle_incremental_rebuild_ms",
+            "image_package_ms",
+            "image_rebuild_ms",
+            "exactly three",
+            "runtime-base",
+            "fresh copy",
+        ):
+            self.assertIn(required, methodology)
+        for required in (
+            "build-trial.json",
+            "build-run-set.json",
+            "build-resolved-manifest.json",
+            "closed regular-file set",
+        ):
+            self.assertIn(required, evidence)
+        self.assertIn(
+            "environment, measurement, and build profile contracts",
+            manifest,
+        )
+        self.assertIn("implementation and variant", manifest)
+
     def test_worker_separates_official_publication_from_calibration(self):
         workflow = self._load("official-benchmark.yml")
         inputs = workflow["on"]["workflow_call"]["inputs"]

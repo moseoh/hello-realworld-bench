@@ -127,8 +127,14 @@ function App() {
         const requestedFamilyCohort = query.get('cohort') ?? ''
         const familyInitial = requestedFamily === 'lifecycle'
           ? selectFamilyGroup(lifecycleGroups, requestedFamilyCohort)
-          : selectFamilyGroup(buildGroups, requestedFamilyCohort)
-        if (familyInitial) setFamilyCohort(familyInitial.cohort)
+          : requestedFamily === 'build'
+            ? selectFamilyGroup(buildGroups, requestedFamilyCohort)
+            : undefined
+        if (familyInitial) {
+          query.set('cohort', familyInitial.cohort)
+          window.history.replaceState(null, '', `${window.location.pathname}?${query}`)
+          setFamilyCohort(familyInitial.cohort)
+        }
       } catch (error) {
         if (!cancelled) {
           setDatasetError(error instanceof Error ? error.message : String(error))
