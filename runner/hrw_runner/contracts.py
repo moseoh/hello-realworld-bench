@@ -478,6 +478,8 @@ def _validate_variant_build_paths(
                 )
                 break
         else:
+            if not candidate.exists():
+                continue
             try:
                 candidate.resolve(strict=True).relative_to(app_dir.resolve(strict=True))
             except (FileNotFoundError, ValueError):

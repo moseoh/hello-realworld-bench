@@ -391,24 +391,8 @@ def _validate_catalog_entries(dataset_dir: Path, catalog: dict[str, Any]) -> Non
         publication = _read_object(publication_path)
         _verify_existing_entry(entry_dir, publication)
         compact_identity = _compact_evidence_identity(entry_dir)
-        if family is None:
-            if not _is_official_legacy_service_entry(
-                entry,
-                publication,
-                compact_identity,
-            ):
-                raise PublicationError(
-                    "Dataset catalog legacy entry is not an official service shape"
-                )
-            effective_family = "service"
-        else:
-            effective_family = family
-            _validate_modern_catalog_identity(
-                entry,
-                publication,
-                compact_identity,
-            )
-        if effective_family == "build":
+        compact_family = compact_identity["evidence_family"]
+        if compact_family == "build":
             if "image_digest" in entry or "image_digest" in publication:
                 raise PublicationError("Build catalog entries cannot have image digests")
         else:
@@ -426,6 +410,21 @@ def _validate_catalog_entries(dataset_dir: Path, catalog: dict[str, Any]) -> Non
                 or catalog_image_digest != publication_image_digest
             ):
                 raise PublicationError("Existing catalog image digest is invalid")
+        if family is None:
+            if not _is_official_legacy_service_entry(
+                entry,
+                publication,
+                compact_identity,
+            ):
+                raise PublicationError(
+                    "Dataset catalog legacy entry is not an official service shape"
+                )
+        else:
+            _validate_modern_catalog_identity(
+                entry,
+                publication,
+                compact_identity,
+            )
         if (
             publication.get("run_set_id") != run_set_id
             or publication.get("cohort_fingerprint") != cohort
