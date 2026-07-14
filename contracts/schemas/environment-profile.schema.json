@@ -50,6 +50,15 @@
     "orchestrator": { "type": "string", "minLength": 1 },
     "official": { "type": "boolean" },
     "load_generator": { "type": "string", "minLength": 1 },
+    "build": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runner", "platform"],
+      "properties": {
+        "runner": { "const": "github-hosted" },
+        "platform": { "const": "linux/amd64" }
+      }
+    },
     "cluster": {
       "type": "object",
       "additionalProperties": false,
@@ -148,7 +157,8 @@
     {
       "if": {
         "properties": { "official": { "const": true } },
-        "required": ["official"]
+        "required": ["official"],
+        "not": { "required": ["build"] }
       },
       "then": {
         "required": ["cluster", "resources", "images", "validity"]

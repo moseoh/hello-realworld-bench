@@ -136,6 +136,13 @@ def read_contract(path: Path, kind: str, root_dir: Path) -> ContractDocument:
                 [f"{display_path}: {error}" for error in semantic_errors]
             )
 
+    if kind == "measurement-protocol":
+        semantic_errors = _validate_measurement_protocol_semantics(value)
+        if semantic_errors:
+            raise ContractValidationError(
+                [f"{display_path}: {error}" for error in semantic_errors]
+            )
+
     return ContractDocument(kind, path, value, canonical_contract_digest(value))
 
 
@@ -388,6 +395,22 @@ def _validate_references(
                         f"$.default_profiles.{key}: "
                         f"missing {kind} '{profile_id}'"
                     )
+    return errors
+
+
+def _validate_measurement_protocol_semantics(
+    value: dict[str, object],
+) -> list[str]:
+    if value["evidence_family"] != "build":
+        return []
+
+    errors: list[str] = []
+    if value["timing_source"] != "none":
+        errors.append("$.timing_source: must be 'none' for build evidence")
+    if value["warmup_seconds"] != 0:
+        errors.append("$.warmup_seconds: must be 0 for build evidence")
+    if value["measured_seconds"] != 0:
+        errors.append("$.measured_seconds: must be 0 for build evidence")
     return errors
 
 

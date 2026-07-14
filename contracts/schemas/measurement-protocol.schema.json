@@ -48,6 +48,15 @@
       "type": ["integer", "null"],
       "minimum": 0
     },
+    "build": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start_boundary", "completion_boundary"],
+      "properties": {
+        "start_boundary": { "const": "checkout-complete" },
+        "completion_boundary": { "const": "image-archive-written" }
+      }
+    },
     "lifecycle": {
       "type": "object",
       "additionalProperties": false,
@@ -74,6 +83,13 @@
     }
   },
   "allOf": [
+    {
+      "if": {
+        "properties": { "evidence_family": { "const": "build" } },
+        "required": ["evidence_family"]
+      },
+      "then": { "required": ["build"] }
+    },
     {
       "if": {
         "properties": {

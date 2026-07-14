@@ -14,3 +14,8 @@ runtime:
 
 docker:
   image_tag: "hello-realworld/java-quarkus-jvm-java25:local"
+
+build:
+  application_command: "./gradlew clean build --no-daemon"
+  dockerfile: Dockerfile
+  context: .

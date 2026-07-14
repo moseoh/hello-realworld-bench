@@ -1,0 +1,12 @@
+schema_version: "1.0"
+id: official-gradle-docker-v1
+contract_version: "1.0"
+status: frozen
+description: "Frozen Gradle build and Docker Buildx OCI archive profile."
+build_tool: gradle
+dependency_cache: persistent
+image_cache: disabled
+image_input: built-artifact
+build:
+  image_platform: linux/amd64
+  image_output: oci-archive

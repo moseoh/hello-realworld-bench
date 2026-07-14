@@ -69,6 +69,16 @@
         "build_context": { "type": "string", "minLength": 1 }
       }
     },
+    "build": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["application_command", "dockerfile", "context"],
+      "properties": {
+        "application_command": { "type": "string", "minLength": 1 },
+        "dockerfile": { "type": "string", "minLength": 1 },
+        "context": { "type": "string", "minLength": 1 }
+      }
+    },
     "kubernetes": {
       "type": "object",
       "additionalProperties": false,

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hellorealworld.dev/contracts/schemas/build-trial.schema.json",
+  "title": "Build trial evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "run_id", "trial_id", "manifest_digest", "cohort_fingerprint", "status", "started_at", "finished_at", "summary"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "run_id": { "type": "string", "minLength": 1 },
+    "trial_id": { "type": "string", "minLength": 1 },
+    "manifest_digest": { "type": "string", "pattern": "^[0-9a-f]{64}(?![\\s\\S])" },
+    "cohort_fingerprint": { "type": "string", "pattern": "^[0-9a-f]{64}(?![\\s\\S])" },
+    "status": { "enum": ["valid", "invalid", "failed"] },
+    "started_at": { "type": "string", "format": "date-time" },
+    "finished_at": { "type": "string", "format": "date-time" },
+    "summary": { "type": "object" }
+  }
+}

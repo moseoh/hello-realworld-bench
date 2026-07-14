@@ -36,6 +36,15 @@
     "build_tool": { "type": "string", "minLength": 1 },
     "dependency_cache": { "type": "string", "minLength": 1 },
     "image_cache": { "type": "string", "minLength": 1 },
-    "image_input": { "type": "string", "minLength": 1 }
+    "image_input": { "type": "string", "minLength": 1 },
+    "build": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["image_platform", "image_output"],
+      "properties": {
+        "image_platform": { "const": "linux/amd64" },
+        "image_output": { "const": "oci-archive" }
+      }
+    }
   }
 }

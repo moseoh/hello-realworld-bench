@@ -1,0 +1,13 @@
+schema_version: "1.0"
+id: official-build-v1
+contract_version: "1.0"
+status: frozen
+description: "Frozen official protocol for one clean application build and OCI image archive."
+evidence_family: build
+trials: 1
+timing_source: none
+warmup_seconds: 0
+measured_seconds: 0
+build:
+  start_boundary: checkout-complete
+  completion_boundary: image-archive-written

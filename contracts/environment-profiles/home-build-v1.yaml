@@ -1,0 +1,11 @@
+schema_version: "1.0"
+id: home-build-v1
+contract_version: "1.0"
+status: frozen
+description: "Official GitHub-hosted build environment for immutable Linux AMD64 images."
+orchestrator: github-actions
+official: true
+load_generator: none
+build:
+  runner: github-hosted
+  platform: linux/amd64

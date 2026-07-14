@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hellorealworld.dev/contracts/schemas/build-resolved-run-manifest.schema.json",
+  "title": "Resolved build run manifest",
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "relativePath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*[\\u0000-\\u001f\\u007f])(?!\\.{1,2}(?:/|(?![\\s\\S])))(?!.*[/]\\.{1,2}(?:/|(?![\\s\\S])))[^/]+(?:/[^/]+)*(?![\\s\\S])"
+    },
+    "contractRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id", "schema_version", "contract_version", "digest", "path"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "implementation",
+            "variant",
+            "environment-profile",
+            "measurement-protocol",
+            "build-profile"
+          ]
+        },
+        "id": { "type": "string", "minLength": 1 },
+        "schema_version": { "const": "1.0" },
+        "contract_version": { "type": "string", "minLength": 1 },
+        "digest": { "$ref": "#/$defs/digest" },
+        "path": { "$ref": "#/$defs/relativePath" }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["git_commit", "git_dirty", "worktree_digest"],
+      "properties": {
+        "git_commit": { "type": "string", "pattern": "^[0-9a-f]{40}(?![\\s\\S])" },
+        "git_dirty": { "type": "boolean" },
+        "worktree_digest": { "$ref": "#/$defs/digest" }
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "source",
+    "selection",
+    "contracts",
+    "execution",
+    "cohort",
+    "manifest_digest"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "run_id": { "type": "string", "minLength": 1 },
+    "source": { "$ref": "#/$defs/source" },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "implementation",
+        "variant",
+        "environment_profile",
+        "measurement_protocol",
+        "build_profile"
+      ],
+      "properties": {
+        "implementation": { "type": "string", "minLength": 1 },
+        "variant": { "type": "string", "minLength": 1 },
+        "environment_profile": { "type": "string", "minLength": 1 },
+        "measurement_protocol": { "type": "string", "minLength": 1 },
+        "build_profile": { "type": "string", "minLength": 1 }
+      }
+    },
+    "contracts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "implementation",
+        "variant",
+        "environment_profile",
+        "measurement_protocol",
+        "build_profile"
+      ],
+      "properties": {
+        "implementation": { "$ref": "#/$defs/contractRef" },
+        "variant": { "$ref": "#/$defs/contractRef" },
+        "environment_profile": { "$ref": "#/$defs/contractRef" },
+        "measurement_protocol": { "$ref": "#/$defs/contractRef" },
+        "build_profile": { "$ref": "#/$defs/contractRef" }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["app_dir", "variant_file", "runtime", "build"],
+      "properties": {
+        "app_dir": { "$ref": "#/$defs/relativePath" },
+        "variant_file": { "$ref": "#/$defs/relativePath" },
+        "runtime": { "type": "object" },
+        "build": { "type": "object" }
+      }
+    },
+    "cohort": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contracts", "fingerprint"],
+      "properties": {
+        "contracts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "implementation",
+            "variant",
+            "environment_profile",
+            "measurement_protocol",
+            "build_profile"
+          ],
+          "properties": {
+            "implementation": { "$ref": "#/$defs/contractRef" },
+            "variant": { "$ref": "#/$defs/contractRef" },
+            "environment_profile": { "$ref": "#/$defs/contractRef" },
+            "measurement_protocol": { "$ref": "#/$defs/contractRef" },
+            "build_profile": { "$ref": "#/$defs/contractRef" }
+          }
+        },
+        "fingerprint": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "manifest_digest": { "$ref": "#/$defs/digest" }
+  }
+}
