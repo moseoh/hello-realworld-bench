@@ -5,6 +5,7 @@ import json
 import math
 import re
 from pathlib import Path
+from pathlib import PurePosixPath
 from statistics import median
 from typing import Any
 
@@ -82,7 +83,7 @@ def validate_build_publication_evidence(
     )
     cache_seed = _validated_reference(run_set_dir, campaign_evidence.get("cache_seed"))
     _validate_host_evidence(preflight, postflight)
-    _validate_cache_seed(cache_seed)
+    _validate_cache_seed(cache_seed, run_set_dir, root_dir, manifest)
 
     trials = []
     workspaces: set[str] = set()
@@ -103,6 +104,7 @@ def validate_build_publication_evidence(
             builders,
             cache_seed,
             manifest,
+            root_dir,
         )
         if trial_inputs.get("builder_removed") is not True:
             raise ValueError("Buildx builder was not removed")
@@ -213,6 +215,7 @@ def _validate_trial_raw_evidence(
     builders: set[str],
     cache_seed: dict[str, Any],
     manifest: dict[str, Any],
+    root_dir: Path,
 ) -> dict[str, Any]:
     operation_refs = _object_list(trial.get("operations"), "Build operations")
     if [reference.get("name") for reference in operation_refs] != [
@@ -248,6 +251,8 @@ def _validate_trial_raw_evidence(
     _require_changed(raw["source_probe"], "sha256", "source probe")
     _require_changed(raw["application_artifacts"], "sha256", "application artifact")
     _require_changed(raw["image_artifacts"], "image_digest", "image")
+    _validate_source_probe(raw["source_probe"], manifest, root_dir)
+    _validate_application_artifacts(raw["application_artifacts"], manifest)
     referenced_paths.update(
         _validate_image_artifacts(raw["image_artifacts"], trial_dir)
     )
@@ -704,7 +709,12 @@ def _validate_host_evidence(
         raise ValueError("Benchmark BuildKit state volume remains after measurement")
 
 
-def _validate_cache_seed(cache_seed: dict[str, Any]) -> None:
+def _validate_cache_seed(
+    cache_seed: dict[str, Any],
+    run_set_dir: Path,
+    root_dir: Path,
+    manifest: dict[str, Any],
+) -> None:
     if cache_seed.get("gradle_executor_image") != _GRADLE_EXECUTOR_IMAGE:
         raise ValueError("Campaign dependency seed executor is invalid")
     if cache_seed.get("buildkit_image") != _BUILDKIT_IMAGE:
@@ -720,6 +730,145 @@ def _validate_cache_seed(cache_seed: dict[str, Any]) -> None:
     ):
         if cache_seed.get(field) is not True:
             raise ValueError(f"Campaign dependency seed cleanup is invalid: {field}")
+
+    operation_reference = _object(
+        cache_seed.get("buildkit_seed_operation"),
+        "BuildKit seed operation reference",
+    )
+    operation = _validated_reference(run_set_dir, operation_reference)
+    _validate_operation_record(
+        run_set_dir,
+        operation,
+        "buildkit_runtime_base_seed",
+        operation.get("duration_ms"),
+    )
+    if operation.get("working_directory") != "repository-root":
+        raise ValueError("BuildKit seed working directory is invalid")
+
+    execution = _object(manifest.get("execution"), "Resolved build execution")
+    build = _object(execution.get("build"), "Resolved build inputs")
+    app_dir = PurePosixPath(str(execution.get("app_dir", "")))
+    dockerfile = app_dir / str(build.get("dockerfile", ""))
+    context = (
+        app_dir
+        if build.get("context") == "."
+        else app_dir / str(build.get("context", ""))
+    )
+    expected_argv = [
+        "docker",
+        "buildx",
+        "build",
+        "--builder",
+        str(cache_seed.get("seed_builder_name", "")),
+        "--platform",
+        "linux/amd64",
+        "--provenance=false",
+        "--file",
+        dockerfile.as_posix(),
+        "--target",
+        "runtime-base",
+        "--cache-to",
+        f"type=local,dest={cache_seed.get('buildkit_cache_seed_path')},mode=max",
+        "--output",
+        "type=cacheonly",
+        context.as_posix(),
+    ]
+    if operation.get("argv") != expected_argv:
+        raise ValueError("BuildKit seed argv does not match the resolved contract")
+
+    seed_tree = root_dir / Path(context.as_posix())
+    try:
+        seed_tree.resolve(strict=True).relative_to(root_dir.resolve(strict=True))
+    except (FileNotFoundError, ValueError):
+        raise ValueError("BuildKit seed tree path is invalid") from None
+    if cache_seed.get("buildkit_seed_tree_sha256") != _hash_directory(seed_tree):
+        raise ValueError("BuildKit seed tree digest does not match the trusted checkout")
+
+
+def _validate_source_probe(
+    source_probe: dict[str, Any],
+    manifest: dict[str, Any],
+    root_dir: Path,
+) -> None:
+    execution = _object(manifest.get("execution"), "Resolved build execution")
+    build = _object(execution.get("build"), "Resolved build inputs")
+    incremental_input = _object(
+        build.get("incremental_input"),
+        "Resolved incremental input",
+    )
+    expected_path = str(incremental_input.get("path", ""))
+    if source_probe.get("path") != expected_path:
+        raise ValueError("Build source probe path does not match the resolved contract")
+    probe_path = root_dir / str(execution.get("app_dir", "")) / expected_path
+    try:
+        contents = probe_path.read_bytes()
+    except OSError:
+        raise ValueError("Build source probe is missing from the trusted checkout") from None
+    from_bytes = str(incremental_input.get("from", "")).encode()
+    to_bytes = str(incremental_input.get("to", "")).encode()
+    if contents.count(from_bytes) != 1:
+        raise ValueError("Build source probe from text is invalid")
+    mutated = contents.replace(from_bytes, to_bytes, 1)
+    expected = {
+        "before": hashlib.sha256(contents).hexdigest(),
+        "after": hashlib.sha256(mutated).hexdigest(),
+    }
+    for phase, digest in expected.items():
+        descriptor = _object(source_probe.get(phase), f"Source probe {phase}")
+        if descriptor.get("sha256") != digest:
+            raise ValueError(f"Build source probe {phase} digest is invalid")
+
+
+def _validate_application_artifacts(
+    artifacts: dict[str, Any],
+    manifest: dict[str, Any],
+) -> None:
+    execution = _object(manifest.get("execution"), "Resolved build execution")
+    build = _object(execution.get("build"), "Resolved build inputs")
+    declaration = _object(
+        build.get("application_artifact"),
+        "Resolved application artifact",
+    )
+    expected_type = declaration.get("type")
+    expected_path = declaration.get("path")
+    for phase in ("before", "after"):
+        descriptor = _object(
+            artifacts.get(phase),
+            f"Application artifact {phase}",
+        )
+        if (
+            descriptor.get("type") != expected_type
+            or descriptor.get("declaration") != expected_path
+        ):
+            raise ValueError("Build application artifact declaration is invalid")
+        files = _object_list(
+            descriptor.get("files"),
+            f"Application artifact {phase} files",
+        )
+        paths = [str(entry.get("path", "")) for entry in files]
+        if not paths or paths != sorted(paths) or len(paths) != len(set(paths)):
+            raise ValueError("Build application artifact file set is invalid")
+        for entry, path in zip(files, paths):
+            relative = PurePosixPath(path)
+            if relative.is_absolute() or any(part in {"", ".", ".."} for part in relative.parts):
+                raise ValueError("Build application artifact path is invalid")
+            if expected_type == "glob" and not relative.match(str(expected_path)):
+                raise ValueError("Build application artifact path is outside its declaration")
+            if expected_type == "directory":
+                directory = PurePosixPath(str(expected_path))
+                if relative == directory or directory not in relative.parents:
+                    raise ValueError("Build application artifact path is outside its declaration")
+            if (
+                not isinstance(entry.get("size_bytes"), int)
+                or entry["size_bytes"] < 0
+                or not _valid_digest(entry.get("sha256"))
+            ):
+                raise ValueError("Build application artifact file metadata is invalid")
+        aggregate = hashlib.sha256(
+            json.dumps(files, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+        if descriptor.get("sha256") != aggregate:
+            raise ValueError("Build application artifact aggregate digest is invalid")
 
 
 def _require_changed(value: dict[str, Any], field: str, label: str) -> None:
@@ -789,3 +938,19 @@ def _valid_digest(value: object) -> bool:
 
 def _sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _hash_directory(directory: Path) -> str:
+    digest = hashlib.sha256()
+    for path in sorted(directory.rglob("*")):
+        if path.is_symlink():
+            raise ValueError("BuildKit seed tree contains a symlink")
+        if not path.is_file():
+            continue
+        relative = path.relative_to(directory).as_posix().encode()
+        content = path.read_bytes()
+        digest.update(len(relative).to_bytes(8, "big"))
+        digest.update(relative)
+        digest.update(len(content).to_bytes(8, "big"))
+        digest.update(content)
+    return digest.hexdigest()

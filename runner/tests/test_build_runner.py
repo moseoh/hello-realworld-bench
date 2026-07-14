@@ -469,6 +469,89 @@ class BuildRunnerTest(unittest.TestCase):
             any(second["trial_builder"] in argument for call in calls for argument in call)
         )
 
+    def test_builder_bootstrap_failure_and_cancellation_roll_back_exact_resources(self):
+        module = _runner_module()
+        builder = "hrw-build-campaign-01"
+        volume = f"buildx_buildkit_{builder}0_state"
+
+        for failure in ("return-code", "cancellation"):
+            with self.subTest(failure=failure):
+                calls = []
+
+                def fake(argv, *, cwd=None, check=True):
+                    argv = list(argv)
+                    calls.append(argv)
+                    if argv[:3] == ["docker", "buildx", "inspect"]:
+                        if failure == "cancellation":
+                            raise KeyboardInterrupt()
+                        return subprocess.CompletedProcess(argv, 1, stdout="failed\n", stderr="")
+                    if argv == ["docker", "buildx", "ls", "--format", "{{.Name}}"]:
+                        return subprocess.CompletedProcess(argv, 0, stdout="other-campaign\n", stderr="")
+                    if argv == ["docker", "volume", "ls", "--format", "{{.Name}}"]:
+                        return subprocess.CompletedProcess(
+                            argv,
+                            0,
+                            stdout="buildx_buildkit_other-campaign0_state\n",
+                            stderr="",
+                        )
+                    return subprocess.CompletedProcess(argv, 0, stdout="", stderr="")
+
+                expected_error = KeyboardInterrupt if failure == "cancellation" else subprocess.CalledProcessError
+                with self.assertRaises(expected_error):
+                    module._create_builder(builder, volume, fake)
+
+                self.assertIn(
+                    ["docker", "buildx", "rm", "--force", builder],
+                    calls,
+                )
+                self.assertIn(
+                    ["docker", "volume", "rm", "--force", volume],
+                    calls,
+                )
+                self.assertFalse(
+                    any("other-campaign" in argument for call in calls for argument in call if "rm" in call)
+                )
+
+    def test_campaign_marker_recovery_removes_only_declared_exact_resources(self):
+        module = _runner_module()
+        with tempfile.TemporaryDirectory() as directory:
+            marker_dir = Path(directory)
+            run_id = "2026-07-14T00-00-00_java_spring-boot_jvm-java25_build"
+            marker = marker_dir / "campaign.json"
+            module.write_build_campaign_resource_marker(run_id, marker)
+            calls = []
+
+            def fake(argv, *, cwd=None, check=True):
+                argv = list(argv)
+                calls.append(argv)
+                if argv == ["docker", "buildx", "ls", "--format", "{{.Name}}"]:
+                    return subprocess.CompletedProcess(argv, 0, stdout="other-campaign\n", stderr="")
+                if argv == ["docker", "volume", "ls", "--format", "{{.Name}}"]:
+                    return subprocess.CompletedProcess(
+                        argv,
+                        0,
+                        stdout="buildx_buildkit_other-campaign0_state\n",
+                        stderr="",
+                    )
+                return subprocess.CompletedProcess(argv, 0, stdout="", stderr="")
+
+            module.recover_build_campaign_resources(marker_dir, fake)
+
+            self.assertFalse(marker.exists())
+            expected = module._campaign_resources(run_id)
+            for resource in expected:
+                self.assertIn(
+                    ["docker", "buildx", "rm", "--force", resource["builder"]],
+                    calls,
+                )
+                self.assertIn(
+                    ["docker", "volume", "rm", "--force", resource["state_volume"]],
+                    calls,
+                )
+            self.assertFalse(
+                any("other-campaign" in argument for call in calls for argument in call if "rm" in call)
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

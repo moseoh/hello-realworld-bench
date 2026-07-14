@@ -41,6 +41,39 @@ def _write(path: Path, value: object):
     path.write_text(json.dumps(value, indent=2) + "\n")
 
 
+def _tree_digest(directory: Path) -> str:
+    digest = hashlib.sha256()
+    for path in sorted(directory.rglob("*")):
+        if not path.is_file():
+            continue
+        relative = path.relative_to(directory).as_posix().encode()
+        content = path.read_bytes()
+        digest.update(len(relative).to_bytes(8, "big"))
+        digest.update(relative)
+        digest.update(len(content).to_bytes(8, "big"))
+        digest.update(content)
+    return digest.hexdigest()
+
+
+def _application_descriptor(file_digest: str) -> dict[str, object]:
+    files = [
+        {
+            "path": "build/libs/app.jar",
+            "size_bytes": 1,
+            "sha256": file_digest,
+        }
+    ]
+    aggregate = hashlib.sha256(
+        json.dumps(files, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    return {
+        "type": "glob",
+        "declaration": "build/libs/*.jar",
+        "sha256": aggregate,
+        "files": files,
+    }
+
+
 def _fixture(root: Path) -> Path:
     config = resolve_build_run_config(
         "java/spring-boot",
@@ -68,6 +101,40 @@ def _fixture(root: Path) -> Path:
     _write(root / "preflight.json", host)
     _write(root / "postflight.json", host)
     campaign_digest = hashlib.sha256(b"build-run-001").hexdigest()[:16]
+    build = manifest["execution"]["build"]
+    app_dir = Path(manifest["execution"]["app_dir"])
+    context = app_dir if build["context"] == "." else app_dir / build["context"]
+    seed_log_path = root / "campaign-operations/01-buildkit-runtime-base-seed.log"
+    seed_log_path.parent.mkdir(parents=True, exist_ok=True)
+    seed_log_path.write_text("ok\n")
+    seed_record = {
+        "name": "buildkit_runtime_base_seed",
+        "argv": [
+            "docker", "buildx", "build",
+            "--builder", f"hrw-build-{campaign_digest}-seed",
+            "--platform", "linux/amd64",
+            "--provenance=false",
+            "--file", (app_dir / build["dockerfile"]).as_posix(),
+            "--target", "runtime-base",
+            "--cache-to", "type=local,dest=/tmp/campaign/buildkit-cache-seed,mode=max",
+            "--output", "type=cacheonly",
+            context.as_posix(),
+        ],
+        "working_directory": "repository-root",
+        "started_at": "2026-07-14T00:00:00Z",
+        "finished_at": "2026-07-14T00:00:01Z",
+        "start_monotonic_ns": 1_000_000_000,
+        "end_monotonic_ns": 1_010_000_000,
+        "duration_ms": 10.0,
+        "exit_code": 0,
+        "combined_log": {
+            "path": seed_log_path.relative_to(root).as_posix(),
+            "sha256": _sha(seed_log_path),
+            "size_bytes": seed_log_path.stat().st_size,
+        },
+    }
+    seed_record_path = root / "campaign-operations/01-buildkit-runtime-base-seed.json"
+    _write(seed_record_path, seed_record)
     cache_seed = {
         "gradle_executor_image": GRADLE_IMAGE,
         "buildkit_image": BUILDKIT_IMAGE,
@@ -78,6 +145,11 @@ def _fixture(root: Path) -> Path:
         "seed_state_volume": (
             f"buildx_buildkit_hrw-build-{campaign_digest}-seed0_state"
         ),
+        "buildkit_seed_tree_sha256": _tree_digest(PROJECT_ROOT / context),
+        "buildkit_seed_operation": {
+            "path": seed_record_path.relative_to(root).as_posix(),
+            "sha256": _sha(seed_record_path),
+        },
         "dependency_seed_path": "/tmp/dependency-seed",
         "dependency_seed_mode": "supplied",
         "workspace_build_outputs_removed": True,
@@ -157,13 +229,22 @@ def _fixture(root: Path) -> Path:
             _write(path, record)
             operations.append({"name": name, "path": path.relative_to(trial_dir).as_posix(), "sha256": _sha(path)})
             metrics[metric] = float(duration)
+        probe = build["incremental_input"]
+        probe_path = PROJECT_ROOT / app_dir / probe["path"]
+        source_bytes = probe_path.read_bytes()
+        mutated_bytes = source_bytes.replace(
+            probe["from"].encode(),
+            probe["to"].encode(),
+            1,
+        )
         source = {
-            "before": {"sha256": "3" * 64},
-            "after": {"sha256": "4" * 64},
+            "path": probe["path"],
+            "before": {"sha256": hashlib.sha256(source_bytes).hexdigest()},
+            "after": {"sha256": hashlib.sha256(mutated_bytes).hexdigest()},
         }
         applications = {
-            "before": {"sha256": "5" * 64, "files": [{"path": "build/libs/app.jar", "size_bytes": 1, "sha256": "6" * 64}]},
-            "after": {"sha256": "7" * 64, "files": [{"path": "build/libs/app.jar", "size_bytes": 1, "sha256": "8" * 64}]},
+            "before": _application_descriptor("6" * 64),
+            "after": _application_descriptor("8" * 64),
         }
         images = {
             "before": _write_oci_descriptor(trial_dir, "image-package", "6", "7", 100),
@@ -354,6 +435,52 @@ def _rehash_trial_inputs(run_set_dir: Path, mutate):
     _write(run_set_path, run_set)
 
 
+def _rehash_trial_evidence(run_set_dir: Path, filename: str, evidence_name: str, mutate):
+    trial_dir = run_set_dir / "trials/01"
+    evidence_path = trial_dir / filename
+    value = json.loads(evidence_path.read_text())
+    mutate(value)
+    _write(evidence_path, value)
+
+    trial_path = trial_dir / "build-trial.json"
+    trial = json.loads(trial_path.read_text())
+    trial["evidence"][evidence_name]["sha256"] = _sha(evidence_path)
+    artifact_path = trial_dir / "artifact-manifest.json"
+    artifact_manifest = json.loads(artifact_path.read_text())
+    artifact = next(
+        item for item in artifact_manifest["artifacts"]
+        if item["path"] == filename
+    )
+    artifact["size_bytes"] = evidence_path.stat().st_size
+    artifact["sha256"] = _sha(evidence_path)
+    _write(artifact_path, artifact_manifest)
+    trial["artifact_manifest"]["sha256"] = _sha(artifact_path)
+    _write(trial_path, trial)
+
+    run_set_path = run_set_dir / "build-run-set.json"
+    run_set = json.loads(run_set_path.read_text())
+    run_set["trials"][0]["sha256"] = _sha(trial_path)
+    _write(run_set_path, run_set)
+
+
+def _rehash_cache_seed(run_set_dir: Path, mutate_record=None, mutate_seed=None):
+    seed_path = run_set_dir / "cache-seed.json"
+    seed = json.loads(seed_path.read_text())
+    if mutate_record is not None:
+        record_path = run_set_dir / seed["buildkit_seed_operation"]["path"]
+        record = json.loads(record_path.read_text())
+        mutate_record(record)
+        _write(record_path, record)
+        seed["buildkit_seed_operation"]["sha256"] = _sha(record_path)
+    if mutate_seed is not None:
+        mutate_seed(seed)
+    _write(seed_path, seed)
+    run_set_path = run_set_dir / "build-run-set.json"
+    run_set = json.loads(run_set_path.read_text())
+    run_set["campaign_evidence"]["cache_seed"]["sha256"] = _sha(seed_path)
+    _write(run_set_path, run_set)
+
+
 def _write_oci_descriptor(
     trial_dir: Path,
     operation: str,
@@ -455,6 +582,89 @@ class BuildEvidenceValidationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             run_set_dir = _fixture(Path(directory))
             module.validate_build_publication_evidence(run_set_dir, PROJECT_ROOT)
+
+    def test_rejects_cache_seed_command_and_tree_tampering_after_rehash(self):
+        module = _evidence_module()
+        with tempfile.TemporaryDirectory() as directory:
+            run_set_dir = _fixture(Path(directory))
+            _rehash_cache_seed(
+                run_set_dir,
+                mutate_record=lambda record: record["argv"].__setitem__(
+                    record["argv"].index("--target") + 1,
+                    "full-application",
+                ),
+            )
+
+            with self.assertRaisesRegex(ValueError, "seed argv"):
+                module.validate_build_publication_evidence(run_set_dir, PROJECT_ROOT)
+
+        with tempfile.TemporaryDirectory() as directory:
+            run_set_dir = _fixture(Path(directory))
+            _rehash_cache_seed(
+                run_set_dir,
+                mutate_seed=lambda seed: seed.__setitem__(
+                    "buildkit_seed_tree_sha256",
+                    "0" * 64,
+                ),
+            )
+
+            with self.assertRaisesRegex(ValueError, "seed tree"):
+                module.validate_build_publication_evidence(run_set_dir, PROJECT_ROOT)
+
+    def test_rejects_probe_contract_tampering_after_rehash(self):
+        module = _evidence_module()
+        with tempfile.TemporaryDirectory() as directory:
+            run_set_dir = _fixture(Path(directory))
+            _rehash_trial_evidence(
+                run_set_dir,
+                "source-probe.json",
+                "source_probe",
+                lambda source: source.__setitem__("path", "src/main/java/Other.java"),
+            )
+
+            with self.assertRaisesRegex(ValueError, "source probe path"):
+                module.validate_build_publication_evidence(run_set_dir, PROJECT_ROOT)
+
+        with tempfile.TemporaryDirectory() as directory:
+            run_set_dir = _fixture(Path(directory))
+            _rehash_trial_evidence(
+                run_set_dir,
+                "source-probe.json",
+                "source_probe",
+                lambda source: source["after"].__setitem__("sha256", "0" * 64),
+            )
+
+            with self.assertRaisesRegex(ValueError, "source probe after digest"):
+                module.validate_build_publication_evidence(run_set_dir, PROJECT_ROOT)
+
+    def test_rejects_application_declaration_and_aggregate_tampering_after_rehash(self):
+        module = _evidence_module()
+        with tempfile.TemporaryDirectory() as directory:
+            run_set_dir = _fixture(Path(directory))
+            _rehash_trial_evidence(
+                run_set_dir,
+                "application-artifacts.json",
+                "application_artifacts",
+                lambda artifacts: artifacts["before"].__setitem__(
+                    "declaration",
+                    "build/libs/other-*.jar",
+                ),
+            )
+
+            with self.assertRaisesRegex(ValueError, "application artifact declaration"):
+                module.validate_build_publication_evidence(run_set_dir, PROJECT_ROOT)
+
+        with tempfile.TemporaryDirectory() as directory:
+            run_set_dir = _fixture(Path(directory))
+            _rehash_trial_evidence(
+                run_set_dir,
+                "application-artifacts.json",
+                "application_artifacts",
+                lambda artifacts: artifacts["after"].__setitem__("sha256", "0" * 64),
+            )
+
+            with self.assertRaisesRegex(ValueError, "application artifact aggregate"):
+                module.validate_build_publication_evidence(run_set_dir, PROJECT_ROOT)
 
     def test_calls_family_specific_resolved_manifest_validation(self):
         module = _evidence_module()
@@ -690,13 +900,17 @@ class BuildEvidenceValidationTest(unittest.TestCase):
         ):
             with self.subTest(filename=filename), tempfile.TemporaryDirectory() as directory:
                 run_set_dir = _fixture(Path(directory))
-                trial_dir = run_set_dir / "trials/01"
-                path = trial_dir / filename
-                value = json.loads(path.read_text())
-                before_field = field
-                value[key][field] = value["before"][before_field]
-                _write(path, value)
-                with self.assertRaises(ValueError):
+                evidence_name = filename.removesuffix(".json").replace("-", "_")
+                _rehash_trial_evidence(
+                    run_set_dir,
+                    filename,
+                    evidence_name,
+                    lambda value, key=key, field=field: value[key].__setitem__(
+                        field,
+                        value["before"][field],
+                    ),
+                )
+                with self.assertRaisesRegex(ValueError, "digest did not change"):
                     module.validate_build_publication_evidence(run_set_dir, PROJECT_ROOT)
 
     def test_build_schemas_reject_non_build_fields(self):

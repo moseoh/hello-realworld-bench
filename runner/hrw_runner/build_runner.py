@@ -57,6 +57,7 @@ def run_build_benchmark_set(
     host_probe: Callable[[], dict[str, Any]] | None = None,
     monotonic_ns: Callable[[], int] = time.monotonic_ns,
     utc_now: Callable[[], str] | None = None,
+    resource_marker: Path | None = None,
 ) -> Path:
     command_runner = command_runner or _run_command
     utc_now = utc_now or _utc_timestamp
@@ -76,6 +77,8 @@ def run_build_benchmark_set(
     result_dir.mkdir(parents=True, exist_ok=False)
     scratch = Path(tempfile.mkdtemp(prefix=f"{run_id}-", dir=base.parent))
     host_reader = host_probe or (lambda: _collect_host_evidence(command_runner))
+    if resource_marker is not None:
+        write_build_campaign_resource_marker(run_id, resource_marker)
 
     try:
         source = read_git_provenance(config.root_dir)
@@ -98,14 +101,23 @@ def run_build_benchmark_set(
         )
         dependency_seed_digest = _hash_directory(seed)
         cache_seed_dir = scratch / "buildkit-cache-seed"
-        _prepare_buildkit_cache_seed(
+        buildkit_seed_operation = _prepare_buildkit_cache_seed(
             config,
             run_id,
             cache_seed_dir,
             scratch,
+            result_dir,
             command_runner,
+            monotonic_ns,
+            utc_now,
         )
         buildkit_cache_seed_digest = _hash_directory(cache_seed_dir)
+        buildkit_context = _resolve_build_input_path(
+            config.app_dir,
+            str(config.build["context"]),
+            "context",
+            expected_type="directory",
+        )
         builder_resources = _builder_resources(run_id, 1)
         cache_seed_document = {
             "gradle_executor_image": GRADLE_EXECUTOR_IMAGE,
@@ -115,6 +127,8 @@ def run_build_benchmark_set(
             "buildkit_cache_seed_path": str(cache_seed_dir),
             "seed_builder_name": builder_resources["seed_builder"],
             "seed_state_volume": builder_resources["seed_state_volume"],
+            "buildkit_seed_tree_sha256": _hash_directory(buildkit_context),
+            "buildkit_seed_operation": buildkit_seed_operation,
             "dependency_seed_mode": seed_mode,
             "workspace_build_outputs_removed": seed_cleanup[
                 "workspace_build_outputs_removed"
@@ -187,6 +201,8 @@ def run_build_benchmark_set(
         )
         raise
     finally:
+        if resource_marker is not None and resource_marker.exists():
+            recover_build_campaign_resource_marker(resource_marker, command_runner)
         shutil.rmtree(scratch, ignore_errors=True)
 
 
@@ -256,7 +272,7 @@ def _run_trial(
     resources = _builder_resources(run_id, index)
     builder_name = resources["trial_builder"]
     state_volume = resources["trial_state_volume"]
-    _create_builder(builder_name, command_runner)
+    _create_builder(builder_name, state_volume, command_runner)
     operations = []
     metrics = {}
     started_at = utc_now()
@@ -443,10 +459,13 @@ def _measure_operation(
     command_runner: CommandRunner,
     monotonic_ns: Callable[[], int],
     utc_now: Callable[[], str],
+    *,
+    cwd: Path | None = None,
+    working_directory: str | None = None,
 ) -> dict[str, Any]:
     started_at = utc_now()
     start = monotonic_ns()
-    completed = command_runner(argv, cwd=None, check=False)
+    completed = command_runner(argv, cwd=cwd, check=False)
     end = monotonic_ns()
     finished_at = utc_now()
     output = (completed.stdout or "") + (completed.stderr or "")
@@ -466,6 +485,8 @@ def _measure_operation(
         "exit_code": completed.returncode,
         "combined_log": _sized_reference(trial_dir, log_path),
     }
+    if working_directory is not None:
+        record["working_directory"] = working_directory
     record_path = trial_dir / "operations" / f"{stem}.json"
     write_json(record_path, record)
     if completed.returncode != 0:
@@ -671,12 +692,15 @@ def _prepare_buildkit_cache_seed(
     run_id: str,
     cache_seed_dir: Path,
     scratch: Path,
+    result_dir: Path,
     command_runner: CommandRunner,
-) -> None:
+    monotonic_ns: Callable[[], int],
+    utc_now: Callable[[], str],
+) -> dict[str, Any]:
     resources = _builder_resources(run_id, 1)
     builder_name = resources["seed_builder"]
     state_volume = resources["seed_state_volume"]
-    _create_builder(builder_name, command_runner)
+    _create_builder(builder_name, state_volume, command_runner)
     try:
         dockerfile = _resolve_build_input_path(
             config.app_dir,
@@ -690,6 +714,13 @@ def _prepare_buildkit_cache_seed(
             "context",
             expected_type="directory",
         )
+        relative_app = config.app_dir.relative_to(config.root_dir)
+        relative_dockerfile = relative_app / str(config.build["dockerfile"])
+        relative_context = (
+            relative_app
+            if str(config.build["context"]) == "."
+            else relative_app / str(config.build["context"])
+        )
         argv = [
             "docker",
             "buildx",
@@ -700,16 +731,26 @@ def _prepare_buildkit_cache_seed(
             "linux/amd64",
             "--provenance=false",
             "--file",
-            str(dockerfile),
+            relative_dockerfile.as_posix(),
             "--target",
             "runtime-base",
             "--cache-to",
             f"type=local,dest={cache_seed_dir},mode=max",
             "--output",
             "type=cacheonly",
-            str(context),
+            relative_context.as_posix(),
         ]
-        _execute(command_runner, argv)
+        operation = _measure_operation(
+            "buildkit_runtime_base_seed",
+            argv,
+            result_dir,
+            1,
+            command_runner,
+            monotonic_ns,
+            utc_now,
+            cwd=config.root_dir,
+            working_directory="repository-root",
+        )
     finally:
         removed, volume_removed = _remove_builder(
             builder_name, state_volume, command_runner
@@ -718,6 +759,7 @@ def _prepare_buildkit_cache_seed(
             raise RuntimeError("BuildKit cache seed builder cleanup failed")
     if not cache_seed_dir.is_dir():
         raise RuntimeError("BuildKit runtime-base cache seed was not exported")
+    return operation["reference"]
 
 
 def _builder_resources(run_id: str, trial_index: int) -> dict[str, str]:
@@ -732,26 +774,107 @@ def _builder_resources(run_id: str, trial_index: int) -> dict[str, str]:
     }
 
 
-def _create_builder(builder_name: str, command_runner: CommandRunner) -> None:
-    _execute(
-        command_runner,
-        [
-            "docker",
-            "buildx",
-            "create",
-            "--name",
-            builder_name,
-            "--driver",
-            "docker-container",
-            "--driver-opt",
-            f"image={BUILDKIT_IMAGE},cpu-quota=200000,cpu-period=100000,memory=4g,memory-swap=4g",
-            "--use",
-        ],
-    )
-    _execute(
-        command_runner,
-        ["docker", "buildx", "inspect", "--builder", builder_name, "--bootstrap"],
-    )
+def _create_builder(
+    builder_name: str,
+    state_volume: str,
+    command_runner: CommandRunner,
+) -> None:
+    try:
+        _execute(
+            command_runner,
+            [
+                "docker",
+                "buildx",
+                "create",
+                "--name",
+                builder_name,
+                "--driver",
+                "docker-container",
+                "--driver-opt",
+                f"image={BUILDKIT_IMAGE},cpu-quota=200000,cpu-period=100000,memory=4g,memory-swap=4g",
+                "--use",
+            ],
+        )
+        _execute(
+            command_runner,
+            ["docker", "buildx", "inspect", "--builder", builder_name, "--bootstrap"],
+        )
+    except BaseException:
+        _remove_builder(builder_name, state_volume, command_runner)
+        raise
+
+
+def _campaign_resources(run_id: str) -> list[dict[str, str]]:
+    seed = _builder_resources(run_id, 1)
+    resources = [
+        {
+            "builder": seed["seed_builder"],
+            "state_volume": seed["seed_state_volume"],
+        }
+    ]
+    for index in range(1, 4):
+        trial = _builder_resources(run_id, index)
+        resources.append(
+            {
+                "builder": trial["trial_builder"],
+                "state_volume": trial["trial_state_volume"],
+            }
+        )
+    return resources
+
+
+def write_build_campaign_resource_marker(run_id: str, marker_path: Path) -> None:
+    marker_path.parent.mkdir(parents=True, exist_ok=True)
+    document = {
+        "schema_version": "1.0",
+        "run_id": run_id,
+        "resources": _campaign_resources(run_id),
+    }
+    temporary = marker_path.with_suffix(marker_path.suffix + ".tmp")
+    write_json(temporary, document)
+    temporary.replace(marker_path)
+
+
+def recover_build_campaign_resources(
+    marker_dir: Path,
+    command_runner: CommandRunner | None = None,
+) -> None:
+    command_runner = command_runner or _run_command
+    if not marker_dir.exists():
+        return
+    if marker_dir.is_symlink() or not marker_dir.is_dir():
+        raise ValueError("Build campaign marker directory is invalid")
+    for marker_path in sorted(marker_dir.iterdir()):
+        if marker_path.suffix != ".json":
+            continue
+        recover_build_campaign_resource_marker(marker_path, command_runner)
+
+
+def recover_build_campaign_resource_marker(
+    marker_path: Path,
+    command_runner: CommandRunner,
+) -> None:
+    if marker_path.is_symlink() or not marker_path.is_file():
+        raise ValueError("Build campaign resource marker is invalid")
+    document = json.loads(marker_path.read_text())
+    if not isinstance(document, dict) or not isinstance(document.get("run_id"), str):
+        raise ValueError("Build campaign resource marker is invalid")
+    expected = {
+        "schema_version": "1.0",
+        "run_id": document["run_id"],
+        "resources": _campaign_resources(document["run_id"]),
+    }
+    if document != expected:
+        raise ValueError("Build campaign resource marker is invalid")
+    for resource in expected["resources"]:
+        removed, volume_removed = _remove_builder(
+            resource["builder"],
+            resource["state_volume"],
+            command_runner,
+        )
+        if not removed or not volume_removed:
+            raise RuntimeError("Build campaign resource cleanup failed")
+    marker_path.unlink()
 
 
 def _remove_builder(
@@ -876,6 +999,8 @@ def _application_artifact(
 def _hash_directory(directory: Path) -> str:
     digest = hashlib.sha256()
     for path in sorted(directory.rglob("*")):
+        if path.is_symlink():
+            raise ValueError(f"Symlinks are not allowed in hashed build trees: {path}")
         if not path.is_file():
             continue
         relative = path.relative_to(directory).as_posix().encode()
