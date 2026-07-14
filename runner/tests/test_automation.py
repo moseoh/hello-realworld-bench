@@ -57,6 +57,50 @@ class WorkflowTrustBoundaryTest(unittest.TestCase):
                 )
                 self.assertIn("^[0-9a-f]{40}$", validate["run"])
 
+    def test_raw_run_set_id_cannot_inject_workflow_output_or_environment_files(self):
+        workflow = self._load("official-build-benchmark.yml")
+        prepare = next(
+            step
+            for step in workflow["jobs"]["publish"]["steps"]
+            if step.get("name") == "Prepare raw evidence release"
+        )
+        self.assertNotIn("$GITHUB_ENV", prepare["run"])
+
+        for unsafe_id in (
+            "valid\nBASH_ENV=../raw-run-set/payload.sh",
+            "valid\x01control",
+        ):
+            with self.subTest(unsafe_id=repr(unsafe_id)):
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    root = Path(temp_dir)
+                    raw = root / "raw-run-set"
+                    raw.mkdir()
+                    (raw / "build-run-set.json").write_text(
+                        json.dumps({"run_set_id": unsafe_id})
+                    )
+                    github_output = root / "github-output"
+                    github_env = root / "github-env"
+                    github_output.touch()
+                    github_env.touch()
+
+                    completed = subprocess.run(
+                        ["bash", "-e", "-o", "pipefail", "-c", prepare["run"]],
+                        cwd=root,
+                        check=False,
+                        capture_output=True,
+                        text=True,
+                        env={
+                            **os.environ,
+                            "GITHUB_OUTPUT": str(github_output),
+                            "GITHUB_ENV": str(github_env),
+                            "REPOSITORY": "moseoh/hello-realworld-bench",
+                        },
+                    )
+
+                    self.assertNotEqual(completed.returncode, 0)
+                    self.assertEqual(github_output.read_text(), "")
+                    self.assertEqual(github_env.read_text(), "")
+
     def test_official_build_workflow_allowlists_the_only_measurement_cells(self):
         workflow = self._load("official-build-benchmark.yml")
         allowlist = next(

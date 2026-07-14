@@ -156,6 +156,8 @@ def _validate_manifest_identity(
     for field, expected in expected_profiles.items():
         if selection.get(field) != expected:
             raise ValueError(f"Unsupported resolved build {field}")
+    if run_set.get("run_set_id") != run_set.get("run_id"):
+        raise ValueError("Build run set run_set_id does not match run_id")
     checks = (
         (run_set.get("run_id"), manifest.get("run_id"), "run_id"),
         (

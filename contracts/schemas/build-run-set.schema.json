@@ -7,6 +7,10 @@
       "type": "string",
       "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
     },
+    "safeId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*(?![\\s\\S])"
+    },
     "relativePath": {
       "type": "string",
       "pattern": "^(?!/)(?!.*\\\\)(?!.*[\\u0000-\\u001f\\u007f])(?!\\.{1,2}(?:/|(?![\\s\\S])))(?!.*[/]\\.{1,2}(?:/|(?![\\s\\S])))[^/]+(?:/[^/]+)*(?![\\s\\S])"
@@ -94,8 +98,8 @@
   ],
   "properties": {
     "schema_version": { "const": "1.0" },
-    "run_set_id": { "type": "string", "minLength": 1 },
-    "run_id": { "type": "string", "minLength": 1 },
+    "run_set_id": { "$ref": "#/$defs/safeId" },
+    "run_id": { "$ref": "#/$defs/safeId" },
     "manifest_digest": { "$ref": "#/$defs/digest" },
     "cohort_fingerprint": { "$ref": "#/$defs/digest" },
     "status": { "const": "complete" },

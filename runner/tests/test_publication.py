@@ -10,6 +10,7 @@ from hrw_runner.config import resolve_run_config
 from hrw_runner.manifest import build_resolved_manifest
 from hrw_runner.publication import (
     PublicationError,
+    _validate_catalog_entries,
     _validate_promotion,
     publish_run_set,
 )
@@ -21,6 +22,50 @@ DIGEST_B = "b" * 64
 
 
 class DatasetPublicationTest(unittest.TestCase):
+    def test_non_build_catalog_requires_valid_matching_image_digests(self):
+        for family in ("service", "lifecycle", None):
+            for digest in (None, "sha256:not-a-digest"):
+                with (
+                    self.subTest(family=family, digest=digest),
+                    tempfile.TemporaryDirectory() as temp_dir,
+                ):
+                    root = Path(temp_dir)
+                    run_set_dir = self._write_run_set(root / "source", "run-001")
+                    dataset_dir = root / "dataset"
+                    with (
+                        patch("hrw_runner.publication.validate_run_set_evidence"),
+                        patch("hrw_runner.publication.validate_resolved_manifest"),
+                    ):
+                        entry_dir = publish_run_set(
+                            run_set_dir,
+                            dataset_dir,
+                            PROJECT_ROOT,
+                            source_commit="c" * 40,
+                        )
+
+                    catalog_path = dataset_dir / "catalog.json"
+                    catalog = json.loads(catalog_path.read_text())
+                    entry = catalog["entries"][0]
+                    if family is None:
+                        entry.pop("evidence_family")
+                    else:
+                        entry["evidence_family"] = family
+                    publication_path = entry_dir / "publication.json"
+                    publication = json.loads(publication_path.read_text())
+                    if digest is None:
+                        entry.pop("image_digest")
+                        publication.pop("image_digest")
+                    else:
+                        entry["image_digest"] = digest
+                        publication["image_digest"] = digest
+                    publication_path.write_text(json.dumps(publication))
+                    entry["publication_sha256"] = hashlib.sha256(
+                        publication_path.read_bytes()
+                    ).hexdigest()
+
+                    with self.assertRaisesRegex(PublicationError, "image"):
+                        _validate_catalog_entries(dataset_dir, catalog)
+
     def test_lifecycle_publication_revalidates_raw_lifecycle_evidence(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

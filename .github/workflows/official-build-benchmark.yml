@@ -167,24 +167,29 @@ jobs:
             git -C ../dataset rm -rf --ignore-unmatch .
           fi
       - name: Prepare raw evidence release
+        id: release
         env:
           REPOSITORY: moseoh/hello-realworld-bench
         run: |
-          run_set_id="$(jq -r .run_set_id raw-run-set/build-run-set.json)"
-          test -n "$run_set_id"
+          run_set_id="$(jq -er '.run_set_id | select(type == "string")' raw-run-set/build-run-set.json)"
+          if [[ ! "$run_set_id" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+            exit 1
+          fi
           tar -C raw-run-set -czf raw-build-evidence.tar.gz .
           raw_sha="$(sha256sum raw-build-evidence.tar.gz | cut -d' ' -f1)"
           printf '%s  raw-build-evidence.tar.gz\n' "$raw_sha" > raw-build-evidence.tar.gz.sha256
           release_tag="build-benchmark-evidence-${run_set_id}"
           {
-            printf 'RAW_ARTIFACT_SHA256=%s\n' "$raw_sha"
-            printf 'RAW_ARTIFACT_URL=https://github.com/%s/releases/download/%s/raw-build-evidence.tar.gz\n' \
+            printf 'raw_artifact_sha256=%s\n' "$raw_sha"
+            printf 'raw_artifact_url=https://github.com/%s/releases/download/%s/raw-build-evidence.tar.gz\n' \
               "$REPOSITORY" "$release_tag"
-            printf 'RELEASE_TAG=%s\n' "$release_tag"
-          } >> "$GITHUB_ENV"
+            printf 'release_tag=%s\n' "$release_tag"
+          } >> "$GITHUB_OUTPUT"
       - name: Publish validated compact evidence
         working-directory: source
         env:
+          RAW_ARTIFACT_SHA256: ${{ steps.release.outputs.raw_artifact_sha256 }}
+          RAW_ARTIFACT_URL: ${{ steps.release.outputs.raw_artifact_url }}
           SOURCE_SHA: ${{ inputs.source_sha }}
           WORKFLOW_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
@@ -198,6 +203,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.PUBLIC_REPO_TOKEN }}
           GH_REPO: moseoh/hello-realworld-bench
+          RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
           SOURCE_SHA: ${{ inputs.source_sha }}
         run: |
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then

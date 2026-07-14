@@ -416,6 +416,40 @@ def _write_oci_descriptor(
 
 
 class BuildEvidenceValidationTest(unittest.TestCase):
+    def test_build_run_set_schema_rejects_unsafe_full_string_ids(self):
+        module = _evidence_module()
+        unsafe_ids = (
+            "valid\nBASH_ENV=../raw-run-set/payload.sh",
+            "valid\x01control",
+            "valid\n",
+            "-leading-separator",
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            run_set_dir = _fixture(Path(directory))
+            run_set = json.loads((run_set_dir / "build-run-set.json").read_text())
+            for unsafe_id in unsafe_ids:
+                with self.subTest(unsafe_id=repr(unsafe_id)):
+                    changed = copy.deepcopy(run_set)
+                    changed["run_set_id"] = unsafe_id
+                    with self.assertRaisesRegex(ValueError, "run_set_id"):
+                        module.validate_build_document(
+                            changed, "build-run-set", PROJECT_ROOT
+                        )
+
+    def test_build_publication_binds_run_set_id_to_run_id(self):
+        module = _evidence_module()
+        with tempfile.TemporaryDirectory() as directory:
+            run_set_dir = _fixture(Path(directory))
+            run_set_path = run_set_dir / "build-run-set.json"
+            run_set = json.loads(run_set_path.read_text())
+            run_set["run_set_id"] = "different-safe-id"
+            _write(run_set_path, run_set)
+
+            with self.assertRaisesRegex(ValueError, "run_set_id.*run_id"):
+                module.validate_build_publication_evidence(
+                    run_set_dir, PROJECT_ROOT
+                )
+
     def test_accepts_three_valid_trials_and_recomputed_summaries(self):
         module = _evidence_module()
         with tempfile.TemporaryDirectory() as directory:

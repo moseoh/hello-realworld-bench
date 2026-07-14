@@ -377,18 +377,29 @@ def _validate_catalog_entries(dataset_dir: Path, catalog: dict[str, Any]) -> Non
         ):
             raise PublicationError("Existing catalog publication digest is invalid")
         publication = _read_object(publication_path)
-        identity_matches = (
+        if family == "build":
+            if "image_digest" in entry or "image_digest" in publication:
+                raise PublicationError("Build catalog entries cannot have image digests")
+        else:
+            catalog_image_digest = entry.get("image_digest")
+            publication_image_digest = publication.get("image_digest")
+            if (
+                not isinstance(catalog_image_digest, str)
+                or not re.fullmatch(
+                    r"sha256:[0-9a-f]{64}", catalog_image_digest
+                )
+                or not isinstance(publication_image_digest, str)
+                or not re.fullmatch(
+                    r"sha256:[0-9a-f]{64}", publication_image_digest
+                )
+                or catalog_image_digest != publication_image_digest
+            ):
+                raise PublicationError("Existing catalog image digest is invalid")
+        if (
             publication.get("run_set_id") != run_set_id
             or publication.get("cohort_fingerprint") != cohort
             or publication.get("source_commit") != entry.get("source_commit")
-        )
-        if family != "build":
-            identity_matches = identity_matches or (
-                publication.get("image_digest") != entry.get("image_digest")
-            )
-        elif "image_digest" in entry or "image_digest" in publication:
-            identity_matches = True
-        if identity_matches:
+        ):
             raise PublicationError("Existing catalog publication identity is invalid")
         _verify_existing_entry(entry_dir, publication)
 
