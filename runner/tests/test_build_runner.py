@@ -210,6 +210,20 @@ class BuildRunnerTest(unittest.TestCase):
             "path": "build/quarkus-app",
         })
 
+    def test_cpu_model_normalization_removes_only_the_integrated_gpu_suffix(self):
+        module = _runner_module()
+
+        self.assertEqual(
+            module._canonical_cpu_model(
+                "AMD Ryzen 7 5825U with Radeon Graphics"
+            ),
+            "AMD Ryzen 7 5825U",
+        )
+        self.assertEqual(
+            module._canonical_cpu_model("Intel(R) Xeon(R) Gold 6430"),
+            "Intel(R) Xeon(R) Gold 6430",
+        )
+
     def test_probe_sources_must_match_and_contain_exact_from_text_before_commands(self):
         module = _runner_module()
         with tempfile.TemporaryDirectory() as directory:
