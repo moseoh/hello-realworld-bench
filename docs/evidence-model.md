@@ -1,7 +1,8 @@
 # Evidence Model
 
-Benchmark evidence is split into four Draft 2020-12 JSON documents. Each document
-has one responsibility and rejects unknown properties.
+Service and lifecycle benchmark evidence is split into four Draft 2020-12 JSON
+documents. Build evidence uses a parallel set of strict JSON documents. Each
+document has one responsibility and rejects unknown properties.
 
 ## Documents
 
@@ -33,6 +34,15 @@ distinguishes repetitions within that run.
 The run-set summary retains every contributing trial value alongside min, median,
 and max; it does not select a favorable repetition.
 
+`build-resolved-manifest.json` binds a build run to the exact implementation and
+variant inputs while deriving its comparison cohort only from the shared
+environment, measurement, and build profiles. `build-trial.json` records the
+four exact operation commands, timings, source and probe transitions, cache and
+builder identities, and artifact references. `build-run-set.json` requires
+exactly three valid trials and retains every contributing value before computing
+the summary. Its trial artifact manifests inventory every application and OCI
+artifact used by the semantic validator.
+
 ## Traceability
 
 The evidence chain is:
@@ -60,9 +70,27 @@ cohort digests. Invalid or failed
 trials remain auditable evidence but must not contribute to promoted run-set
 summaries.
 
+The build evidence chain is:
+
+```text
+build-run-set.json
+  -> build-resolved-manifest.json
+  -> preflight.json
+  -> postflight.json
+  -> cache-seed.json
+  -> build-trial.json
+       -> artifact-manifest.json
+            -> operation records, logs, and build artifacts
+```
+
+The hosted publication validator recalculates every reference and artifact hash,
+then compares commands, trees, probes, artifacts, cache semantics, and summaries
+with the frozen contracts. It also enforces a closed regular-file set, so an
+undeclared regular file or any symlink invalidates the raw build evidence.
+
 ## Versioning
 
-All four contracts start at `schema_version` `1.0`. A change that renames a field,
-moves a field, changes its meaning, or changes digest canonicalization requires a
-schema version change. Adding a metric does not change the schema because metric
-identity and units are data.
+All current contracts start at `schema_version` `1.0`. A change that renames a
+field, moves a field, changes its meaning, or changes digest canonicalization
+requires a schema version change. Adding a metric does not change the schema
+because metric identity and units are data.

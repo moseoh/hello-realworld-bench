@@ -50,6 +50,37 @@
     "orchestrator": { "type": "string", "minLength": 1 },
     "official": { "type": "boolean" },
     "load_generator": { "type": "string", "minLength": 1 },
+    "build": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runner_labels",
+        "platform",
+        "machine_id",
+        "cpu_model",
+        "min_logical_cpus",
+        "min_memory_bytes"
+      ],
+      "properties": {
+        "runner_labels": {
+          "type": "array",
+          "prefixItems": [
+            { "const": "self-hosted" },
+            { "const": "linux" },
+            { "const": "x64" },
+            { "const": "hrw-home-k3s" }
+          ],
+          "items": false,
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "platform": { "const": "linux/amd64" },
+        "machine_id": { "const": "f66cd2d134b94bb18eb7e531d1baf343" },
+        "cpu_model": { "const": "AMD Ryzen 7 5825U" },
+        "min_logical_cpus": { "const": 16 },
+        "min_memory_bytes": { "const": 29313151795 }
+      }
+    },
     "cluster": {
       "type": "object",
       "additionalProperties": false,
@@ -147,11 +178,38 @@
   "allOf": [
     {
       "if": {
-        "properties": { "official": { "const": true } },
-        "required": ["official"]
+        "properties": { "orchestrator": { "const": "host-build" } },
+        "required": ["orchestrator"]
       },
       "then": {
-        "required": ["cluster", "resources", "images", "validity"]
+        "required": ["build"],
+        "properties": {
+          "orchestrator": { "const": "host-build" },
+          "official": { "const": true },
+          "load_generator": { "const": "none" }
+        },
+        "not": {
+          "anyOf": [
+            { "required": ["cluster"] },
+            { "required": ["resources"] },
+            { "required": ["images"] },
+            { "required": ["validity"] }
+          ]
+        }
+      },
+      "else": {
+        "not": { "required": ["build"] },
+        "allOf": [
+          {
+            "if": {
+              "properties": { "official": { "const": true } },
+              "required": ["official"]
+            },
+            "then": {
+              "required": ["cluster", "resources", "images", "validity"]
+            }
+          }
+        ]
       }
     },
     {

@@ -1,0 +1,277 @@
+name: Official build benchmark worker
+
+on:
+  workflow_call:
+    inputs:
+      source_sha:
+        description: Trusted full commit from the public main branch
+        required: true
+        type: string
+      implementation:
+        description: Allowlisted implementation key
+        required: true
+        type: string
+    secrets:
+      PUBLIC_REPO_TOKEN:
+        description: Token used only by the GitHub-hosted publication job
+        required: true
+
+concurrency:
+  group: official-home-k3s
+  cancel-in-progress: false
+
+jobs:
+  benchmark:
+    runs-on: [self-hosted, linux, x64, hrw-home-k3s]
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    outputs:
+      raw_artifact_name: ${{ steps.artifact.outputs.name }}
+    strategy:
+      max-parallel: 1
+    steps:
+      - name: Validate source SHA
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: printf '%s\n' "$SOURCE_SHA" | grep -Eq '^[0-9a-f]{40}$'
+      - name: Allowlist build implementation
+        id: allowlist
+        env:
+          IMPLEMENTATION: ${{ inputs.implementation }}
+        run: |
+          case "$IMPLEMENTATION:jvm-java25" in
+            java/spring-boot:jvm-java25)
+              variant=jvm-java25
+              artifact_key=spring-boot
+              ;;
+            java/quarkus:jvm-java25)
+              variant=jvm-java25
+              artifact_key=quarkus
+              ;;
+            *)
+              exit 1
+              ;;
+          esac
+          {
+            printf 'implementation=%s\n' "$IMPLEMENTATION"
+            printf 'variant=%s\n' "$variant"
+            printf 'artifact_key=%s\n' "$artifact_key"
+          } >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          repository: moseoh/hello-realworld-bench
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+          path: source
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: source/runner/uv.lock
+      - name: Verify trusted source
+        working-directory: source
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test -z "$(git status --porcelain)"
+      - name: Recover interrupted build campaign
+        working-directory: source
+        env:
+          MARKER_DIR: ${{ runner.temp }}/../hrw-build-campaigns
+        run: PYTHONPATH=runner uv run --project runner python -m hrw_runner build-cleanup "$MARKER_DIR"
+      - name: Select raw artifact identity
+        id: artifact
+        env:
+          ARTIFACT_KEY: ${{ steps.allowlist.outputs.artifact_key }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: printf 'name=official-build-%s-%s-%s-%s\n' "$ARTIFACT_KEY" "$SOURCE_SHA" "$RUN_ID" "$RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+      - name: Run official build set
+        id: benchmark
+        working-directory: source
+        env:
+          IMPLEMENTATION: ${{ steps.allowlist.outputs.implementation }}
+          VARIANT: ${{ steps.allowlist.outputs.variant }}
+          MARKER_DIR: ${{ runner.temp }}/../hrw-build-campaigns
+          ARTIFACT_KEY: ${{ steps.allowlist.outputs.artifact_key }}
+        run: |
+          set -o pipefail
+          PYTHONPATH=runner uv run --project runner python -m hrw_runner build-set \
+            "$IMPLEMENTATION" "$VARIANT" \
+            --environment-profile home-build-v1 \
+            --measurement-protocol official-build-v1 \
+            --build-profile official-gradle-docker-v1 \
+            --resource-marker "$MARKER_DIR/${{ github.run_id }}-${{ github.run_attempt }}-$ARTIFACT_KEY.json" \
+            | tee ../official-build.log
+          result_dir="$(sed -n 's/^Build run set directory: //p' ../official-build.log | tail -1)"
+          test -n "$result_dir"
+          test -f "$result_dir/build-run-set.json"
+          printf 'result_dir=%s\n' "$result_dir" >> "$GITHUB_OUTPUT"
+      - name: Cleanup build campaign resources
+        if: ${{ always() }}
+        working-directory: source
+        env:
+          MARKER_DIR: ${{ runner.temp }}/../hrw-build-campaigns
+        run: PYTHONPATH=runner uv run --project runner python -m hrw_runner build-cleanup "$MARKER_DIR"
+      - name: Transfer raw build evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: ${{ steps.benchmark.outputs.result_dir }}
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 6
+
+  publish:
+    needs: benchmark
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Validate source SHA
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: printf '%s\n' "$SOURCE_SHA" | grep -Eq '^[0-9a-f]{40}$'
+      - name: Allowlist build implementation
+        id: allowlist
+        env:
+          IMPLEMENTATION: ${{ inputs.implementation }}
+        run: |
+          case "$IMPLEMENTATION" in
+            java/spring-boot)
+              artifact_key=spring-boot
+              variant=jvm-java25
+              ;;
+            java/quarkus)
+              artifact_key=quarkus
+              variant=jvm-java25
+              ;;
+            *)
+              exit 1
+              ;;
+          esac
+          {
+            printf 'artifact_key=%s\n' "$artifact_key"
+            printf 'variant=%s\n' "$variant"
+          } >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          repository: moseoh/hello-realworld-bench
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+          path: source
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: false
+      - name: Install frozen publisher dependencies
+        working-directory: source
+        run: uv sync --project runner --frozen --no-cache
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.benchmark.outputs.raw_artifact_name }}
+          path: raw-run-set
+      - name: Revalidate build evidence
+        working-directory: source
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          EXPECTED_IMPLEMENTATION: ${{ inputs.implementation }}
+          EXPECTED_VARIANT: ${{ steps.allowlist.outputs.variant }}
+        run: |
+          test "$(git rev-parse "$SOURCE_SHA")" = "$SOURCE_SHA"
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test -z "$(git status --porcelain)"
+          PYTHONPATH=runner uv run --project runner --offline --no-sync python -c '
+          import os
+          import sys
+          from pathlib import Path
+          from hrw_runner.build_evidence import create_deterministic_build_archive
+          create_deterministic_build_archive(
+              Path(sys.argv[1]),
+              Path.cwd(),
+              Path(sys.argv[2]),
+              expected_implementation=os.environ["EXPECTED_IMPLEMENTATION"],
+              expected_variant=os.environ["EXPECTED_VARIANT"],
+          )
+          ' ../raw-run-set ../raw-build-evidence.tar.gz
+      - name: Prepare append-only data branch
+        working-directory: source
+        run: |
+          if git fetch origin benchmark-data; then
+            git worktree add ../dataset FETCH_HEAD
+          else
+            git worktree add --detach ../dataset HEAD
+            git -C ../dataset switch --orphan benchmark-data
+            git -C ../dataset rm -rf --ignore-unmatch .
+          fi
+      - name: Prepare raw evidence release
+        id: release
+        env:
+          REPOSITORY: moseoh/hello-realworld-bench
+        run: |
+          run_set_id="$(jq -er '.run_set_id | select(type == "string")' raw-run-set/build-run-set.json)"
+          if [[ ! "$run_set_id" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+            exit 1
+          fi
+          raw_sha="$(sha256sum raw-build-evidence.tar.gz | cut -d' ' -f1)"
+          printf '%s  raw-build-evidence.tar.gz\n' "$raw_sha" > raw-build-evidence.tar.gz.sha256
+          release_tag="build-benchmark-evidence-${run_set_id}"
+          {
+            printf 'raw_artifact_sha256=%s\n' "$raw_sha"
+            printf 'raw_artifact_url=https://github.com/%s/releases/download/%s/raw-build-evidence.tar.gz\n' \
+              "$REPOSITORY" "$release_tag"
+            printf 'release_tag=%s\n' "$release_tag"
+          } >> "$GITHUB_OUTPUT"
+      - name: Publish validated compact evidence
+        working-directory: source
+        env:
+          RAW_ARTIFACT_SHA256: ${{ steps.release.outputs.raw_artifact_sha256 }}
+          RAW_ARTIFACT_URL: ${{ steps.release.outputs.raw_artifact_url }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          WORKFLOW_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          PYTHONPATH=runner uv run --project runner --offline --no-sync python -m hrw_runner publish \
+            ../raw-run-set ../dataset \
+            --source-commit "$SOURCE_SHA" \
+            --workflow-url "$WORKFLOW_URL" \
+            --raw-artifact-url "$RAW_ARTIFACT_URL" \
+            --raw-artifact-sha256 "$RAW_ARTIFACT_SHA256"
+      - name: Publish idempotent raw evidence release
+        env:
+          GH_TOKEN: ${{ secrets.PUBLIC_REPO_TOKEN }}
+          GH_REPO: moseoh/hello-realworld-bench
+          RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            mkdir existing-release
+            gh release download "$RELEASE_TAG" --dir existing-release \
+              --pattern raw-build-evidence.tar.gz \
+              --pattern raw-build-evidence.tar.gz.sha256
+            cmp raw-build-evidence.tar.gz existing-release/raw-build-evidence.tar.gz
+            cmp raw-build-evidence.tar.gz.sha256 existing-release/raw-build-evidence.tar.gz.sha256
+          else
+            gh release create "$RELEASE_TAG" \
+              raw-build-evidence.tar.gz raw-build-evidence.tar.gz.sha256 \
+              --target "$SOURCE_SHA" \
+              --title "Build benchmark evidence ${RELEASE_TAG#build-benchmark-evidence-}" \
+              --notes "Raw build evidence for trusted workflow run ${{ github.run_id }}."
+          fi
+      - name: Commit canonical dataset
+        working-directory: dataset
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          PUBLIC_REPO_TOKEN: ${{ secrets.PUBLIC_REPO_TOKEN }}
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add catalog.json build-run-sets
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "Publish build benchmark ${SOURCE_SHA}"
+          auth="$(printf 'x-access-token:%s' "$PUBLIC_REPO_TOKEN" | base64 -w0)"
+          git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $auth" \
+            push https://github.com/moseoh/hello-realworld-bench.git HEAD:benchmark-data

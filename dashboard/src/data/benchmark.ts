@@ -1,25 +1,54 @@
-export interface Selection {
+export interface BaseSelection {
   build_profile: string
   environment_profile: string
   implementation: string
-  load_profile: string
   measurement_protocol: string
-  scenario: string
   variant: string
 }
 
-export interface CatalogEntry {
+export interface ServiceSelection extends BaseSelection {
+  load_profile: string
+  scenario: string
+}
+
+export interface BuildSelection extends BaseSelection {}
+
+interface StandardCatalogEntry {
   cohort_fingerprint: string
-  evidence_family?: string
   finished_at: string
   image_digest: string
   path: string
   publication_sha256: string
   run_set_id: string
-  selection: Selection
+  selection: ServiceSelection
   source_commit: string
   started_at: string
 }
+
+export interface ServiceCatalogEntry extends StandardCatalogEntry {
+  evidence_family?: 'service'
+}
+
+export interface LifecycleCatalogEntry extends StandardCatalogEntry {
+  evidence_family: 'lifecycle'
+}
+
+export interface BuildCatalogEntry {
+  cohort_fingerprint: string
+  evidence_family: 'build'
+  finished_at: string
+  path: string
+  publication_sha256: string
+  run_set_id: string
+  selection: BuildSelection
+  source_commit: string
+  started_at: string
+}
+
+export type CatalogEntry =
+  | ServiceCatalogEntry
+  | LifecycleCatalogEntry
+  | BuildCatalogEntry
 
 export interface MetricSummary {
   min: number
@@ -27,6 +56,16 @@ export interface MetricSummary {
   max: number
   trials: Array<{ trial_id: string; value: number }>
 }
+
+export const BUILD_METRIC_KEYS = [
+  'gradle_clean_build_ms',
+  'gradle_incremental_rebuild_ms',
+  'image_package_ms',
+  'image_rebuild_ms',
+] as const
+
+export type BuildMetricKey = (typeof BUILD_METRIC_KEYS)[number]
+export type BuildMetrics = Record<BuildMetricKey, MetricSummary>
 
 export interface RunSet {
   cohort_fingerprint: string
@@ -52,6 +91,29 @@ export interface RunSet {
   }>
 }
 
+export interface BuildRunSet {
+  cohort_fingerprint: string
+  expected_trials: number
+  manifest_digest?: string
+  run_set_id: string
+  schema_version?: string
+  status: string
+  summary: {
+    build_metrics: BuildMetrics
+    trial_count: number
+    valid_trial_count: number
+  }
+  trials: Array<{
+    index: number
+    path: string
+    sha256: string
+    status: string
+    trial_id: string
+  }>
+}
+
+export type EvidenceRunSet = RunSet | BuildRunSet
+
 export interface ComparisonSelection {
   cohort: string
   loadProfile: string
@@ -59,7 +121,7 @@ export interface ComparisonSelection {
 }
 
 export interface ComparisonItem {
-  entry: CatalogEntry
+  entry: ServiceCatalogEntry
   runSet: RunSet
 }
 
@@ -89,7 +151,7 @@ export interface NormalizedTimeline {
 export interface DataSource {
   catalog: () => Promise<CatalogEntry[]>
   document: (path: string) => Promise<unknown>
-  runSet: (path: string) => Promise<RunSet>
+  runSet: (entry: CatalogEntry) => Promise<EvidenceRunSet>
 }
 
 interface DataSourceOptions {
@@ -128,9 +190,19 @@ export function createDataSource({
   }
 
   const baseUrl = `https://raw.githubusercontent.com/${repository}/${revision}`
+  const base = new URL(`${baseUrl}/`)
   const document = async (path: string): Promise<unknown> => {
     assertSafePath(path)
-    const response = await fetcher(`${baseUrl}/${path}`)
+    const url = new URL(path, base)
+    if (
+      url.origin !== base.origin ||
+      !url.pathname.startsWith(base.pathname) ||
+      url.search !== '' ||
+      url.hash !== ''
+    ) {
+      throw new Error(`Unsafe dataset URL: ${path}`)
+    }
+    const response = await fetcher(url.toString())
     if (!response.ok) {
       throw new Error(`Dataset request failed (${response.status}): ${path}`)
     }
@@ -140,31 +212,37 @@ export function createDataSource({
   return {
     async catalog() {
       const raw = await document('catalog.json')
-      if (!isRecord(raw) || !Array.isArray(raw.entries)) {
+      if (
+        !isRecord(raw) ||
+        raw.schema_version !== '1.0' ||
+        !Array.isArray(raw.entries)
+      ) {
         throw new Error('Invalid benchmark catalog')
       }
-      return raw.entries as CatalogEntry[]
+      return raw.entries.filter(isCatalogEntry)
     },
     document,
-    async runSet(path: string) {
-      const raw = await document(`${path}/run-set.json`)
-      if (!isRecord(raw) || typeof raw.run_set_id !== 'string') {
-        throw new Error(`Invalid run set: ${path}`)
+    async runSet(entry: CatalogEntry) {
+      const filename = isBuildCatalogEntry(entry) ? 'build-run-set.json' : 'run-set.json'
+      const raw = await document(`${entry.path}/${filename}`)
+      if (!isRunSetForCatalogEntry(raw, entry)) {
+        throw new Error(`Run set does not match catalog entry: ${entry.path}`)
       }
-      return raw as unknown as RunSet
+      return raw
     },
   }
 }
 
 export function buildComparison(
   entries: CatalogEntry[],
-  runSets: ReadonlyMap<string, RunSet>,
+  runSets: ReadonlyMap<string, EvidenceRunSet>,
   selection: ComparisonSelection,
 ): ComparisonItem[] {
   const latestByTarget = new Map<string, ComparisonItem>()
 
   for (const entry of entries) {
     if (
+      !isServiceCatalogEntry(entry) ||
       entry.cohort_fingerprint !== selection.cohort ||
       entry.selection.load_profile !== selection.loadProfile ||
       entry.selection.scenario !== selection.scenario
@@ -227,8 +305,12 @@ export function normalizeTimeline(document: unknown): NormalizedTimeline {
   }
 }
 
-export function isCompleteRunSet(runSet: RunSet, cohort: string): boolean {
+export function isCompleteRunSet(
+  runSet: EvidenceRunSet,
+  cohort: string,
+): runSet is RunSet {
   return (
+    !isBuildRunSet(runSet) &&
     runSet.cohort_fingerprint === cohort &&
     runSet.status === 'complete' &&
     runSet.expected_trials > 0 &&
@@ -236,6 +318,225 @@ export function isCompleteRunSet(runSet: RunSet, cohort: string): boolean {
     runSet.summary.valid_trial_count === runSet.expected_trials &&
     runSet.trials.length === runSet.expected_trials &&
     runSet.trials.every((trial) => trial.status === 'valid')
+  )
+}
+
+export function isCompleteBuildRunSet(
+  runSet: EvidenceRunSet,
+  cohort: string,
+): runSet is BuildRunSet {
+  return (
+    isBuildRunSet(runSet) &&
+    runSet.cohort_fingerprint === cohort &&
+    runSet.status === 'complete' &&
+    runSet.expected_trials === 3 &&
+    runSet.summary.trial_count === 3 &&
+    runSet.summary.valid_trial_count === 3 &&
+    isExactTrialReferences(runSet.trials, 3, 'build-trial.json') &&
+    isBuildMetricGroup(runSet.summary.build_metrics, 3)
+  )
+}
+
+export function isCompleteLifecycleRunSet(
+  runSet: EvidenceRunSet,
+  cohort: string,
+): runSet is RunSet {
+  return (
+    isCompleteRunSet(runSet, cohort) &&
+    isMetricGroup(runSet.summary.startup_metrics, runSet.expected_trials)
+  )
+}
+
+export function isServiceCatalogEntry(
+  entry: CatalogEntry,
+): entry is ServiceCatalogEntry {
+  return (
+    entry.evidence_family === 'service' ||
+    (entry.evidence_family === undefined &&
+      entry.selection.measurement_protocol === 'official-service-v1')
+  )
+}
+
+export function isLifecycleCatalogEntry(
+  entry: CatalogEntry,
+): entry is LifecycleCatalogEntry {
+  return entry.evidence_family === 'lifecycle'
+}
+
+export function isBuildCatalogEntry(
+  entry: CatalogEntry,
+): entry is BuildCatalogEntry {
+  return entry.evidence_family === 'build'
+}
+
+function isBuildRunSet(runSet: unknown): runSet is BuildRunSet {
+  return (
+    isRecord(runSet) &&
+    typeof runSet.cohort_fingerprint === 'string' &&
+    Number.isInteger(runSet.expected_trials) &&
+    typeof runSet.run_set_id === 'string' &&
+    typeof runSet.status === 'string' &&
+    Array.isArray(runSet.trials) &&
+    isRecord(runSet.summary) &&
+    'build_metrics' in runSet.summary &&
+    Number.isInteger(runSet.summary.trial_count) &&
+    Number.isInteger(runSet.summary.valid_trial_count)
+  )
+}
+
+function isBuildMetricGroup(value: unknown, expectedTrials: number): value is BuildMetrics {
+  if (!isRecord(value) || Object.keys(value).length !== BUILD_METRIC_KEYS.length) {
+    return false
+  }
+  return BUILD_METRIC_KEYS.every((key) =>
+    isMetricSummary(value[key], expectedTrials),
+  )
+}
+
+function isMetricGroup(
+  value: unknown,
+  expectedTrials: number,
+): value is Record<string, MetricSummary> {
+  return (
+    isRecord(value) &&
+    Object.keys(value).length > 0 &&
+    Object.values(value).every((metric) =>
+      isMetricSummary(metric, expectedTrials),
+    )
+  )
+}
+
+function isMetricSummary(value: unknown, expectedTrials: number): value is MetricSummary {
+  if (
+    !isRecord(value) ||
+    !isFiniteNumber(value.min) ||
+    !isFiniteNumber(value.median) ||
+    !isFiniteNumber(value.max) ||
+    value.min < 0 ||
+    value.median < 0 ||
+    value.max < 0 ||
+    !Array.isArray(value.trials) ||
+    value.trials.length !== expectedTrials
+  ) {
+    return false
+  }
+  const trialValues: number[] = []
+  for (let index = 0; index < expectedTrials; index += 1) {
+    const trial = value.trials[index]
+    if (
+      !isRecord(trial) ||
+      trial.trial_id !== `trial-${String(index + 1).padStart(2, '0')}` ||
+      !isFiniteNumber(trial.value) ||
+      trial.value < 0
+    ) {
+      return false
+    }
+    trialValues.push(trial.value)
+  }
+  const sorted = [...trialValues].sort((left, right) => left - right)
+  const middle = Math.floor(sorted.length / 2)
+  const recomputedMedian = sorted.length % 2 === 1
+    ? sorted[middle]
+    : (sorted[middle - 1] + sorted[middle]) / 2
+  return (
+    value.min === sorted[0] &&
+    value.median === recomputedMedian &&
+    value.max === sorted[sorted.length - 1]
+  )
+}
+
+function isExactTrialReferences(
+  value: unknown,
+  expectedTrials: number,
+  filename: string,
+): boolean {
+  if (!Array.isArray(value) || value.length !== expectedTrials) return false
+  return value.every((trial, offset) => {
+    const index = offset + 1
+    const directory = String(index).padStart(2, '0')
+    return (
+      isRecord(trial) &&
+      trial.index === index &&
+      trial.trial_id === `trial-${directory}` &&
+      trial.path === `trials/${directory}/${filename}` &&
+      typeof trial.sha256 === 'string' &&
+      trial.status === 'valid'
+    )
+  })
+}
+
+function isCatalogEntry(value: unknown): value is CatalogEntry {
+  if (!isRecord(value) || !isRecord(value.selection)) return false
+  const commonStrings = [
+    value.cohort_fingerprint,
+    value.finished_at,
+    value.path,
+    value.publication_sha256,
+    value.run_set_id,
+    value.source_commit,
+    value.started_at,
+    value.selection.build_profile,
+    value.selection.environment_profile,
+    value.selection.implementation,
+    value.selection.measurement_protocol,
+    value.selection.variant,
+  ]
+  if (commonStrings.some((field) => typeof field !== 'string' || field.length === 0)) {
+    return false
+  }
+  if (
+    !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(String(value.cohort_fingerprint)) ||
+    !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(String(value.run_set_id))
+  ) {
+    return false
+  }
+  try {
+    assertSafePath(String(value.path))
+  } catch {
+    return false
+  }
+  const family = value.evidence_family
+  if (family === 'build') {
+    return value.path === `build-run-sets/${value.cohort_fingerprint}/${value.run_set_id}`
+  }
+  if (family !== undefined && family !== 'service' && family !== 'lifecycle') {
+    return false
+  }
+  if (
+    typeof value.image_digest !== 'string' ||
+    typeof value.selection.load_profile !== 'string' ||
+    typeof value.selection.scenario !== 'string'
+  ) {
+    return false
+  }
+  if (
+    family === undefined &&
+    value.selection.measurement_protocol !== 'official-service-v1'
+  ) {
+    return false
+  }
+  return value.path === `run-sets/${value.cohort_fingerprint}/${value.run_set_id}`
+}
+
+function isRunSetForCatalogEntry(
+  value: unknown,
+  entry: CatalogEntry,
+): value is EvidenceRunSet {
+  if (!isRecord(value)) return false
+  if (
+    value.run_set_id !== entry.run_set_id ||
+    value.cohort_fingerprint !== entry.cohort_fingerprint
+  ) {
+    return false
+  }
+  if (isBuildCatalogEntry(entry)) return isBuildRunSet(value)
+  return (
+    typeof value.status === 'string' &&
+    Number.isInteger(value.expected_trials) &&
+    Array.isArray(value.trials) &&
+    isRecord(value.summary) &&
+    isRecord(value.summary.runtime_metrics) &&
+    isRecord(value.summary.startup_metrics)
   )
 }
 
@@ -252,7 +553,13 @@ function assertSafePath(path: string): void {
     !path ||
     path.startsWith('/') ||
     path.includes('\\') ||
-    path.split('/').some((segment) => !segment || segment === '.' || segment === '..')
+    path.split('/').some(
+      (segment) =>
+        !segment ||
+        segment === '.' ||
+        segment === '..' ||
+        !/^[A-Za-z0-9._-]+$/.test(segment),
+    )
   ) {
     throw new Error(`Unsafe dataset path: ${path}`)
   }

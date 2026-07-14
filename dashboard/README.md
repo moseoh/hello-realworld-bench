@@ -1,6 +1,6 @@
 # Benchmark Dashboard
 
-The dashboard renders compatible benchmark cohorts and individual trial timelines from the repository's static `benchmark-data` branch. It does not require a database or backend API.
+The dashboard renders compatible benchmark cohorts from the repository's static `benchmark-data` branch. `Service` retains individual trial timelines, while `Cold start` and `Build` render compact summary tables without time-series requests. The dashboard reads service and lifecycle entries from `run-sets/<cohort>/<run-set-id>/run-set.json` and build entries from `build-run-sets/<cohort>/<run-set-id>/build-run-set.json`. It does not require a database or backend API.
 
 ## Development
 

@@ -1,6 +1,6 @@
 schema_version: "1.0"
 id: jvm-java25
-contract_version: "1.1"
+contract_version: "1.2"
 description: "Spring Boot JVM variant using Java 25."
 implementation: java/spring-boot
 
@@ -14,6 +14,30 @@ runtime:
 
 docker:
   image_tag: "hello-realworld/java-spring-boot-jvm-java25:local"
+
+build:
+  clean_command:
+    - ./gradlew
+    - clean
+    - build
+    - --offline
+    - --no-daemon
+    - --no-build-cache
+  incremental_command:
+    - ./gradlew
+    - build
+    - --offline
+    - --no-daemon
+    - --no-build-cache
+  incremental_input:
+    path: src/main/java/org/hellorealworld/benchmark/BuildBenchmarkProbe.java
+    from: "public static final int VALUE = 0;"
+    to: "public static final int VALUE = 1;"
+  application_artifact:
+    type: glob
+    path: build/libs/*.jar
+  dockerfile: Dockerfile
+  context: .
 
 kubernetes:
   target_environment:

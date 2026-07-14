@@ -6,9 +6,25 @@ Hello Real World Bench records benchmark evidence across several categories.
 
 ### Build Metrics
 
-Build metrics capture how long it takes to produce runnable application artifacts and Docker images.
+Build metrics capture how long it takes to produce runnable application
+artifacts and Docker images. An official build run set contains exactly three
+trials. Every trial starts from a fresh copy of the source tree, a fresh copy of
+the immutable seeded Gradle dependency cache, and a fresh Buildx builder.
 
-The MVP records Gradle clean build time and Docker image build time separately. The Docker image build should package the artifact produced by the Gradle build step instead of rebuilding the application inside Docker. Gradle dependency cache and Docker layer cache state are recorded in `build.cache`; early runs should not be compared unless cache conditions and run order are understood.
+The frozen operation order is `gradle_clean_build`, `image_package`,
+`gradle_incremental_rebuild`, and `image_rebuild`. Their normalized metrics are
+`gradle_clean_build_ms`, `image_package_ms`,
+`gradle_incremental_rebuild_ms`, and `image_rebuild_ms`. The incremental step
+changes the declared source probe from `0` to `1` and must change the application
+artifact. Both image steps package the application artifact produced by Gradle;
+they do not rebuild the application inside Docker.
+
+The dependency cache is an immutable fresh-copy seed. `image_package` receives
+only the pinned runtime-base cache, while `image_rebuild` receives the cache
+exported by the first package operation. Commands, source-tree digests, probe
+digests, application artifacts, OCI artifacts, logs, and operation boundaries
+are hash-bound in the raw evidence. Comparisons are valid only when the frozen
+environment, measurement, and build profile contracts match.
 
 ### Startup Metrics
 
@@ -87,4 +103,8 @@ A later phase should add remote load generator mode.
 
 Benchmark results should be phrased as trade-offs under specific scenario conditions. Avoid universal claims such as one framework being faster than another in general.
 
-Local and calibration outputs are development evidence. Official service results require three valid trials; official lifecycle results require five valid trials. Both require clean trusted commits, frozen profiles, complete correctness evidence, immutable images, and the applicable home-k3s validity checks.
+Local and calibration outputs are development evidence. Official service and
+build results require three valid trials; official lifecycle results require
+five valid trials. All require clean trusted commits, frozen profiles, complete
+correctness evidence, immutable artifacts, and the applicable host validity
+checks.

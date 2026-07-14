@@ -48,6 +48,15 @@
       "type": ["integer", "null"],
       "minimum": 0
     },
+    "build": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start_boundary", "completion_boundary"],
+      "properties": {
+        "start_boundary": { "const": "operation-command-start" },
+        "completion_boundary": { "const": "operation-command-exit" }
+      }
+    },
     "lifecycle": {
       "type": "object",
       "additionalProperties": false,
@@ -76,13 +85,44 @@
   "allOf": [
     {
       "if": {
+        "properties": { "evidence_family": { "const": "build" } },
+        "required": ["evidence_family"]
+      },
+      "then": {
+        "required": ["build"],
+        "not": { "required": ["lifecycle"] },
+        "properties": {
+          "trials": { "const": 3 },
+          "timing_source": { "const": "none" },
+          "warmup_seconds": { "const": 0 },
+          "measured_seconds": { "const": 0 }
+        }
+      },
+      "else": {
+        "not": { "required": ["build"] }
+      }
+    },
+    {
+      "if": {
         "properties": {
           "status": { "const": "frozen" },
           "evidence_family": { "const": "lifecycle" }
         },
         "required": ["status", "evidence_family"]
       },
-      "then": { "required": ["lifecycle"] }
+      "then": {
+        "required": ["lifecycle"],
+        "not": { "required": ["build"] }
+      },
+      "else": {
+        "if": {
+          "properties": { "evidence_family": { "const": "service" } },
+          "required": ["evidence_family"]
+        },
+        "then": {
+          "not": { "required": ["lifecycle"] }
+        }
+      }
     }
   ]
 }

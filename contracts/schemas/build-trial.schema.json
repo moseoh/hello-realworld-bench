@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hellorealworld.dev/contracts/schemas/build-trial.schema.json",
+  "title": "Build trial evidence",
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "duration": { "type": "number", "minimum": 0 },
+    "relativePath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*[\\u0000-\\u001f\\u007f])(?!\\.{1,2}(?:/|(?![\\s\\S])))(?!.*[/]\\.{1,2}(?:/|(?![\\s\\S])))[^/]+(?:/[^/]+)*(?![\\s\\S])"
+    },
+    "evidenceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "$ref": "#/$defs/relativePath" },
+        "sha256": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "operationRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "path", "sha256"],
+      "properties": {
+        "name": {
+          "enum": [
+            "gradle_clean_build",
+            "image_package",
+            "gradle_incremental_rebuild",
+            "image_rebuild"
+          ]
+        },
+        "path": { "$ref": "#/$defs/relativePath" },
+        "sha256": { "$ref": "#/$defs/digest" }
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "trial_id",
+    "manifest_digest",
+    "cohort_fingerprint",
+    "status",
+    "started_at",
+    "finished_at",
+    "metrics",
+    "operations",
+    "evidence",
+    "artifact_manifest"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "run_id": { "type": "string", "minLength": 1 },
+    "trial_id": { "type": "string", "minLength": 1 },
+    "manifest_digest": { "$ref": "#/$defs/digest" },
+    "cohort_fingerprint": { "$ref": "#/$defs/digest" },
+    "status": { "enum": ["valid", "invalid", "failed"] },
+    "started_at": { "type": "string", "format": "date-time" },
+    "finished_at": { "type": "string", "format": "date-time" },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gradle_clean_build_ms",
+        "gradle_incremental_rebuild_ms",
+        "image_package_ms",
+        "image_rebuild_ms"
+      ],
+      "properties": {
+        "gradle_clean_build_ms": { "$ref": "#/$defs/duration" },
+        "gradle_incremental_rebuild_ms": { "$ref": "#/$defs/duration" },
+        "image_package_ms": { "$ref": "#/$defs/duration" },
+        "image_rebuild_ms": { "$ref": "#/$defs/duration" }
+      }
+    },
+    "operations": {
+      "type": "array",
+      "items": false,
+      "minItems": 4,
+      "maxItems": 4,
+      "prefixItems": [
+        { "allOf": [{ "$ref": "#/$defs/operationRef" }, { "properties": { "name": { "const": "gradle_clean_build" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/operationRef" }, { "properties": { "name": { "const": "image_package" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/operationRef" }, { "properties": { "name": { "const": "gradle_incremental_rebuild" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/operationRef" }, { "properties": { "name": { "const": "image_rebuild" } } }] }
+      ]
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_probe",
+        "application_artifacts",
+        "image_artifacts",
+        "trial_inputs"
+      ],
+      "properties": {
+        "source_probe": { "$ref": "#/$defs/evidenceRef" },
+        "application_artifacts": { "$ref": "#/$defs/evidenceRef" },
+        "image_artifacts": { "$ref": "#/$defs/evidenceRef" },
+        "trial_inputs": { "$ref": "#/$defs/evidenceRef" }
+      }
+    },
+    "artifact_manifest": { "$ref": "#/$defs/evidenceRef" }
+  }
+}

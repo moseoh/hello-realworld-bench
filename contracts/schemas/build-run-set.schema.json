@@ -1,0 +1,190 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hellorealworld.dev/contracts/schemas/build-run-set.schema.json",
+  "title": "Build run set",
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "safeId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*(?![\\s\\S])"
+    },
+    "relativePath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*[\\u0000-\\u001f\\u007f])(?!\\.{1,2}(?:/|(?![\\s\\S])))(?!.*[/]\\.{1,2}(?:/|(?![\\s\\S])))[^/]+(?:/[^/]+)*(?![\\s\\S])"
+    },
+    "trialRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trial_id", "index", "status", "path", "sha256"],
+      "properties": {
+        "trial_id": { "type": "string", "minLength": 1 },
+        "index": { "type": "integer", "minimum": 1 },
+        "status": { "enum": ["valid", "invalid", "failed"] },
+        "path": { "$ref": "#/$defs/relativePath" },
+        "sha256": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "evidenceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "$ref": "#/$defs/relativePath" },
+        "sha256": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "buildMetric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min", "median", "max", "trials"],
+      "properties": {
+        "min": { "type": "number", "minimum": 0 },
+        "median": { "type": "number", "minimum": 0 },
+        "max": { "type": "number", "minimum": 0 },
+        "trials": {
+          "type": "array",
+          "items": false,
+          "minItems": 3,
+          "maxItems": 3,
+          "prefixItems": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["trial_id", "value"],
+              "properties": {
+                "trial_id": { "const": "trial-01" },
+                "value": { "type": "number", "minimum": 0 }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["trial_id", "value"],
+              "properties": {
+                "trial_id": { "const": "trial-02" },
+                "value": { "type": "number", "minimum": 0 }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["trial_id", "value"],
+              "properties": {
+                "trial_id": { "const": "trial-03" },
+                "value": { "type": "number", "minimum": 0 }
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_set_id",
+    "run_id",
+    "manifest_digest",
+    "cohort_fingerprint",
+    "status",
+    "expected_trials",
+    "trials",
+    "campaign_evidence",
+    "summary"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "run_set_id": { "$ref": "#/$defs/safeId" },
+    "run_id": { "$ref": "#/$defs/safeId" },
+    "manifest_digest": { "$ref": "#/$defs/digest" },
+    "cohort_fingerprint": { "$ref": "#/$defs/digest" },
+    "status": { "const": "complete" },
+    "expected_trials": { "const": 3 },
+    "trials": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "allOf": [
+            { "$ref": "#/$defs/trialRef" },
+            {
+              "properties": {
+                "trial_id": { "const": "trial-01" },
+                "index": { "const": 1 },
+                "status": { "const": "valid" },
+                "path": { "const": "trials/01/build-trial.json" }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/trialRef" },
+            {
+              "properties": {
+                "trial_id": { "const": "trial-02" },
+                "index": { "const": 2 },
+                "status": { "const": "valid" },
+                "path": { "const": "trials/02/build-trial.json" }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/trialRef" },
+            {
+              "properties": {
+                "trial_id": { "const": "trial-03" },
+                "index": { "const": 3 },
+                "status": { "const": "valid" },
+                "path": { "const": "trials/03/build-trial.json" }
+              }
+            }
+          ]
+        }
+      ],
+      "items": false,
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "campaign_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["preflight", "postflight", "cache_seed"],
+      "properties": {
+        "preflight": { "$ref": "#/$defs/evidenceRef" },
+        "postflight": { "$ref": "#/$defs/evidenceRef" },
+        "cache_seed": { "$ref": "#/$defs/evidenceRef" }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trial_count", "valid_trial_count", "build_metrics"],
+      "properties": {
+        "trial_count": { "const": 3 },
+        "valid_trial_count": { "const": 3 },
+        "build_metrics": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "gradle_clean_build_ms",
+            "gradle_incremental_rebuild_ms",
+            "image_package_ms",
+            "image_rebuild_ms"
+          ],
+          "properties": {
+            "gradle_clean_build_ms": { "$ref": "#/$defs/buildMetric" },
+            "gradle_incremental_rebuild_ms": { "$ref": "#/$defs/buildMetric" },
+            "image_package_ms": { "$ref": "#/$defs/buildMetric" },
+            "image_rebuild_ms": { "$ref": "#/$defs/buildMetric" }
+          }
+        }
+      }
+    }
+  }
+}

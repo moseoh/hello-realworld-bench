@@ -907,6 +907,118 @@ class ContractValidationTest(unittest.TestCase):
         self.assertEqual(document.value["warmup_seconds"], 120)
         self.assertEqual(document.value["measured_seconds"], 480)
 
+    def test_measurement_protocol_rejects_build_block_for_non_build_family(self):
+        path = self.root_dir / "contracts/measurement-protocols/service.yaml"
+        value = self.read_yaml("contracts/measurement-protocols/service.yaml")
+        value["build"] = {
+            "start_boundary": "operation-command-start",
+            "completion_boundary": "operation-command-exit",
+        }
+        self.write_yaml("contracts/measurement-protocols/service.yaml", value)
+
+        with self.assertRaises(ContractValidationError) as context:
+            read_contract(path, "measurement-protocol", self.root_dir)
+
+        self.assertIn("required': ['build']", str(context.exception))
+
+    def test_measurement_protocol_semantics_reject_hybrid_when_schema_branch_is_absent(self):
+        schema_path = self.root_dir / "contracts/schemas/measurement-protocol.schema.json"
+        schema = json.loads(schema_path.read_text())
+        del schema["allOf"]
+        schema_path.write_text(json.dumps(schema))
+        path = self.root_dir / "contracts/measurement-protocols/service.yaml"
+        value = self.read_yaml("contracts/measurement-protocols/service.yaml")
+        value["build"] = {
+            "start_boundary": "operation-command-start",
+            "completion_boundary": "operation-command-exit",
+        }
+        self.write_yaml("contracts/measurement-protocols/service.yaml", value)
+
+        with self.assertRaises(ContractValidationError) as context:
+            read_contract(path, "measurement-protocol", self.root_dir)
+
+        self.assertIn("$.build: must not be defined for service evidence", str(context.exception))
+
+    def test_environment_profile_rejects_build_block_for_cluster_family(self):
+        path = self.root_dir / "contracts/environment-profiles/local.yaml"
+        value = yaml.safe_load(
+            (PROJECT_ROOT / "contracts/environment-profiles/home-k3s-v1.yaml").read_text()
+        )
+        value["build"] = yaml.safe_load(
+            (PROJECT_ROOT / "contracts/environment-profiles/home-build-v1.yaml").read_text()
+        )["build"]
+        self.write_yaml("contracts/environment-profiles/local.yaml", value)
+
+        with self.assertRaises(ContractValidationError) as context:
+            read_contract(path, "environment-profile", self.root_dir)
+
+        self.assertIn("required': ['build']", str(context.exception))
+
+    def test_environment_profile_semantics_reject_hybrid_when_schema_branch_is_absent(self):
+        schema_path = self.root_dir / "contracts/schemas/environment-profile.schema.json"
+        schema = json.loads(schema_path.read_text())
+        del schema["allOf"]
+        schema_path.write_text(json.dumps(schema))
+        path = self.root_dir / "contracts/environment-profiles/local.yaml"
+        value = self.read_yaml("contracts/environment-profiles/local.yaml")
+        value["build"] = yaml.safe_load(
+            (PROJECT_ROOT / "contracts/environment-profiles/home-build-v1.yaml").read_text()
+        )["build"]
+        self.write_yaml("contracts/environment-profiles/local.yaml", value)
+
+        with self.assertRaises(ContractValidationError) as context:
+            read_contract(path, "environment-profile", self.root_dir)
+
+        self.assertIn("$.build: must only be defined for host-build", str(context.exception))
+
+    def test_variant_rejects_non_canonical_build_paths(self):
+        source = yaml.safe_load(
+            (PROJECT_ROOT / "implementations/java/spring-boot/variants/jvm-java25.yaml").read_text()
+        )
+        path = self.root_dir / "implementations/python/example/variants/default.yaml"
+
+        for field, invalid in (
+            ("dockerfile", "/tmp/Dockerfile"),
+            ("dockerfile", "../Dockerfile"),
+            ("context", "%2e%2e"),
+            ("context", "nested%2fescape"),
+            ("context", "nested\\escape"),
+        ):
+            with self.subTest(field=field, invalid=invalid):
+                value = copy.deepcopy(source)
+                value["build"][field] = invalid
+                self.write_yaml(
+                    "implementations/python/example/variants/default.yaml",
+                    value,
+                )
+
+                with self.assertRaises(ContractValidationError) as context:
+                    read_contract(path, "variant", self.root_dir)
+
+                self.assertIn(f"$.build.{field}", str(context.exception))
+
+    def test_variant_rejects_symlinked_build_path_escape(self):
+        source = yaml.safe_load(
+            (PROJECT_ROOT / "implementations/java/spring-boot/variants/jvm-java25.yaml").read_text()
+        )
+        app_dir = self.root_dir / "implementations/python/example"
+        outside = self.root_dir / "outside"
+        outside.mkdir()
+        (outside / "Dockerfile").write_text("FROM scratch\n")
+        (app_dir / "escape").symlink_to(outside, target_is_directory=True)
+        source["build"]["context"] = "escape"
+        source["build"]["dockerfile"] = "escape/Dockerfile"
+        path = app_dir / "variants/default.yaml"
+        self.write_yaml(
+            "implementations/python/example/variants/default.yaml",
+            source,
+        )
+
+        with self.assertRaises(ContractValidationError) as context:
+            read_contract(path, "variant", self.root_dir)
+
+        self.assertIn("symlink components are not allowed", str(context.exception))
+
     def test_read_contract_rejects_mixed_disabled_load_semantics(self):
         path = self.root_dir / "contracts/load-profiles/development.yaml"
         value = self.read_yaml("contracts/load-profiles/development.yaml")
