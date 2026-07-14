@@ -1031,7 +1031,7 @@ def _collect_host_evidence(command_runner: CommandRunner) -> dict[str, Any]:
             break
     return {
         "machine_id": machine_id,
-        "cpu_model": cpu_model,
+        "cpu_model": _canonical_cpu_model(cpu_model),
         "logical_cpu_count": os.cpu_count() or 0,
         "memory_bytes": memory_bytes,
         **_collect_docker_evidence(command_runner),
@@ -1052,6 +1052,10 @@ def _collect_host_evidence(command_runner: CommandRunner) -> dict[str, Any]:
             if volume.startswith("buildx_buildkit_")
         ],
     }
+
+
+def _canonical_cpu_model(value: str) -> str:
+    return re.sub(r"\s+with Radeon Graphics$", "", value).strip()
 
 
 def _collect_docker_evidence(command_runner: CommandRunner) -> dict[str, Any]:
