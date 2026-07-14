@@ -24,7 +24,11 @@ only the pinned runtime-base cache, while `image_rebuild` receives the cache
 exported by the first package operation. Commands, source-tree digests, probe
 digests, application artifacts, OCI artifacts, logs, and operation boundaries
 are hash-bound in the raw evidence. Comparisons are valid only when the frozen
-environment, measurement, and build profile contracts match.
+environment, measurement, and build profile contracts match. Official build
+evidence also pins rootless Docker Engine 29.6.1, Docker Buildx 0.35.0,
+effective UID 1000, and `unix:///run/user/1000/docker.sock`. This daemon is
+separate from k3s containerd, and its `systemd` cgroup driver enforces the
+BuildKit CPU and memory limits declared by the build profile.
 
 ### Startup Metrics
 

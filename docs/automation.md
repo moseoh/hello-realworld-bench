@@ -57,15 +57,19 @@ required on the k3s measurement host.
 The official build worker runs on a fixed Linux amd64 host. That host requires:
 
 - Git;
-- Docker Engine;
-- Docker Buildx with the `docker-container` driver; and
+- Docker Engine 29.6.1 in rootless mode, reached through
+  `DOCKER_HOST=unix:///run/user/1000/docker.sock`;
+- Docker Buildx 0.35.0 with the `docker-container` driver; and
 - network access to GitHub, Gradle dependency repositories, and container
   registries used by the frozen contracts.
 
-The build host must keep the same machine, CPU allocation, memory allocation,
+The build host runs the GitHub Actions worker as UID 1000 with `$HOME/.local/bin`
+on `PATH`. It must keep the same machine, CPU allocation, memory allocation,
 Docker Engine version, Docker Buildx version, and filesystem configuration for
-all members of a comparison cohort. Host Java and Gradle installations are not
-required because the frozen build commands run in pinned containers.
+all members of a comparison cohort. The rootless Docker daemon is separate from
+k3s containerd; BuildKit CPU and memory limits are enforced through Docker's
+`systemd` cgroup driver. Host Java and Gradle installations are not required
+because the frozen build commands run in pinned containers.
 
 Each benchmark process records the one namespace it owns in a runner-temporary
 marker. An `always()` cleanup step validates that namespace and its benchmark

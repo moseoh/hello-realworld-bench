@@ -450,6 +450,24 @@ def _validate_environment_profile_semantics(
                 errors.append(
                     f"$.{field}: must not be defined for host-build"
                 )
+    rootless_fields = {
+        "container_engine": "docker",
+        "daemon_mode": "rootless",
+        "runner_uid": 1000,
+        "docker_version": "29.6.1",
+        "buildx_version": "0.35.0",
+    }
+    build = value.get("build")
+    if value["id"] == "home-build-v1" and isinstance(build, dict):
+        for field, expected in rootless_fields.items():
+            if build.get(field) != expected:
+                errors.append(f"$.build.{field}: must be {expected!r} for home-build-v1")
+    elif isinstance(build, dict):
+        for field in rootless_fields:
+            if field in build:
+                errors.append(
+                    f"$.build.{field}: must only be defined for home-build-v1"
+                )
     return errors
 
 

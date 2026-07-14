@@ -75,6 +75,11 @@ jobs:
         run: |
           test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
           test -z "$(git status --porcelain)"
+      - name: Configure trusted rootless Docker
+        run: |
+          test "$(id -u)" = "1000"
+          printf '%s\n' "$HOME/.local/bin" >> "$GITHUB_PATH"
+          printf '%s\n' 'DOCKER_HOST=unix:///run/user/1000/docker.sock' >> "$GITHUB_ENV"
       - name: Recover interrupted build campaign
         working-directory: source
         env:
@@ -113,8 +118,11 @@ jobs:
         if: ${{ always() }}
         working-directory: source
         env:
+          DOCKER_HOST: unix:///run/user/1000/docker.sock
           MARKER_DIR: ${{ runner.temp }}/../hrw-build-campaigns
-        run: PYTHONPATH=runner uv run --project runner python -m hrw_runner build-cleanup "$MARKER_DIR"
+        run: |
+          export PATH="$HOME/.local/bin:$HOME/bin:$PATH"
+          PYTHONPATH=runner uv run --project runner python -m hrw_runner build-cleanup "$MARKER_DIR"
       - name: Transfer raw build evidence
         uses: actions/upload-artifact@v4
         with:

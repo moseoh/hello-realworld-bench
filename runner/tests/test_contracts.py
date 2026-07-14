@@ -858,6 +858,49 @@ class ContractValidationTest(unittest.TestCase):
             },
         )
 
+    def test_home_build_v1_rejects_rootless_engine_contract_mismatches(self):
+        path = self.root_dir / "contracts/environment-profiles/local.yaml"
+        source = yaml.safe_load(
+            (PROJECT_ROOT / "contracts/environment-profiles/home-build-v1.yaml").read_text()
+        )
+
+        for field, invalid in (
+            ("container_engine", "podman"),
+            ("daemon_mode", "rootful"),
+            ("runner_uid", 1001),
+            ("docker_version", "29.6.2"),
+            ("buildx_version", "0.35.1"),
+        ):
+            with self.subTest(field=field):
+                value = copy.deepcopy(source)
+                value["build"][field] = invalid
+                self.write_yaml("contracts/environment-profiles/local.yaml", value)
+
+                with self.assertRaises(ContractValidationError) as context:
+                    read_contract(path, "environment-profile", self.root_dir)
+
+                self.assertIn(f"$.build.{field}", str(context.exception))
+
+    def test_environment_semantics_reject_rootless_build_fields_outside_home_build_v1(self):
+        schema_path = self.root_dir / "contracts/schemas/environment-profile.schema.json"
+        schema = json.loads(schema_path.read_text())
+        del schema["allOf"]
+        schema_path.write_text(json.dumps(schema))
+        path = self.root_dir / "contracts/environment-profiles/local.yaml"
+        value = self.read_yaml("contracts/environment-profiles/local.yaml")
+        value["orchestrator"] = "host-build"
+        value["official"] = True
+        value["load_generator"] = "none"
+        value["build"] = yaml.safe_load(
+            (PROJECT_ROOT / "contracts/environment-profiles/home-build-v1.yaml").read_text()
+        )["build"]
+        self.write_yaml("contracts/environment-profiles/local.yaml", value)
+
+        with self.assertRaises(ContractValidationError) as context:
+            read_contract(path, "environment-profile", self.root_dir)
+
+        self.assertIn("$.build.container_engine", str(context.exception))
+
     def test_official_environment_profile_requires_strict_platform_blocks(self):
         path = self.root_dir / "contracts/environment-profiles/local.yaml"
         original = self.read_yaml("contracts/environment-profiles/local.yaml")
