@@ -479,7 +479,7 @@ def _validate_operation_argv(
         record = next(record for record in records if record["name"] == operation_name)
         argv = record["argv"]
         user = _docker_option(argv, "--user", operation_name)
-        if re.fullmatch(r"[0-9]+:[0-9]+", user) is None:
+        if user != "0:0":
             raise ValueError(f"Build operation argv user is invalid: {operation_name}")
         expected = [
             "docker",

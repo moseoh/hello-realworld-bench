@@ -69,7 +69,10 @@ Docker Engine version, Docker Buildx version, and filesystem configuration for
 all members of a comparison cohort. The rootless Docker daemon is separate from
 k3s containerd; BuildKit CPU and memory limits are enforced through Docker's
 `systemd` cgroup driver. Host Java and Gradle installations are not required
-because the frozen build commands run in pinned containers.
+because the frozen build commands run in pinned containers. The Java executor
+uses container UID/GID `0:0`; rootless Docker maps that identity to host UID
+1000, so bind-mounted build outputs remain owned by the runner account rather
+than host root.
 
 Each benchmark process records the one namespace it owns in a runner-temporary
 marker. An `always()` cleanup step validates that namespace and its benchmark
