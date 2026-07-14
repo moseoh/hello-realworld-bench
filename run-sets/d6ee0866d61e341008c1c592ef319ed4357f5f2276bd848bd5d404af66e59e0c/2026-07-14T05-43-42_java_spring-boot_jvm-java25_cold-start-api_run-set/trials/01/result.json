@@ -1,0 +1,61 @@
+{
+  "schema_version": "0.2",
+  "run_id": "trial-01",
+  "run_set_id": "2026-07-14T05-43-42_java_spring-boot_jvm-java25_cold-start-api_run-set",
+  "trial_index": 1,
+  "manifest_digest": "23a6aacaa03ca28e20b591c02cd60bf9e4d4cc62a800fea2cb5dcad2767e63c7",
+  "cohort_fingerprint": "d6ee0866d61e341008c1c592ef319ed4357f5f2276bd848bd5d404af66e59e0c",
+  "project": "hello-realworld-bench",
+  "scenario": "cold-start-api",
+  "implementation": "java/spring-boot",
+  "variant": "jvm-java25",
+  "runtime": {
+    "java_version": "25",
+    "spring_boot_version": "4.1.0",
+    "build_mode": "jvm",
+    "native_image": false,
+    "virtual_threads": false,
+    "otel": false,
+    "language": "java",
+    "framework": "spring-boot"
+  },
+  "environment": {
+    "context": "homelab",
+    "node_name": "homlab",
+    "architecture": "amd64",
+    "machine_id": "f66cd2d134b94bb18eb7e531d1baf343",
+    "logical_cpus": 16,
+    "memory_bytes": 29341941760,
+    "cpu_manager_policy": "none",
+    "kubernetes_version": "v1.36.2+k3s1",
+    "kubelet_version": "v1.36.2+k3s1",
+    "container_runtime": "containerd://2.3.2-k3s2",
+    "kernel_version": "6.8.0-134-generic",
+    "os_image": "Ubuntu 24.04.4 LTS"
+  },
+  "build": {
+    "image": "ghcr.io/moseoh/hello-realworld-bench/spring-boot@sha256:f88c859987a9c0176c72ffde4e07598d05caddfcc8fef01eb03b64d7e200adfe",
+    "digest": "sha256:f88c859987a9c0176c72ffde4e07598d05caddfcc8fef01eb03b64d7e200adfe",
+    "platform": "linux/amd64",
+    "distribution": "prebuilt-import",
+    "clean_build_ms": null,
+    "image_build_ms": null
+  },
+  "startup": {
+    "dependency_ready_ms": 0,
+    "ready_ms": 2523,
+    "entrypoint_pre_exec_to_first_valid_response_ms": 2523,
+    "first_request_ms": 92.0,
+    "container_started_at": "2026-07-14T05:44:24Z",
+    "container_started_epoch_ms": 1784007864000,
+    "entrypoint_pre_exec_epoch_ms": 1784007864928,
+    "observer_ready_epoch_ms": 1784007863901,
+    "first_request_start_epoch_ms": 1784007867359,
+    "first_success_epoch_ms": 1784007867451,
+    "attempts": 331,
+    "iterations": 1,
+    "start_boundary": "image-entrypoint-pre-exec",
+    "completion_boundary": "first-valid-response-complete"
+  },
+  "runtime_metrics": {}
+}
