@@ -102,6 +102,7 @@ def validate_build_publication_evidence(
             caches,
             builders,
             cache_seed,
+            manifest,
         )
         if trial_inputs.get("builder_removed") is not True:
             raise ValueError("Buildx builder was not removed")
@@ -209,6 +210,7 @@ def _validate_trial_raw_evidence(
     caches: set[str],
     builders: set[str],
     cache_seed: dict[str, Any],
+    manifest: dict[str, Any],
 ) -> dict[str, Any]:
     operation_refs = _object_list(trial.get("operations"), "Build operations")
     if [reference.get("name") for reference in operation_refs] != [
@@ -217,10 +219,12 @@ def _validate_trial_raw_evidence(
         raise ValueError("Build operation order is invalid")
     metrics = _object(trial.get("metrics"), "Build trial metrics")
     referenced_paths: set[str] = set()
+    operation_records = []
     for reference, (operation_name, metric_name) in zip(
         operation_refs, _OPERATION_METRICS
     ):
         record = _validated_reference(trial_dir, reference)
+        operation_records.append(record)
         referenced_paths.add(str(reference["path"]))
         log_path = _validate_operation_record(
             trial_dir, record, operation_name, metrics.get(metric_name)
@@ -276,6 +280,14 @@ def _validate_trial_raw_evidence(
         "buildkit_cache_seed_sha256"
     ):
         raise ValueError("Trial BuildKit cache seed does not match campaign seed")
+    _validate_builder_context(trial, trial_inputs, cache_seed)
+    _validate_operation_argv(
+        operation_records,
+        trial_inputs,
+        cache_seed,
+        manifest,
+        trial,
+    )
     return trial_inputs
 
 
@@ -314,6 +326,199 @@ def _validate_operation_record(
     if _sha256_file(log_path) != log_reference.get("sha256"):
         raise ValueError(f"Build operation log digest mismatch: {operation_name}")
     return str(log_reference["path"])
+
+
+def _validate_builder_context(
+    trial: dict[str, Any],
+    trial_inputs: dict[str, Any],
+    cache_seed: dict[str, Any],
+) -> None:
+    trial_id = str(trial.get("trial_id", ""))
+    try:
+        trial_index = int(trial_id.removeprefix("trial-"))
+    except ValueError:
+        raise ValueError("Build trial builder context is invalid") from None
+    campaign = hashlib.sha256(str(trial.get("run_id", "")).encode()).hexdigest()[:16]
+    expected_builder = f"hrw-build-{campaign}-{trial_index:02d}"
+    expected_seed_builder = f"hrw-build-{campaign}-seed"
+    expected = {
+        "builder_name": expected_builder,
+        "builder_driver": "docker-container",
+        "builder_image": _BUILDKIT_IMAGE,
+        "builder_cpu_quota": 200000,
+        "builder_cpu_period": 100000,
+        "builder_memory": "4g",
+        "builder_memory_swap": "4g",
+        "state_volume": f"buildx_buildkit_{expected_builder}0_state",
+    }
+    for field, value in expected.items():
+        if trial_inputs.get(field) != value:
+            raise ValueError(f"Build operation argv builder context is invalid: {field}")
+    if cache_seed.get("seed_builder_name") != expected_seed_builder:
+        raise ValueError("Build operation argv seed builder context is invalid")
+    if cache_seed.get("seed_state_volume") != (
+        f"buildx_buildkit_{expected_seed_builder}0_state"
+    ):
+        raise ValueError("Build operation argv seed state volume is invalid")
+    cache_path = cache_seed.get("buildkit_cache_seed_path")
+    if not isinstance(cache_path, str) or not cache_path:
+        raise ValueError("Build operation argv cache seed path is invalid")
+    if trial_inputs.get("buildkit_cache_seed") != cache_path:
+        raise ValueError("Build operation argv cache seed path does not match campaign")
+
+
+def _validate_operation_argv(
+    records: list[dict[str, Any]],
+    trial_inputs: dict[str, Any],
+    cache_seed: dict[str, Any],
+    manifest: dict[str, Any],
+    trial: dict[str, Any],
+) -> None:
+    execution = _object(manifest.get("execution"), "Resolved build execution")
+    build = _object(execution.get("build"), "Resolved build inputs")
+    workspace = Path(str(trial_inputs.get("workspace", "")))
+    dependency_cache = str(trial_inputs.get("dependency_cache", ""))
+    trial_scratch = workspace.parent
+    if (
+        not workspace.is_absolute()
+        or workspace.name != "workspace"
+        or trial_scratch.name != trial.get("trial_id")
+    ):
+        raise ValueError("Build operation argv workspace context is invalid")
+    if dependency_cache != str(trial_scratch / "dependency-cache"):
+        raise ValueError("Build operation argv dependency cache context is invalid")
+    expected_cache_seed = str(trial_scratch.parent / "buildkit-cache-seed")
+    if cache_seed.get("buildkit_cache_seed_path") != expected_cache_seed:
+        raise ValueError("Build operation argv campaign cache context is invalid")
+    evidence_dir = Path(str(trial_inputs.get("trial_evidence_dir", "")))
+    expected_trial_directory = str(trial.get("trial_id", "")).removeprefix("trial-")
+    if (
+        not evidence_dir.is_absolute()
+        or evidence_dir.name != expected_trial_directory
+        or evidence_dir.parent.name != "trials"
+    ):
+        raise ValueError("Build operation argv trial evidence context is invalid")
+    app_dir = workspace / str(execution.get("app_dir", ""))
+    commands = {
+        "gradle_clean_build": build.get("clean_command"),
+        "gradle_incremental_rebuild": build.get("incremental_command"),
+    }
+    for operation_name, command in commands.items():
+        if not isinstance(command, list) or any(
+            not isinstance(argument, str) for argument in command
+        ):
+            raise ValueError(f"Build operation argv manifest is invalid: {operation_name}")
+        record = next(record for record in records if record["name"] == operation_name)
+        argv = record["argv"]
+        user = _docker_option(argv, "--user", operation_name)
+        if re.fullmatch(r"[0-9]+:[0-9]+", user) is None:
+            raise ValueError(f"Build operation argv user is invalid: {operation_name}")
+        expected = [
+            "docker",
+            "run",
+            "--rm",
+            "--cpus",
+            "2",
+            "--memory",
+            "4g",
+            "--memory-swap",
+            "4g",
+            "--user",
+            user,
+            "--network",
+            "none",
+            "--mount",
+            f"type=bind,src={app_dir},target=/workspace",
+            "--mount",
+            f"type=bind,src={dependency_cache},target=/gradle-cache",
+            "--env",
+            "GRADLE_USER_HOME=/gradle-cache",
+            "--workdir",
+            "/workspace",
+            _GRADLE_EXECUTOR_IMAGE,
+            *command,
+        ]
+        _require_exact_argv(argv, expected, operation_name)
+
+    image_operations = (
+        (
+            "image_package",
+            "image-package",
+            "image_package_archive",
+            "image_package_metadata",
+            True,
+        ),
+        (
+            "image_rebuild",
+            "image-rebuild",
+            "image_rebuild_archive",
+            "image_rebuild_metadata",
+            False,
+        ),
+    )
+    for (
+        operation_name,
+        filename,
+        archive_field,
+        metadata_field,
+        imports_seed,
+    ) in image_operations:
+        expected = [
+            "docker",
+            "buildx",
+            "build",
+            "--builder",
+            str(trial_inputs["builder_name"]),
+            "--platform",
+            "linux/amd64",
+            "--provenance=false",
+            "--file",
+            str(app_dir / str(build.get("dockerfile", ""))),
+        ]
+        if imports_seed:
+            expected.extend(
+                [
+                    "--cache-from",
+                    f"type=local,src={cache_seed['buildkit_cache_seed_path']}",
+                ]
+            )
+        metadata_path = trial_inputs.get(metadata_field)
+        if not isinstance(metadata_path, str) or not metadata_path:
+            raise ValueError(f"Build operation argv metadata path is invalid: {operation_name}")
+        if metadata_path != str(trial_scratch / (filename + "-metadata.json")):
+            raise ValueError(f"Build operation argv metadata context is invalid: {operation_name}")
+        archive_path = trial_inputs.get(archive_field)
+        if not isinstance(archive_path, str) or not archive_path:
+            raise ValueError(f"Build operation argv archive path is invalid: {operation_name}")
+        if archive_path != str(evidence_dir / (filename + ".oci")):
+            raise ValueError(f"Build operation argv archive path is invalid: {operation_name}")
+        expected.extend(
+            [
+                "--output",
+                f"type=oci,dest={archive_path}",
+                "--metadata-file",
+                metadata_path,
+                str(app_dir / str(build.get("context", ""))),
+            ]
+        )
+        record = next(record for record in records if record["name"] == operation_name)
+        _require_exact_argv(record["argv"], expected, operation_name)
+
+
+def _docker_option(argv: object, option: str, operation_name: str) -> str:
+    if not isinstance(argv, list) or argv.count(option) != 1:
+        raise ValueError(f"Build operation argv option is invalid: {operation_name}")
+    index = argv.index(option)
+    if index + 1 >= len(argv) or not isinstance(argv[index + 1], str):
+        raise ValueError(f"Build operation argv option is invalid: {operation_name}")
+    return argv[index + 1]
+
+
+def _require_exact_argv(
+    actual: object, expected: list[str], operation_name: str
+) -> None:
+    if actual != expected:
+        raise ValueError(f"Build operation argv does not match contract: {operation_name}")
 
 
 def _validate_artifact_manifest(

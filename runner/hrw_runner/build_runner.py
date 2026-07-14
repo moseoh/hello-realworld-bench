@@ -99,16 +99,21 @@ def run_build_benchmark_set(
         cache_seed_dir = scratch / "buildkit-cache-seed"
         _prepare_buildkit_cache_seed(
             config,
+            run_id,
             cache_seed_dir,
             scratch,
             command_runner,
         )
         buildkit_cache_seed_digest = _hash_directory(cache_seed_dir)
+        builder_resources = _builder_resources(run_id, 1)
         cache_seed_document = {
             "gradle_executor_image": GRADLE_EXECUTOR_IMAGE,
             "buildkit_image": BUILDKIT_IMAGE,
             "dependency_seed_sha256": dependency_seed_digest,
             "buildkit_cache_seed_sha256": buildkit_cache_seed_digest,
+            "buildkit_cache_seed_path": str(cache_seed_dir),
+            "seed_builder_name": builder_resources["seed_builder"],
+            "seed_state_volume": builder_resources["seed_state_volume"],
             "dependency_seed_mode": seed_mode,
             "workspace_build_outputs_removed": seed_cleanup[
                 "workspace_build_outputs_removed"
@@ -247,8 +252,9 @@ def _run_trial(
     if probe_path.read_text().count(str(probe_input["from"])) != 1:
         raise ValueError("Archived source probe does not contain exact from text")
 
-    builder_name = f"hrw-build-{run_id[-12:]}-{index:02d}"
-    state_volume = f"buildx_buildkit_{builder_name}0_state"
+    resources = _builder_resources(run_id, index)
+    builder_name = resources["trial_builder"]
+    state_volume = resources["trial_state_volume"]
     _create_builder(builder_name, command_runner)
     operations = []
     metrics = {}
@@ -376,12 +382,25 @@ def _run_trial(
         "trial_inputs": (
             "trial-inputs.json",
             {
+                "trial_evidence_dir": str(trial_dir),
                 "workspace": str(workspace),
                 "dependency_cache": str(dependency_cache),
                 "dependency_seed_sha256": dependency_seed_digest,
                 "dependency_cache_initial_sha256": initial_cache_digest,
+                "buildkit_cache_seed": str(cache_seed_dir),
                 "cache_seed_sha256": cache_seed_digest,
                 "builder_name": builder_name,
+                "builder_driver": "docker-container",
+                "builder_image": BUILDKIT_IMAGE,
+                "builder_cpu_quota": 200000,
+                "builder_cpu_period": 100000,
+                "builder_memory": "4g",
+                "builder_memory_swap": "4g",
+                "state_volume": state_volume,
+                "image_package_archive": str(package_archive),
+                "image_rebuild_archive": str(rebuild_archive),
+                "image_package_metadata": str(package_metadata),
+                "image_rebuild_metadata": str(rebuild_metadata),
                 "builder_removed": builder_removed,
                 "state_volume_removed": state_volume_removed,
             },
@@ -636,12 +655,14 @@ def _gradle_seed_state_absent(seed: Path) -> bool:
 
 def _prepare_buildkit_cache_seed(
     config: BuildRunConfig,
+    run_id: str,
     cache_seed_dir: Path,
     scratch: Path,
     command_runner: CommandRunner,
 ) -> None:
-    builder_name = f"hrw-build-seed-{os.getpid()}"
-    state_volume = f"buildx_buildkit_{builder_name}0_state"
+    resources = _builder_resources(run_id, 1)
+    builder_name = resources["seed_builder"]
+    state_volume = resources["seed_state_volume"]
     _create_builder(builder_name, command_runner)
     try:
         argv = [
@@ -672,6 +693,18 @@ def _prepare_buildkit_cache_seed(
             raise RuntimeError("BuildKit cache seed builder cleanup failed")
     if not cache_seed_dir.is_dir():
         raise RuntimeError("BuildKit runtime-base cache seed was not exported")
+
+
+def _builder_resources(run_id: str, trial_index: int) -> dict[str, str]:
+    campaign = hashlib.sha256(run_id.encode()).hexdigest()[:16]
+    trial_builder = f"hrw-build-{campaign}-{trial_index:02d}"
+    seed_builder = f"hrw-build-{campaign}-seed"
+    return {
+        "trial_builder": trial_builder,
+        "trial_state_volume": f"buildx_buildkit_{trial_builder}0_state",
+        "seed_builder": seed_builder,
+        "seed_state_volume": f"buildx_buildkit_{seed_builder}0_state",
+    }
 
 
 def _create_builder(builder_name: str, command_runner: CommandRunner) -> None:

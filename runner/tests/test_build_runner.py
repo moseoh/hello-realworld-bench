@@ -433,6 +433,42 @@ class BuildRunnerTest(unittest.TestCase):
                     [argv for argv, _, _ in fake.calls],
                 )
 
+    def test_builder_resources_are_campaign_unique_and_cleanup_is_exact(self):
+        module = _runner_module()
+        first = module._builder_resources(
+            "2026-07-14T00-00-00_java_spring-boot_jvm-java25_build", 1
+        )
+        second = module._builder_resources(
+            "2026-07-14T00-00-01_java_spring-boot_jvm-java25_build", 1
+        )
+
+        self.assertNotEqual(first["trial_builder"], second["trial_builder"])
+        self.assertNotEqual(first["trial_state_volume"], second["trial_state_volume"])
+        self.assertNotEqual(first["seed_builder"], second["seed_builder"])
+        self.assertNotEqual(first["seed_state_volume"], second["seed_state_volume"])
+
+        fake = _FakeCommandRunner(PROJECT_ROOT, self.config.app_dir)
+        module._remove_builder(
+            first["trial_builder"], first["trial_state_volume"], fake
+        )
+        calls = [argv for argv, _, _ in fake.calls]
+        self.assertIn(
+            ["docker", "buildx", "rm", "--force", first["trial_builder"]], calls
+        )
+        self.assertIn(
+            [
+                "docker",
+                "volume",
+                "rm",
+                "--force",
+                first["trial_state_volume"],
+            ],
+            calls,
+        )
+        self.assertFalse(
+            any(second["trial_builder"] in argument for call in calls for argument in call)
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

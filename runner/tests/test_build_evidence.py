@@ -4,6 +4,7 @@ import copy
 import hashlib
 import importlib
 import json
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -20,6 +21,8 @@ METRICS = (
     "image_package_ms",
     "image_rebuild_ms",
 )
+GRADLE_IMAGE = "eclipse-temurin:25-jdk@sha256:68868d04fa9cfd5f5c6abec0b5cef86d8de2bf9c62c37c7d3e4f0f80f5cfd7ff"
+BUILDKIT_IMAGE = "moby/buildkit:buildx-stable-1@sha256:0168606be2315b7c807a03b3d8aa79beefdb31c98740cebdffdfeebf31190c9f"
 
 
 def _evidence_module():
@@ -64,11 +67,17 @@ def _fixture(root: Path) -> Path:
     }
     _write(root / "preflight.json", host)
     _write(root / "postflight.json", host)
+    campaign_digest = hashlib.sha256(b"build-run-001").hexdigest()[:16]
     cache_seed = {
-        "gradle_executor_image": "eclipse-temurin:25-jdk@sha256:68868d04fa9cfd5f5c6abec0b5cef86d8de2bf9c62c37c7d3e4f0f80f5cfd7ff",
-        "buildkit_image": "moby/buildkit:buildx-stable-1@sha256:0168606be2315b7c807a03b3d8aa79beefdb31c98740cebdffdfeebf31190c9f",
+        "gradle_executor_image": GRADLE_IMAGE,
+        "buildkit_image": BUILDKIT_IMAGE,
         "dependency_seed_sha256": "d" * 64,
         "buildkit_cache_seed_sha256": "e" * 64,
+        "buildkit_cache_seed_path": "/tmp/campaign/buildkit-cache-seed",
+        "seed_builder_name": f"hrw-build-{campaign_digest}-seed",
+        "seed_state_volume": (
+            f"buildx_buildkit_hrw-build-{campaign_digest}-seed0_state"
+        ),
         "dependency_seed_path": "/tmp/dependency-seed",
         "dependency_seed_mode": "supplied",
         "workspace_build_outputs_removed": True,
@@ -81,6 +90,31 @@ def _fixture(root: Path) -> Path:
     for index in range(1, 4):
         trial_id = f"trial-{index:02d}"
         trial_dir = root / "trials" / f"{index:02d}"
+        builder_name = f"hrw-build-{campaign_digest}-{index:02d}"
+        trial_scratch = Path("/tmp/campaign") / trial_id
+        inputs = {
+            "trial_evidence_dir": str(trial_dir),
+            "workspace": str(trial_scratch / "workspace"),
+            "dependency_cache": str(trial_scratch / "dependency-cache"),
+            "dependency_seed_sha256": "d" * 64,
+            "dependency_cache_initial_sha256": "d" * 64,
+            "buildkit_cache_seed": "/tmp/campaign/buildkit-cache-seed",
+            "cache_seed_sha256": "e" * 64,
+            "builder_name": builder_name,
+            "builder_driver": "docker-container",
+            "builder_image": BUILDKIT_IMAGE,
+            "builder_cpu_quota": 200000,
+            "builder_cpu_period": 100000,
+            "builder_memory": "4g",
+            "builder_memory_swap": "4g",
+            "state_volume": f"buildx_buildkit_{builder_name}0_state",
+            "image_package_archive": str(trial_dir / "image-package.oci"),
+            "image_rebuild_archive": str(trial_dir / "image-rebuild.oci"),
+            "image_package_metadata": str(trial_scratch / "image-package-metadata.json"),
+            "image_rebuild_metadata": str(trial_scratch / "image-rebuild-metadata.json"),
+            "builder_removed": True,
+            "state_volume_removed": True,
+        }
         operations = []
         metrics = {}
         for operation_index, (name, metric) in enumerate(zip(
@@ -101,7 +135,9 @@ def _fixture(root: Path) -> Path:
             duration = index * 10 + operation_index
             record = {
                 "name": name,
-                "argv": ["example", name],
+                "argv": _operation_argv(
+                    manifest, trial_dir, inputs, name
+                ),
                 "started_at": "2026-07-14T00:00:00Z",
                 "finished_at": "2026-07-14T00:00:01Z",
                 "start_monotonic_ns": start,
@@ -132,16 +168,6 @@ def _fixture(root: Path) -> Path:
         images = {
             "before": _write_oci_descriptor(trial_dir, "image-package", "6", "7", 100),
             "after": _write_oci_descriptor(trial_dir, "image-rebuild", "8", "9", 101),
-        }
-        inputs = {
-            "workspace": f"/tmp/workspace-{index}",
-            "dependency_cache": f"/tmp/cache-{index}",
-            "dependency_seed_sha256": "d" * 64,
-            "dependency_cache_initial_sha256": "d" * 64,
-            "cache_seed_sha256": "e" * 64,
-            "builder_name": f"hrw-build-{index}",
-            "builder_removed": True,
-            "state_volume_removed": True,
         }
         evidence = {}
         for name, document in (
@@ -222,6 +248,112 @@ def _fixture(root: Path) -> Path:
     return root
 
 
+def _operation_argv(manifest, trial_dir: Path, inputs, name: str):
+    build = manifest["execution"]["build"]
+    app_dir = Path(inputs["workspace"]) / manifest["execution"]["app_dir"]
+    if name in {"gradle_clean_build", "gradle_incremental_rebuild"}:
+        command = (
+            build["clean_command"]
+            if name == "gradle_clean_build"
+            else build["incremental_command"]
+        )
+        return [
+            "docker", "run", "--rm",
+            "--cpus", "2",
+            "--memory", "4g",
+            "--memory-swap", "4g",
+            "--user", "1000:1000",
+            "--network", "none",
+            "--mount", f"type=bind,src={app_dir},target=/workspace",
+            "--mount", f"type=bind,src={inputs['dependency_cache']},target=/gradle-cache",
+            "--env", "GRADLE_USER_HOME=/gradle-cache",
+            "--workdir", "/workspace",
+            GRADLE_IMAGE,
+            *command,
+        ]
+
+    operation = "image-package" if name == "image_package" else "image-rebuild"
+    metadata_key = (
+        "image_package_metadata" if name == "image_package" else "image_rebuild_metadata"
+    )
+    argv = [
+        "docker", "buildx", "build",
+        "--builder", inputs["builder_name"],
+        "--platform", "linux/amd64",
+        "--provenance=false",
+        "--file", str(app_dir / build["dockerfile"]),
+    ]
+    if name == "image_package":
+        argv.extend(
+            ["--cache-from", f"type=local,src={inputs['buildkit_cache_seed']}"]
+        )
+    argv.extend(
+        [
+            "--output", f"type=oci,dest={inputs[operation.replace('-', '_') + '_archive']}",
+            "--metadata-file", inputs[metadata_key],
+            str(app_dir / build["context"]),
+        ]
+    )
+    return argv
+
+
+def _rehash_operation(run_set_dir: Path, operation_index: int, mutate):
+    trial_dir = run_set_dir / "trials/01"
+    trial_path = trial_dir / "build-trial.json"
+    trial = json.loads(trial_path.read_text())
+    operation_ref = trial["operations"][operation_index]
+    operation_path = trial_dir / operation_ref["path"]
+    operation = json.loads(operation_path.read_text())
+    mutate(operation["argv"])
+    _write(operation_path, operation)
+    operation_ref["sha256"] = _sha(operation_path)
+
+    artifact_path = trial_dir / "artifact-manifest.json"
+    artifact_manifest = json.loads(artifact_path.read_text())
+    artifact = next(
+        item for item in artifact_manifest["artifacts"]
+        if item["path"] == operation_ref["path"]
+    )
+    artifact["size_bytes"] = operation_path.stat().st_size
+    artifact["sha256"] = _sha(operation_path)
+    _write(artifact_path, artifact_manifest)
+    trial["artifact_manifest"]["sha256"] = _sha(artifact_path)
+    _write(trial_path, trial)
+
+    run_set_path = run_set_dir / "build-run-set.json"
+    run_set = json.loads(run_set_path.read_text())
+    run_set["trials"][0]["sha256"] = _sha(trial_path)
+    _write(run_set_path, run_set)
+
+
+def _rehash_trial_inputs(run_set_dir: Path, mutate):
+    trial_dir = run_set_dir / "trials/01"
+    inputs_path = trial_dir / "trial-inputs.json"
+    inputs = json.loads(inputs_path.read_text())
+    mutate(inputs)
+    _write(inputs_path, inputs)
+
+    trial_path = trial_dir / "build-trial.json"
+    trial = json.loads(trial_path.read_text())
+    trial["evidence"]["trial_inputs"]["sha256"] = _sha(inputs_path)
+    artifact_path = trial_dir / "artifact-manifest.json"
+    artifact_manifest = json.loads(artifact_path.read_text())
+    artifact = next(
+        item for item in artifact_manifest["artifacts"]
+        if item["path"] == "trial-inputs.json"
+    )
+    artifact["size_bytes"] = inputs_path.stat().st_size
+    artifact["sha256"] = _sha(inputs_path)
+    _write(artifact_path, artifact_manifest)
+    trial["artifact_manifest"]["sha256"] = _sha(artifact_path)
+    _write(trial_path, trial)
+
+    run_set_path = run_set_dir / "build-run-set.json"
+    run_set = json.loads(run_set_path.read_text())
+    run_set["trials"][0]["sha256"] = _sha(trial_path)
+    _write(run_set_path, run_set)
+
+
 def _write_oci_descriptor(
     trial_dir: Path,
     operation: str,
@@ -300,6 +432,91 @@ class BuildEvidenceValidationTest(unittest.TestCase):
             _write(manifest_path, manifest)
             with self.assertRaises(ValueError):
                 module.validate_build_publication_evidence(run_set_dir, PROJECT_ROOT)
+
+    def test_accepts_evidence_relocated_for_publication_validation(self):
+        module = _evidence_module()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            original = _fixture(root / "original")
+            relocated = root / "relocated"
+            shutil.copytree(original, relocated)
+
+            module.validate_build_publication_evidence(relocated, PROJECT_ROOT)
+
+    def test_rejects_operation_argv_contract_tampering_after_rehash(self):
+        module = _evidence_module()
+
+        def replace_value(flag, value):
+            return lambda argv: argv.__setitem__(argv.index(flag) + 1, value)
+
+        def replace_literal(old, new):
+            return lambda argv: argv.__setitem__(argv.index(old), new)
+
+        def remove_option(flag):
+            def mutate(argv):
+                index = argv.index(flag)
+                del argv[index:index + 2]
+            return mutate
+
+        def add_rebuild_cache(argv):
+            index = argv.index("--output")
+            argv[index:index] = [
+                "--cache-from", "type=local,src=/tmp/buildkit-cache-seed"
+            ]
+
+        cases = (
+            (0, lambda argv: argv.__setitem__(slice(None), ["example", "gradle_clean_build"])),
+            (0, replace_literal(GRADLE_IMAGE, "eclipse-temurin:25-jdk")),
+            (0, replace_value("--cpus", "3")),
+            (0, replace_value("--memory", "5g")),
+            (0, replace_value("--memory-swap", "5g")),
+            (0, replace_value("--mount", "type=bind,src=/tmp/wrong,target=/workspace")),
+            (0, replace_value("--env", "GRADLE_USER_HOME=/tmp/wrong")),
+            (0, replace_literal("--offline", "--refresh-dependencies")),
+            (0, replace_literal("--no-daemon", "--daemon")),
+            (0, replace_literal("--no-build-cache", "--build-cache")),
+            (0, replace_literal("clean", "assemble")),
+            (1, replace_value("--builder", "hrw-build-wrong-01")),
+            (1, replace_value("--platform", "linux/arm64")),
+            (1, replace_literal("--provenance=false", "--provenance=true")),
+            (1, replace_value("--output", "type=docker")),
+            (1, replace_value("--metadata-file", "/tmp/wrong-metadata.json")),
+            (1, remove_option("--cache-from")),
+            (3, add_rebuild_cache),
+        )
+        for operation_index, mutate in cases:
+            with self.subTest(operation_index=operation_index, mutate=mutate):
+                with tempfile.TemporaryDirectory() as directory:
+                    run_set_dir = _fixture(Path(directory))
+                    _rehash_operation(run_set_dir, operation_index, mutate)
+                    with self.assertRaisesRegex(ValueError, "argv"):
+                        module.validate_build_publication_evidence(
+                            run_set_dir, PROJECT_ROOT
+                        )
+
+    def test_rejects_buildkit_builder_context_tampering_after_rehash(self):
+        module = _evidence_module()
+        cases = (
+            ("builder_image", "moby/buildkit:latest"),
+            ("builder_cpu_quota", 300000),
+            ("builder_memory", "5g"),
+            ("builder_memory_swap", "5g"),
+            ("state_volume", "buildx_buildkit_other0_state"),
+            ("buildkit_cache_seed", "/tmp/other-cache"),
+        )
+        for field, value in cases:
+            with self.subTest(field=field), tempfile.TemporaryDirectory() as directory:
+                run_set_dir = _fixture(Path(directory))
+                _rehash_trial_inputs(
+                    run_set_dir,
+                    lambda inputs, field=field, value=value: inputs.__setitem__(
+                        field, value
+                    ),
+                )
+                with self.assertRaisesRegex(ValueError, "argv"):
+                    module.validate_build_publication_evidence(
+                        run_set_dir, PROJECT_ROOT
+                    )
 
     def test_rejects_inconsistent_oci_index_manifest_bytes_and_descriptors(self):
         module = _evidence_module()
