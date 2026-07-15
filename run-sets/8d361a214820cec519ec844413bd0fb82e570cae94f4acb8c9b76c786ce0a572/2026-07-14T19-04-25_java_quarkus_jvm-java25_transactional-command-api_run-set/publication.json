@@ -1,0 +1,109 @@
+{
+  "cohort_fingerprint": "8d361a214820cec519ec844413bd0fb82e570cae94f4acb8c9b76c786ce0a572",
+  "evidence_family": "service",
+  "files": [
+    {
+      "path": "build.json",
+      "sha256": "560784e38aa3358734f1354d725fccfe3bc4168ac6946916b128002c8cf2b415",
+      "size_bytes": 339
+    },
+    {
+      "path": "postflight.json",
+      "sha256": "038031f54d6aac03a92a8fcf10acea7d7f6bf524ce2e196a5e2ccacde45e0e99",
+      "size_bytes": 601
+    },
+    {
+      "path": "preflight.json",
+      "sha256": "991262dafbb4a5c1d383eb0a8a3cc85906b2f65c26a2da2f1bbb4d874ef45696",
+      "size_bytes": 601
+    },
+    {
+      "path": "resolved-manifest.json",
+      "sha256": "9fc7d8d65f92ceeef1eec5951d5be07b9727db758e1656a74d0e87dcbd9cf326",
+      "size_bytes": 6996
+    },
+    {
+      "path": "run-set.json",
+      "sha256": "d2805c5e1d54d3d2ff15a30dcd5340b361fa3c6e8ec0c7e35a9704412f5d9fe5",
+      "size_bytes": 4689
+    },
+    {
+      "path": "trials/01/artifact-manifest.json",
+      "sha256": "68fd995f2b93d7a6120a18af7ba4f1357bc4bcd5be719fffc1d222d00d7e7c2a",
+      "size_bytes": 2245
+    },
+    {
+      "path": "trials/01/result.json",
+      "sha256": "910dae9a66ba63e434df8b0a315b3db87070203aa559047a1503946c1e034e01",
+      "size_bytes": 1950
+    },
+    {
+      "path": "trials/01/time-series.json",
+      "sha256": "6659edbda460ed50c4a2683b5d62e741faba007c375a725868c292f13aec0c19",
+      "size_bytes": 37187
+    },
+    {
+      "path": "trials/01/trial.json",
+      "sha256": "1b6d525a3121f21e3b9dea1447e2636b2a450100fb92c0d8389051033b757396",
+      "size_bytes": 2487
+    },
+    {
+      "path": "trials/02/artifact-manifest.json",
+      "sha256": "ca1fd361ef5cce8193cf1bf8aca773e276c41afef829471d074930d989cf2063",
+      "size_bytes": 2245
+    },
+    {
+      "path": "trials/02/result.json",
+      "sha256": "d5fa7fe74116b2df0469fb88c0553609be6f4cbec3b696776bf717804570dff2",
+      "size_bytes": 1952
+    },
+    {
+      "path": "trials/02/time-series.json",
+      "sha256": "bc1226cbf4b5b34bfc7379485f684666c3893f4da3a59474b66cfe4921ac3037",
+      "size_bytes": 37172
+    },
+    {
+      "path": "trials/02/trial.json",
+      "sha256": "31458f9481551c158824a8ae2c93a22f41091374e72f943d938e26c7221463ef",
+      "size_bytes": 2489
+    },
+    {
+      "path": "trials/03/artifact-manifest.json",
+      "sha256": "6e8f4b0428d4dec4ac51a0e9db4090e6e64df2d3ab0adab2bfd16a86c4a5e165",
+      "size_bytes": 2245
+    },
+    {
+      "path": "trials/03/result.json",
+      "sha256": "f39c244ab46fe9a814a8f21be5ebe215ebc02179b406bb5f2451025ae523b64d",
+      "size_bytes": 1950
+    },
+    {
+      "path": "trials/03/time-series.json",
+      "sha256": "28d3e423335f169037a84283433630b2ff61beb82ec87296811b5d949902c8a7",
+      "size_bytes": 37217
+    },
+    {
+      "path": "trials/03/trial.json",
+      "sha256": "85db46fe57766c2e2bbf5bb3f9373a7eb37d2cd15640f6b08f27b981c475bc22",
+      "size_bytes": 2487
+    }
+  ],
+  "finished_at": "2026-07-14T19:36:12.221532Z",
+  "image_digest": "sha256:83bdf72ebc220349737887260f03bf597977e7af037f1d19787b36a8f95e2307",
+  "raw_artifact_sha256": "568ec197270f4c1770a811e3a614ab169afbd5d3ba107085fbef60e82f50cfb0",
+  "raw_artifact_url": "https://github.com/moseoh/hello-realworld-bench/releases/download/benchmark-evidence-2026-07-14T19-04-25_java_quarkus_jvm-java25_transactional-command-api_run-set/raw-evidence.tar.gz",
+  "run_set_id": "2026-07-14T19-04-25_java_quarkus_jvm-java25_transactional-command-api_run-set",
+  "schema_version": "1.0",
+  "selection": {
+    "build_profile": "local-gradle-docker",
+    "environment_profile": "home-k3s-v1",
+    "implementation": "java/quarkus",
+    "load_profile": "capacity-ramp",
+    "measurement_protocol": "official-service-v1",
+    "scenario": "transactional-command-api",
+    "variant": "jvm-java25"
+  },
+  "source_commit": "ac25fe58ffca5d43975afe52656fe1c0ebb53a1a",
+  "started_at": "2026-07-14T19:04:26.868049Z",
+  "workflow_url": "https://github.com/moseoh/hello-realworld-bench-ops/actions/runs/29346992125"
+}
