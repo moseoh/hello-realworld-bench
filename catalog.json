@@ -1631,6 +1631,26 @@
       },
       "source_commit": "ac25fe58ffca5d43975afe52656fe1c0ebb53a1a",
       "started_at": "2026-07-15T12:42:15.609695Z"
+    },
+    {
+      "cohort_fingerprint": "62f9ba47da4183646b248737d3b2ad68c05689b7fbbec2f5fd0a3a4c9dba6502",
+      "evidence_family": "service",
+      "finished_at": "2026-07-15T13:47:42.057721Z",
+      "image_digest": "sha256:1583839ebb9f2b86323549065c06db7bf8c25a9605160699c3f3f68f106dfa48",
+      "path": "run-sets/62f9ba47da4183646b248737d3b2ad68c05689b7fbbec2f5fd0a3a4c9dba6502/2026-07-15T13-15-45_java_spring-boot_jvm-java25_read-heavy-query-api_run-set",
+      "publication_sha256": "4478afd325b06f6cee38e2c5ceb606da7e07d61a3a7aaf7dd869a0afe09d689a",
+      "run_set_id": "2026-07-15T13-15-45_java_spring-boot_jvm-java25_read-heavy-query-api_run-set",
+      "selection": {
+        "build_profile": "local-gradle-docker",
+        "environment_profile": "home-k3s-v1",
+        "implementation": "java/spring-boot",
+        "load_profile": "burst-recovery",
+        "measurement_protocol": "official-service-v1",
+        "scenario": "read-heavy-query-api",
+        "variant": "jvm-java25"
+      },
+      "source_commit": "ac25fe58ffca5d43975afe52656fe1c0ebb53a1a",
+      "started_at": "2026-07-15T13:15:46.075914Z"
     }
   ],
   "schema_version": "1.0"

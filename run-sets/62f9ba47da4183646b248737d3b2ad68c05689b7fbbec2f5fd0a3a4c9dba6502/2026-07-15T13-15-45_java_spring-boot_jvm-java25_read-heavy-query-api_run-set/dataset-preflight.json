@@ -1,0 +1,21 @@
+{
+  "status": "valid",
+  "oracle": "read-heavy-dataset-fingerprint",
+  "expected": {
+    "row_count": 100000,
+    "id_sum": 5000050000,
+    "price_cents_sum": 5049950000,
+    "rating_basis_points_sum": 399997276,
+    "active_count": 95000,
+    "index_count": 1
+  },
+  "observed": {
+    "row_count": 100000,
+    "id_sum": 5000050000,
+    "price_cents_sum": 5049950000,
+    "rating_basis_points_sum": 399997276,
+    "active_count": 95000,
+    "index_count": 1
+  },
+  "reasons": []
+}
