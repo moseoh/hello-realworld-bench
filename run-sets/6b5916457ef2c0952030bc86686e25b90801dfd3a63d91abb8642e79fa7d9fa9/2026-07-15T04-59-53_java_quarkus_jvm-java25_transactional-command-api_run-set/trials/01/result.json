@@ -1,0 +1,60 @@
+{
+  "schema_version": "0.2",
+  "run_id": "trial-01",
+  "run_set_id": "2026-07-15T04-59-53_java_quarkus_jvm-java25_transactional-command-api_run-set",
+  "trial_index": 1,
+  "manifest_digest": "ba9ebfc06b7dabe5cbe68b3d5cab1f8d02517e264e70b8a620b0084d9b713328",
+  "cohort_fingerprint": "6b5916457ef2c0952030bc86686e25b90801dfd3a63d91abb8642e79fa7d9fa9",
+  "project": "hello-realworld-bench",
+  "scenario": "transactional-command-api",
+  "implementation": "java/quarkus",
+  "variant": "jvm-java25",
+  "runtime": {
+    "java_version": "25",
+    "framework_version": "3.33.2.1",
+    "build_mode": "jvm",
+    "native_image": false,
+    "virtual_threads": false,
+    "otel": false,
+    "language": "java",
+    "framework": "quarkus"
+  },
+  "environment": {
+    "context": "homelab",
+    "node_name": "homlab",
+    "architecture": "amd64",
+    "machine_id": "f66cd2d134b94bb18eb7e531d1baf343",
+    "logical_cpus": 16,
+    "memory_bytes": 29341941760,
+    "cpu_manager_policy": "none",
+    "kubernetes_version": "v1.36.2+k3s1",
+    "kubelet_version": "v1.36.2+k3s1",
+    "container_runtime": "containerd://2.3.2-k3s2",
+    "kernel_version": "6.8.0-134-generic",
+    "os_image": "Ubuntu 24.04.4 LTS"
+  },
+  "build": {
+    "image": "ghcr.io/moseoh/hello-realworld-bench/quarkus@sha256:3f59ad3cd929f7ecf0b48000d1ed06835bb6d7c9ec06ca80d699ebe5a820621f",
+    "digest": "sha256:3f59ad3cd929f7ecf0b48000d1ed06835bb6d7c9ec06ca80d699ebe5a820621f",
+    "platform": "linux/amd64",
+    "distribution": "prebuilt-import",
+    "clean_build_ms": null,
+    "image_build_ms": null
+  },
+  "startup": {
+    "dependency_ready_ms": 3055,
+    "ready_ms": 2775,
+    "first_request_ms": null,
+    "iterations": 1
+  },
+  "runtime_metrics": {
+    "rps": 200.00047375785394,
+    "p50_ms": 2.698824,
+    "p95_ms": 2.99121,
+    "p99_ms": 3.254828,
+    "error_rate": 0,
+    "cpu_percent_avg": 10.9904,
+    "cpu_percent_max": 14.2842,
+    "memory_usage_max_bytes": 267173888
+  }
+}
