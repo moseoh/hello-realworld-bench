@@ -1,0 +1,76 @@
+{
+  "schema_version": "1.0",
+  "trial_id": "trial-03",
+  "artifacts": [
+    {
+      "path": "correctness.json",
+      "size_bytes": 84,
+      "sha256": "22f01e747ecfabc6c5f5763f6a8f22ac6735e577888e7f0031224e27cf3165cd"
+    },
+    {
+      "path": "dependency-pods.json",
+      "size_bytes": 9424,
+      "sha256": "3304f3a148035f0162c78dc6424253d75a5e96641713a839dd7078f5bfb9fa85"
+    },
+    {
+      "path": "in-run-validity.json",
+      "size_bytes": 291,
+      "sha256": "873b18666e5c347756df44653e571dcdf29d8e2e07af12778a02fa200e3c62c0"
+    },
+    {
+      "path": "k6-summary.json",
+      "size_bytes": 50718,
+      "sha256": "c5ae58c2a64631a130a0575066f92129608c625eec045a20ee58597ebb82765f"
+    },
+    {
+      "path": "k6-warmup-summary.json",
+      "size_bytes": 17197,
+      "sha256": "a77e8aeb685de89184ad2e28692e7e4a9335277a38fde01a03d9b27523c50947"
+    },
+    {
+      "path": "k6-warmup.log",
+      "size_bytes": 27339,
+      "sha256": "783aa655c8438e78e05cfa2b1861990caa4dee085accd7534f71bf0f97c51a94"
+    },
+    {
+      "path": "k6.log",
+      "size_bytes": 96712,
+      "sha256": "259a205ce1181b2f273972131a5d0aaf2c6d5108dc91f3ded4ca674e5ec2a9e0"
+    },
+    {
+      "path": "kubelet-stats.json",
+      "size_bytes": 38542610,
+      "sha256": "ec106ada1ccd6afdc236a9223bb49995a3654ec7d3028dab4fe7bfaf1175ec86"
+    },
+    {
+      "path": "metadata.json",
+      "size_bytes": 1165,
+      "sha256": "4ebb1de95b5cdb2ac57417fd67366210e801dba47402c502b16caae7b502d630"
+    },
+    {
+      "path": "mock-upstream.log",
+      "size_bytes": 1374,
+      "sha256": "037e25301b96fe17610aa471109e8e40893df97c9cc8c1dc9d42ca0baa8868c9"
+    },
+    {
+      "path": "result.json",
+      "size_bytes": 1942,
+      "sha256": "60283cd9de532fc2f39cb9c5674686b5549e68796cb51f9d6c7d27aa3ba969f3"
+    },
+    {
+      "path": "startup.json",
+      "size_bytes": 101,
+      "sha256": "2f3f03ce0124b93c9343dd7642e1bcb961bca14e7bd7685c16aeb4a7404163e7"
+    },
+    {
+      "path": "target-pod.json",
+      "size_bytes": 9262,
+      "sha256": "6f2cb20b1c09ec8c671e7d0ce2381a20fcefc5ef184ea007399e36e311ea3674"
+    },
+    {
+      "path": "target.log",
+      "size_bytes": 2456,
+      "sha256": "01432aa9005aa42db1cf8fabd0e5e019765907023ac5f0385e714c7c1d00cb77"
+    }
+  ]
+}
