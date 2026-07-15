@@ -1137,6 +1137,26 @@
       },
       "source_commit": "ac25fe58ffca5d43975afe52656fe1c0ebb53a1a",
       "started_at": "2026-07-15T00:34:14.859285Z"
+    },
+    {
+      "cohort_fingerprint": "c5e82dc61513d643153d215d57ed5fb0fce03f6f71ce5d073cd8038952642315",
+      "evidence_family": "service",
+      "finished_at": "2026-07-15T01:39:04.412855Z",
+      "image_digest": "sha256:83bdf72ebc220349737887260f03bf597977e7af037f1d19787b36a8f95e2307",
+      "path": "run-sets/c5e82dc61513d643153d215d57ed5fb0fce03f6f71ce5d073cd8038952642315/2026-07-15T01-07-15_java_quarkus_jvm-java25_read-heavy-query-api_run-set",
+      "publication_sha256": "8e3464452096f3e2f3cafc533e0fbd530ebdb6d78eab65cd009247b6f82ca678",
+      "run_set_id": "2026-07-15T01-07-15_java_quarkus_jvm-java25_read-heavy-query-api_run-set",
+      "selection": {
+        "build_profile": "local-gradle-docker",
+        "environment_profile": "home-k3s-v1",
+        "implementation": "java/quarkus",
+        "load_profile": "steady",
+        "measurement_protocol": "official-service-v1",
+        "scenario": "read-heavy-query-api",
+        "variant": "jvm-java25"
+      },
+      "source_commit": "ac25fe58ffca5d43975afe52656fe1c0ebb53a1a",
+      "started_at": "2026-07-15T01:07:17.032295Z"
     }
   ],
   "schema_version": "1.0"
