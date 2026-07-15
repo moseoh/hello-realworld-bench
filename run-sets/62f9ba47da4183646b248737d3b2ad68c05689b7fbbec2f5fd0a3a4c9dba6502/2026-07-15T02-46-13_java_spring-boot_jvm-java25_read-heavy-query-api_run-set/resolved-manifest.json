@@ -1,0 +1,234 @@
+{
+  "assets": [
+    {
+      "path": "scenarios/read-heavy-query-api/k6.js",
+      "role": "scenario-file",
+      "sha256": "424d3240e29d502ecca1ef4d6b39267691cff6882c0ff3f177bf4a17d8f8e257"
+    },
+    {
+      "path": "scenarios/read-heavy-query-api/postgres/init.sql",
+      "role": "scenario-file",
+      "sha256": "512dc2a12dd31250c4bc8a485dabc6f97832def9082b514da91cf72e627e2a3d"
+    },
+    {
+      "path": "infra/k8s/read-heavy-query-api.yaml",
+      "role": "kubernetes-template",
+      "sha256": "50cd4688ba3fe30d250c0883d7ad8f65ae89ce08eb28a0872949c3295a0f3484"
+    }
+  ],
+  "cohort": {
+    "assets": [
+      {
+        "path": "scenarios/read-heavy-query-api/k6.js",
+        "role": "scenario-file",
+        "sha256": "424d3240e29d502ecca1ef4d6b39267691cff6882c0ff3f177bf4a17d8f8e257"
+      },
+      {
+        "path": "scenarios/read-heavy-query-api/postgres/init.sql",
+        "role": "scenario-file",
+        "sha256": "512dc2a12dd31250c4bc8a485dabc6f97832def9082b514da91cf72e627e2a3d"
+      },
+      {
+        "path": "infra/k8s/read-heavy-query-api.yaml",
+        "role": "kubernetes-template",
+        "sha256": "50cd4688ba3fe30d250c0883d7ad8f65ae89ce08eb28a0872949c3295a0f3484"
+      }
+    ],
+    "contracts": {
+      "environment_profile": {
+        "contract_version": "1.2",
+        "digest": "aa3c7317f3d9a4e8800f991b3cca1f100c695f425e0e412ef73da8d0674dc3eb",
+        "id": "home-k3s-v1",
+        "kind": "environment-profile",
+        "path": "contracts/environment-profiles/home-k3s-v1.yaml",
+        "schema_version": "1.0"
+      },
+      "load_profile": {
+        "contract_version": "1.0",
+        "digest": "328da3cae9ea7318e62c86ce30262efb5211d38862639952fdb45931c9af3bb0",
+        "id": "burst-recovery",
+        "kind": "load-profile",
+        "path": "contracts/load-profiles/burst-recovery.yaml",
+        "schema_version": "1.0"
+      },
+      "measurement_protocol": {
+        "contract_version": "1.0",
+        "digest": "72039cc6081a54027cf825c0e16311e7a56a2e3ecb935b61882fa1bf59a3dbe0",
+        "id": "official-service-v1",
+        "kind": "measurement-protocol",
+        "path": "contracts/measurement-protocols/official-service-v1.yaml",
+        "schema_version": "1.0"
+      },
+      "scenario": {
+        "contract_version": "1.0",
+        "digest": "01b9ab673ed190327b798c3c12eb38b166e0f58f011224f48cd0a3abfc5dbf04",
+        "id": "read-heavy-query-api",
+        "kind": "scenario",
+        "path": "scenarios/read-heavy-query-api/scenario.yaml",
+        "schema_version": "1.0"
+      }
+    },
+    "evidence_family": "service",
+    "fingerprint": "62f9ba47da4183646b248737d3b2ad68c05689b7fbbec2f5fd0a3a4c9dba6502"
+  },
+  "contracts": {
+    "build_profile": {
+      "contract_version": "1.0",
+      "digest": "b849ffb37b07c0abb209e9ef78c9a49afdf3087901e986b14c0f9d5a5612d828",
+      "id": "local-gradle-docker",
+      "kind": "build-profile",
+      "path": "contracts/build-profiles/local-gradle-docker.yaml",
+      "schema_version": "1.0"
+    },
+    "environment_profile": {
+      "contract_version": "1.2",
+      "digest": "aa3c7317f3d9a4e8800f991b3cca1f100c695f425e0e412ef73da8d0674dc3eb",
+      "id": "home-k3s-v1",
+      "kind": "environment-profile",
+      "path": "contracts/environment-profiles/home-k3s-v1.yaml",
+      "schema_version": "1.0"
+    },
+    "implementation": {
+      "contract_version": "1.2",
+      "digest": "04517e20f32482cfafe2b11fac03d85496dc4c8ead8b0fc088e6d42f987d56d8",
+      "id": "java/spring-boot",
+      "kind": "implementation",
+      "path": "implementations/java/spring-boot/implementation.yaml",
+      "schema_version": "1.0"
+    },
+    "load_profile": {
+      "contract_version": "1.0",
+      "digest": "328da3cae9ea7318e62c86ce30262efb5211d38862639952fdb45931c9af3bb0",
+      "id": "burst-recovery",
+      "kind": "load-profile",
+      "path": "contracts/load-profiles/burst-recovery.yaml",
+      "schema_version": "1.0"
+    },
+    "measurement_protocol": {
+      "contract_version": "1.0",
+      "digest": "72039cc6081a54027cf825c0e16311e7a56a2e3ecb935b61882fa1bf59a3dbe0",
+      "id": "official-service-v1",
+      "kind": "measurement-protocol",
+      "path": "contracts/measurement-protocols/official-service-v1.yaml",
+      "schema_version": "1.0"
+    },
+    "scenario": {
+      "contract_version": "1.0",
+      "digest": "01b9ab673ed190327b798c3c12eb38b166e0f58f011224f48cd0a3abfc5dbf04",
+      "id": "read-heavy-query-api",
+      "kind": "scenario",
+      "path": "scenarios/read-heavy-query-api/scenario.yaml",
+      "schema_version": "1.0"
+    },
+    "variant": {
+      "contract_version": "1.2",
+      "digest": "270ee1aaf4f2bcd3fc1764f11492120519e344080c7b95e293e828d70cd4585e",
+      "id": "jvm-java25",
+      "kind": "variant",
+      "path": "implementations/java/spring-boot/variants/jvm-java25.yaml",
+      "schema_version": "1.0"
+    }
+  },
+  "execution": {
+    "compose_profile": "spring-boot",
+    "image_tag": "ghcr.io/moseoh/hello-realworld-bench/spring-boot@sha256:d03dcf3ef9c6b668e46608f1f9c2d9a380dbf143783ea30745935958eebcfcfd",
+    "load": {
+      "arrival_rate": {
+        "base_per_second": 300,
+        "calibrated": true,
+        "max_vus": 400,
+        "pre_allocated_vus": 200
+      },
+      "enabled": true,
+      "executor": "ramping-arrival-rate",
+      "max_vus": 400,
+      "pre_allocated_vus": 200,
+      "rate": 300,
+      "script": "scenarios/read-heavy-query-api/k6.js",
+      "stages": [
+        {
+          "duration": "120s",
+          "target": 300
+        },
+        {
+          "duration": "0s",
+          "target": 900
+        },
+        {
+          "duration": "30s",
+          "target": 900
+        },
+        {
+          "duration": "0s",
+          "target": 300
+        },
+        {
+          "duration": "120s",
+          "target": 300
+        },
+        {
+          "duration": "0s",
+          "target": 1500
+        },
+        {
+          "duration": "30s",
+          "target": 1500
+        },
+        {
+          "duration": "0s",
+          "target": 300
+        },
+        {
+          "duration": "180s",
+          "target": 300
+        }
+      ],
+      "test_duration": "480s",
+      "tool": "k6",
+      "vus": 25,
+      "warmup_duration": "120s",
+      "warmup_rate": 300
+    },
+    "runtime": {
+      "build_mode": "jvm",
+      "framework": "spring-boot",
+      "java_version": "25",
+      "language": "java",
+      "native_image": false,
+      "otel": false,
+      "spring_boot_version": "4.1.0",
+      "virtual_threads": false
+    },
+    "services": {
+      "kafka": false,
+      "mock_upstream": false,
+      "postgres": true,
+      "redis": false
+    },
+    "startup": {
+      "iterations": 1
+    },
+    "target": {
+      "base_url": "http://localhost:8080",
+      "endpoint": "/products",
+      "startup_path": "/ping"
+    }
+  },
+  "manifest_digest": "0bbcb48b22c2a070266693088796de7499be2f2e7e74a44f2eb9fd13109adf2d",
+  "run_id": "2026-07-15T02-46-13_java_spring-boot_jvm-java25_read-heavy-query-api_run-set",
+  "schema_version": "1.0",
+  "selection": {
+    "build_profile": "local-gradle-docker",
+    "environment_profile": "home-k3s-v1",
+    "implementation": "java/spring-boot",
+    "load_profile": "burst-recovery",
+    "measurement_protocol": "official-service-v1",
+    "scenario": "read-heavy-query-api",
+    "variant": "jvm-java25"
+  },
+  "source": {
+    "git_commit": "ac25fe58ffca5d43975afe52656fe1c0ebb53a1a",
+    "git_dirty": false,
+    "worktree_digest": "b92f0ec60b9fb3cf2fa0daf2637d08bfa891efd96c005f439df8aadc1918e9e9"
+  }
+}
