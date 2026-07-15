@@ -1,0 +1,109 @@
+{
+  "cohort_fingerprint": "6b5916457ef2c0952030bc86686e25b90801dfd3a63d91abb8642e79fa7d9fa9",
+  "evidence_family": "service",
+  "files": [
+    {
+      "path": "build.json",
+      "sha256": "37edda795009fa9ff55676ea3f3ce98dd04d76be3f847b7feb57ada15359eb4b",
+      "size_bytes": 343
+    },
+    {
+      "path": "postflight.json",
+      "sha256": "b57b0b332602431e472af588abc083ebccf387c67f5b52920bb935ff0742310b",
+      "size_bytes": 601
+    },
+    {
+      "path": "preflight.json",
+      "sha256": "e5f79746cbd5b29b1116da382a9d24208d15f246e329e3441a7144f46de4a7b5",
+      "size_bytes": 601
+    },
+    {
+      "path": "resolved-manifest.json",
+      "sha256": "729c6dc3db035dd4d823b16aab123b4d5bdb7b4fd857fb37062d489e94e439b5",
+      "size_bytes": 6478
+    },
+    {
+      "path": "run-set.json",
+      "sha256": "b711ac5e8f8786e38a0af0125906e8006c98ea6d510c73918c9a39144f481332",
+      "size_bytes": 4681
+    },
+    {
+      "path": "trials/01/artifact-manifest.json",
+      "sha256": "022f946bb4c332e6bea7c26c91932fbac2b3247942c686c10592f7876a4ec15b",
+      "size_bytes": 2245
+    },
+    {
+      "path": "trials/01/result.json",
+      "sha256": "a1e7eb64f489057426a620d8d1d3a2f8b6f7553c1af9446e52ec4ea472b1c36b",
+      "size_bytes": 1955
+    },
+    {
+      "path": "trials/01/time-series.json",
+      "sha256": "00e1e81d45ef654f6894ffb2a0163161e97b79cfa3e8fc1c1ae78f41c10dae69",
+      "size_bytes": 37011
+    },
+    {
+      "path": "trials/01/trial.json",
+      "sha256": "328cb12079aac37e146bcd9ae571b3768430738b3d742455f20baaf9fec39d08",
+      "size_bytes": 2481
+    },
+    {
+      "path": "trials/02/artifact-manifest.json",
+      "sha256": "7a6b92caf5f97fbb715fbe2dc38bcf35cad1588ce104498c123000ef11f7507c",
+      "size_bytes": 2245
+    },
+    {
+      "path": "trials/02/result.json",
+      "sha256": "985267530d5aecf170452c85e01cc510b4d50f20e47843d05b35e6aa8f9ea4c1",
+      "size_bytes": 1956
+    },
+    {
+      "path": "trials/02/time-series.json",
+      "sha256": "4cdaef8f0098019a16a3e1017080b72ca40d00ba6d16b9fee832b19d1c794747",
+      "size_bytes": 37176
+    },
+    {
+      "path": "trials/02/trial.json",
+      "sha256": "44d38b093fa37aae379acd836d27b6472f766993d174f1fbc0c26e40c9956ded",
+      "size_bytes": 2482
+    },
+    {
+      "path": "trials/03/artifact-manifest.json",
+      "sha256": "8e22c153121ac0c5efb4db89cdcf6fb436a178b7bf3a99f4c673c88df39bb5c4",
+      "size_bytes": 2245
+    },
+    {
+      "path": "trials/03/result.json",
+      "sha256": "f9cf86e92efe199374f5d1b4bfff6a00b03af128f6a7d1fc37061631d853f5fb",
+      "size_bytes": 1978
+    },
+    {
+      "path": "trials/03/time-series.json",
+      "sha256": "c6c22ceb8c55fb25649024c049a0be26febf1b20f0e05c013b3ce7a6b3a34886",
+      "size_bytes": 37156
+    },
+    {
+      "path": "trials/03/trial.json",
+      "sha256": "bb22250ff2486187beb1d679b0db92b0dddd96b90925f84347f283a869773080",
+      "size_bytes": 2504
+    }
+  ],
+  "finished_at": "2026-07-14T18:29:52.448352Z",
+  "image_digest": "sha256:d03dcf3ef9c6b668e46608f1f9c2d9a380dbf143783ea30745935958eebcfcfd",
+  "raw_artifact_sha256": "3ffa431abb8882a965a1e95afff9c74d9dd8df825a8921f6d75545d829941a70",
+  "raw_artifact_url": "https://github.com/moseoh/hello-realworld-bench/releases/download/benchmark-evidence-2026-07-14T17-57-57_java_spring-boot_jvm-java25_transactional-command-api_run-set/raw-evidence.tar.gz",
+  "run_set_id": "2026-07-14T17-57-57_java_spring-boot_jvm-java25_transactional-command-api_run-set",
+  "schema_version": "1.0",
+  "selection": {
+    "build_profile": "local-gradle-docker",
+    "environment_profile": "home-k3s-v1",
+    "implementation": "java/spring-boot",
+    "load_profile": "steady",
+    "measurement_protocol": "official-service-v1",
+    "scenario": "transactional-command-api",
+    "variant": "jvm-java25"
+  },
+  "source_commit": "ac25fe58ffca5d43975afe52656fe1c0ebb53a1a",
+  "started_at": "2026-07-14T17:57:58.647827Z",
+  "workflow_url": "https://github.com/moseoh/hello-realworld-bench-ops/actions/runs/29346992125"
+}

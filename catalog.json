@@ -877,6 +877,26 @@
       },
       "source_commit": "ac25fe58ffca5d43975afe52656fe1c0ebb53a1a",
       "started_at": "2026-07-14T17:48:59.526519Z"
+    },
+    {
+      "cohort_fingerprint": "6b5916457ef2c0952030bc86686e25b90801dfd3a63d91abb8642e79fa7d9fa9",
+      "evidence_family": "service",
+      "finished_at": "2026-07-14T18:29:52.448352Z",
+      "image_digest": "sha256:d03dcf3ef9c6b668e46608f1f9c2d9a380dbf143783ea30745935958eebcfcfd",
+      "path": "run-sets/6b5916457ef2c0952030bc86686e25b90801dfd3a63d91abb8642e79fa7d9fa9/2026-07-14T17-57-57_java_spring-boot_jvm-java25_transactional-command-api_run-set",
+      "publication_sha256": "c8dd71caf8d5be92429f48171f5484586f68fad60b8b47c8a337ec476853e191",
+      "run_set_id": "2026-07-14T17-57-57_java_spring-boot_jvm-java25_transactional-command-api_run-set",
+      "selection": {
+        "build_profile": "local-gradle-docker",
+        "environment_profile": "home-k3s-v1",
+        "implementation": "java/spring-boot",
+        "load_profile": "steady",
+        "measurement_protocol": "official-service-v1",
+        "scenario": "transactional-command-api",
+        "variant": "jvm-java25"
+      },
+      "source_commit": "ac25fe58ffca5d43975afe52656fe1c0ebb53a1a",
+      "started_at": "2026-07-14T17:57:58.647827Z"
     }
   ],
   "schema_version": "1.0"
