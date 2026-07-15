@@ -1,0 +1,109 @@
+{
+  "cohort_fingerprint": "6b5916457ef2c0952030bc86686e25b90801dfd3a63d91abb8642e79fa7d9fa9",
+  "evidence_family": "service",
+  "files": [
+    {
+      "path": "build.json",
+      "sha256": "874987dbf4140c0cbd0857806e7d3cf06ff35bb5d0caf886b246c16c25629ff5",
+      "size_bytes": 343
+    },
+    {
+      "path": "postflight.json",
+      "sha256": "ff205f33002e624ffdad8b3b65f9cf905ef58b8406151d5deb56b3edad02b9ce",
+      "size_bytes": 601
+    },
+    {
+      "path": "preflight.json",
+      "sha256": "8433576eaa0ded8dd6f1265927bef3e282ef4b580cc8066efe84c879bf2cb522",
+      "size_bytes": 601
+    },
+    {
+      "path": "resolved-manifest.json",
+      "sha256": "195c926e34dc2ee6305e62e2ceee102a593b1339ebf6a9d68d10c40d58157594",
+      "size_bytes": 6478
+    },
+    {
+      "path": "run-set.json",
+      "sha256": "a2422f018402d27613b67efc7e7038b4d29a5fbcf79dc9e76ea853d69c7f51c3",
+      "size_bytes": 4655
+    },
+    {
+      "path": "trials/01/artifact-manifest.json",
+      "sha256": "80b4b00baa72d5b315241cc9d32a4ad93a3f3840a433b52a03b67e8eca52f3e1",
+      "size_bytes": 2245
+    },
+    {
+      "path": "trials/01/result.json",
+      "sha256": "d5b625b7c0c5fffba92e25be59fa81e4d750e592b2b5008d5129e32ba294cad3",
+      "size_bytes": 1955
+    },
+    {
+      "path": "trials/01/time-series.json",
+      "sha256": "8083ba7947ff67cf7d597c0658531fabb329551fa6daa33b0f409ebdd1541070",
+      "size_bytes": 37119
+    },
+    {
+      "path": "trials/01/trial.json",
+      "sha256": "77897e7be3aabb761d4d77859237b45cee9e43839df5f59ecef58dbeb3b323d2",
+      "size_bytes": 2481
+    },
+    {
+      "path": "trials/02/artifact-manifest.json",
+      "sha256": "845a057bcb41c1bfe67ed0509eb8c65a42aa462a5c7bafd383b94198a0f99f2a",
+      "size_bytes": 2245
+    },
+    {
+      "path": "trials/02/result.json",
+      "sha256": "ae141ccbbc054a8a98dcd03b19e1bc1a4704fbc464cdc68107752a9ca5fc72e9",
+      "size_bytes": 1968
+    },
+    {
+      "path": "trials/02/time-series.json",
+      "sha256": "ab1642339e57c8b5ac13b1a11de73c5b36884e2a573eb8fafc1cdead21d7fc8a",
+      "size_bytes": 37119
+    },
+    {
+      "path": "trials/02/trial.json",
+      "sha256": "c180b9b67fad8d4a90c1602b3c8b89b295b179a42f79f7542b94ace7339e8e42",
+      "size_bytes": 2494
+    },
+    {
+      "path": "trials/03/artifact-manifest.json",
+      "sha256": "9ba6136bebfd5824bb07590cdd4c72e852016e6a22508ac052f50260b1512b52",
+      "size_bytes": 2245
+    },
+    {
+      "path": "trials/03/result.json",
+      "sha256": "106f058bd4b98bf6e5318292356c9c4f6d48731da14a4aa1264883ea3d4d0f05",
+      "size_bytes": 1953
+    },
+    {
+      "path": "trials/03/time-series.json",
+      "sha256": "a8b95511458f5fa14a79004aef55c827567ba18d9a02eb866e0c0e0a09077089",
+      "size_bytes": 37086
+    },
+    {
+      "path": "trials/03/trial.json",
+      "sha256": "3bbcfd6bfa668a1049e554a5b1b1434534ae441b430199899b296e3ff6b84d49",
+      "size_bytes": 2479
+    }
+  ],
+  "finished_at": "2026-07-15T04:58:47.702512Z",
+  "image_digest": "sha256:1583839ebb9f2b86323549065c06db7bf8c25a9605160699c3f3f68f106dfa48",
+  "raw_artifact_sha256": "e9f41687d3866fc7e5390e5760228d0500bc9c1eecaa80b062e184f0bf12cb69",
+  "raw_artifact_url": "https://github.com/moseoh/hello-realworld-bench/releases/download/benchmark-evidence-2026-07-15T04-26-51_java_spring-boot_jvm-java25_transactional-command-api_run-set/raw-evidence.tar.gz",
+  "run_set_id": "2026-07-15T04-26-51_java_spring-boot_jvm-java25_transactional-command-api_run-set",
+  "schema_version": "1.0",
+  "selection": {
+    "build_profile": "local-gradle-docker",
+    "environment_profile": "home-k3s-v1",
+    "implementation": "java/spring-boot",
+    "load_profile": "steady",
+    "measurement_protocol": "official-service-v1",
+    "scenario": "transactional-command-api",
+    "variant": "jvm-java25"
+  },
+  "source_commit": "ac25fe58ffca5d43975afe52656fe1c0ebb53a1a",
+  "started_at": "2026-07-15T04:26:52.496978Z",
+  "workflow_url": "https://github.com/moseoh/hello-realworld-bench-ops/actions/runs/29380588425"
+}
