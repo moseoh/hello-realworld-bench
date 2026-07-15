@@ -1411,6 +1411,26 @@
       },
       "source_commit": "ac25fe58ffca5d43975afe52656fe1c0ebb53a1a",
       "started_at": "2026-07-15T06:39:00.487512Z"
+    },
+    {
+      "cohort_fingerprint": "b185d920bb9db2efe91cc5b53439a593dd812782d1674edb449813645d793bf1",
+      "evidence_family": "service",
+      "finished_at": "2026-07-15T07:43:47.980828Z",
+      "image_digest": "sha256:3f59ad3cd929f7ecf0b48000d1ed06835bb6d7c9ec06ca80d699ebe5a820621f",
+      "path": "run-sets/b185d920bb9db2efe91cc5b53439a593dd812782d1674edb449813645d793bf1/2026-07-15T07-12-03_java_quarkus_jvm-java25_transactional-command-api_run-set",
+      "publication_sha256": "83e0d622629a841848e456f99c0f01fb87c4efdc915562626385d51f6eafbe28",
+      "run_set_id": "2026-07-15T07-12-03_java_quarkus_jvm-java25_transactional-command-api_run-set",
+      "selection": {
+        "build_profile": "local-gradle-docker",
+        "environment_profile": "home-k3s-v1",
+        "implementation": "java/quarkus",
+        "load_profile": "burst-recovery",
+        "measurement_protocol": "official-service-v1",
+        "scenario": "transactional-command-api",
+        "variant": "jvm-java25"
+      },
+      "source_commit": "ac25fe58ffca5d43975afe52656fe1c0ebb53a1a",
+      "started_at": "2026-07-15T07:12:04.110974Z"
     }
   ],
   "schema_version": "1.0"
