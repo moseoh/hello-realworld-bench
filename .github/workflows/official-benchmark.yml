@@ -360,7 +360,7 @@ jobs:
           name: official-${{ steps.allowlist.outputs.image_key }}-${{ steps.allowlist.outputs.scenario }}-${{ steps.allowlist.outputs.load_profile }}-${{ inputs.source_sha }}-${{ github.run_id }}
           path: ${{ steps.benchmark.outputs.result_dir }}
           if-no-files-found: error
-          retention-days: 90
+          retention-days: 7
           compression-level: 6
 
   publish:
