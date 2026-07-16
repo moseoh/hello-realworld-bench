@@ -23,6 +23,27 @@ class WorkflowTrustBoundaryTest(unittest.TestCase):
             {"group": "official-home-k3s", "cancel-in-progress": "false"},
         )
 
+    def test_raw_evidence_artifacts_have_a_short_fallback_retention(self):
+        uploads = (
+            (
+                self._load("official-benchmark.yml"),
+                "Transfer raw evidence",
+            ),
+            (
+                self._load("official-build-benchmark.yml"),
+                "Transfer raw build evidence",
+            ),
+        )
+
+        for workflow, step_name in uploads:
+            upload = next(
+                step
+                for job in workflow["jobs"].values()
+                for step in job.get("steps", [])
+                if step.get("name") == step_name
+            )
+            self.assertEqual(upload["with"]["retention-days"], "7")
+
     def test_official_build_workflow_keeps_measurement_untrusted_and_publication_hosted(self):
         workflow = self._load("official-build-benchmark.yml")
         benchmark = workflow["jobs"]["benchmark"]

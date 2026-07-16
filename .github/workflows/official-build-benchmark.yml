@@ -129,7 +129,7 @@ jobs:
           name: ${{ steps.artifact.outputs.name }}
           path: ${{ steps.benchmark.outputs.result_dir }}
           if-no-files-found: error
-          retention-days: 90
+          retention-days: 7
           compression-level: 6
 
   publish:
