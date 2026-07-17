@@ -1,0 +1,109 @@
+{
+  "cohort_fingerprint": "b185d920bb9db2efe91cc5b53439a593dd812782d1674edb449813645d793bf1",
+  "evidence_family": "service",
+  "files": [
+    {
+      "path": "build.json",
+      "sha256": "948d2bb617eca09b032a32709634459eb2c76383a6f6aa94d24ccab19faf226c",
+      "size_bytes": 339
+    },
+    {
+      "path": "postflight.json",
+      "sha256": "c366823f5362f3bf4dd0972616566222f6d4eec4c652a7dc3997434cd65a6e96",
+      "size_bytes": 600
+    },
+    {
+      "path": "preflight.json",
+      "sha256": "8209964ab9d050ca7e5d7001dbcca4de869bd2980996a06c22fdbacbc52729c7",
+      "size_bytes": 601
+    },
+    {
+      "path": "resolved-manifest.json",
+      "sha256": "4a746d3f854e24e1decbe727202b8ad055f39425a765657d13f73464c61c6a40",
+      "size_bytes": 7078
+    },
+    {
+      "path": "run-set.json",
+      "sha256": "4ba03359310685d6d2d03520d4351f85674c9d997cd2b560d933aef944bd9cf5",
+      "size_bytes": 4709
+    },
+    {
+      "path": "trials/01/artifact-manifest.json",
+      "sha256": "a97fc56daf3b23fef0f5e487567d3fad32a397aa2a332011c00259d6ba5ff844",
+      "size_bytes": 2245
+    },
+    {
+      "path": "trials/01/result.json",
+      "sha256": "27a4ed70bc9c4172424cf5e101501c42defffd1678d828923afaee677c4d9d3c",
+      "size_bytes": 1961
+    },
+    {
+      "path": "trials/01/time-series.json",
+      "sha256": "fd1adbd8f73d8cdd8c543c10adbe140061980f51a869f0fcd9f55a1b53cbe752",
+      "size_bytes": 37071
+    },
+    {
+      "path": "trials/01/trial.json",
+      "sha256": "14dd58402034931068b9b1ed862da812d4640b3eca59ee7c435dbaf5f54dccec",
+      "size_bytes": 2498
+    },
+    {
+      "path": "trials/02/artifact-manifest.json",
+      "sha256": "2ae115660e5c429f301f42e0801a4520e0847e23fda911a3f5731d8ed190392e",
+      "size_bytes": 2245
+    },
+    {
+      "path": "trials/02/result.json",
+      "sha256": "24798ba1a50e28705c9c61105aa2483f78b7027e52c03c00ed78875fe04cce52",
+      "size_bytes": 1950
+    },
+    {
+      "path": "trials/02/time-series.json",
+      "sha256": "08c617a076d0d70971ef61a0fca78d7aec60633f563d64881c5549044f760884",
+      "size_bytes": 37091
+    },
+    {
+      "path": "trials/02/trial.json",
+      "sha256": "11aa1de0761af999873b72e98b37be730a9c8da6250c3e42d69521f78fcf178c",
+      "size_bytes": 2487
+    },
+    {
+      "path": "trials/03/artifact-manifest.json",
+      "sha256": "adddbdf7b96743c9078a5168b8aa8a7ba020dfdc81baf09181026bbac3cfff85",
+      "size_bytes": 2245
+    },
+    {
+      "path": "trials/03/result.json",
+      "sha256": "01cfe2166fb9ad464eee47595c9507bd6d7eae3f7b87410165c9399d09dbaafa",
+      "size_bytes": 1949
+    },
+    {
+      "path": "trials/03/time-series.json",
+      "sha256": "ad7948337c6d4701c7b11859368450fdf9bfb65e42d561be10a8ff88ba9c0f77",
+      "size_bytes": 37165
+    },
+    {
+      "path": "trials/03/trial.json",
+      "sha256": "eca7c543d4e9692c7c6b56a0505bdd87c1639f792a147608babe4bfc13ffa6ee",
+      "size_bytes": 2486
+    }
+  ],
+  "finished_at": "2026-07-17T07:21:33.901061Z",
+  "image_digest": "sha256:b65bbeb8881bda3109f1c76f913b869656ebb4b0945cbadefbe017d9c4b64d9c",
+  "raw_artifact_sha256": "424bb234e62fb84fd1bed59d0e53775dd0ab816b0d2b6ad7c0c889c568b1a9eb",
+  "raw_artifact_url": "https://github.com/moseoh/hello-realworld-bench/releases/download/benchmark-evidence-2026-07-17T06-49-49_java_quarkus_jvm-java25_transactional-command-api_run-set/raw-evidence.tar.gz",
+  "run_set_id": "2026-07-17T06-49-49_java_quarkus_jvm-java25_transactional-command-api_run-set",
+  "schema_version": "1.0",
+  "selection": {
+    "build_profile": "local-gradle-docker",
+    "environment_profile": "home-k3s-v1",
+    "implementation": "java/quarkus",
+    "load_profile": "burst-recovery",
+    "measurement_protocol": "official-service-v1",
+    "scenario": "transactional-command-api",
+    "variant": "jvm-java25"
+  },
+  "source_commit": "4124f93ee48bc2a46bf138f9aea15f7befebe099",
+  "started_at": "2026-07-17T06:49:50.645628Z",
+  "workflow_url": "https://github.com/moseoh/hello-realworld-bench-ops/actions/runs/29552765831"
+}
