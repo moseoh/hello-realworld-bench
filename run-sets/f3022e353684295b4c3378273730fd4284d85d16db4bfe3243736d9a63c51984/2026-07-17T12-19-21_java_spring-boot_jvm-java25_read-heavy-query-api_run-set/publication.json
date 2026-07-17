@@ -1,0 +1,114 @@
+{
+  "cohort_fingerprint": "f3022e353684295b4c3378273730fd4284d85d16db4bfe3243736d9a63c51984",
+  "evidence_family": "service",
+  "files": [
+    {
+      "path": "build.json",
+      "sha256": "a61d1af31088456e4927aaad0fba01a967ccfcdaa204dff76d3fc23dda50d45d",
+      "size_bytes": 343
+    },
+    {
+      "path": "dataset-preflight.json",
+      "sha256": "2a28854dabd725203a6ea0f55b9e13c58f076584af1b09c41520dfa2bf6d546e",
+      "size_bytes": 481
+    },
+    {
+      "path": "postflight.json",
+      "sha256": "bb3871bbcdb269b43e0d97402122d0b6c0cd3206167d88fe7b92447da5e5611c",
+      "size_bytes": 601
+    },
+    {
+      "path": "preflight.json",
+      "sha256": "204ad6ecdd7cbfb58fed7d1fbe7fc7926e0aa58e273273f672ae5bb95aeecc4f",
+      "size_bytes": 601
+    },
+    {
+      "path": "resolved-manifest.json",
+      "sha256": "1980c19bc59462a532ed9bbcd82592637ac0f5bda5dd6bbefc9015324f02d094",
+      "size_bytes": 7398
+    },
+    {
+      "path": "run-set.json",
+      "sha256": "8e9ac0d01d08fa0e5b08f3d45d784cff86756002e391a33070af9b994fc55f50",
+      "size_bytes": 4904
+    },
+    {
+      "path": "trials/01/artifact-manifest.json",
+      "sha256": "e47c406efd7ea17d60aa738d7c49fc19442dc314f6b3d87fc94184014dfdd1dc",
+      "size_bytes": 2246
+    },
+    {
+      "path": "trials/01/result.json",
+      "sha256": "dd34feff9a05b48c9ff324c98cb6d51518185283b6a3e176831024e071eee5a2",
+      "size_bytes": 1956
+    },
+    {
+      "path": "trials/01/time-series.json",
+      "sha256": "eaae947e5b2b95b0a0bb78536c8b3a769e7d64bef556be126b0e4865286d89be",
+      "size_bytes": 37264
+    },
+    {
+      "path": "trials/01/trial.json",
+      "sha256": "4a104886b57926d40b6e1a32d361a59514f8538ff1b1f4fb6d554804c477fcd8",
+      "size_bytes": 2487
+    },
+    {
+      "path": "trials/02/artifact-manifest.json",
+      "sha256": "02f553e5ada7401e43e91327a0022d2ab5d1e157cfa259bc14482b0065b171c0",
+      "size_bytes": 2246
+    },
+    {
+      "path": "trials/02/result.json",
+      "sha256": "1c56b1458ce6615f3705e35c0f007b8d383c75162007b7ee62230232dcda8890",
+      "size_bytes": 1965
+    },
+    {
+      "path": "trials/02/time-series.json",
+      "sha256": "5e17c866c7fab8218840b93410bbfe9993ee15b4c1dc1b1182878167b2771697",
+      "size_bytes": 37353
+    },
+    {
+      "path": "trials/02/trial.json",
+      "sha256": "50b22069da2fb9d88254a837002191b5d5fda7d117bdcc5308c75a4790e5cce2",
+      "size_bytes": 2496
+    },
+    {
+      "path": "trials/03/artifact-manifest.json",
+      "sha256": "517aeb199cf3a3ee5d95a73cf13f1f7c68017d631380006c3bf253a1f2e93cb1",
+      "size_bytes": 2246
+    },
+    {
+      "path": "trials/03/result.json",
+      "sha256": "18a5ef145c21b8b6c9c94e6af4e50907fa6d0edcdb9ac2f49786392fd4bb59db",
+      "size_bytes": 1975
+    },
+    {
+      "path": "trials/03/time-series.json",
+      "sha256": "73b2cc0616f30d8fdfb33612b51b771733a04367e8e360ce49295a21e2fe80a2",
+      "size_bytes": 37209
+    },
+    {
+      "path": "trials/03/trial.json",
+      "sha256": "cf63a10777e6c3ca606c0f9c20441ac33250a7514e0b9fee373e3b5a0036ef3d",
+      "size_bytes": 2506
+    }
+  ],
+  "finished_at": "2026-07-17T12:51:17.439346Z",
+  "image_digest": "sha256:c24f0f2755d19f32611f73e75dbb584ad46c8e471f46db02e896099ad746c1bc",
+  "raw_artifact_sha256": "874ac24039c6bbe29e5eb39b614ebf66eccf42b206205e2dd5db224f477bedf0",
+  "raw_artifact_url": "https://github.com/moseoh/hello-realworld-bench/releases/download/benchmark-evidence-2026-07-17T12-19-21_java_spring-boot_jvm-java25_read-heavy-query-api_run-set/raw-evidence.tar.gz",
+  "run_set_id": "2026-07-17T12-19-21_java_spring-boot_jvm-java25_read-heavy-query-api_run-set",
+  "schema_version": "1.0",
+  "selection": {
+    "build_profile": "local-gradle-docker",
+    "environment_profile": "home-k3s-v1",
+    "implementation": "java/spring-boot",
+    "load_profile": "capacity-ramp",
+    "measurement_protocol": "official-service-v1",
+    "scenario": "read-heavy-query-api",
+    "variant": "jvm-java25"
+  },
+  "source_commit": "4124f93ee48bc2a46bf138f9aea15f7befebe099",
+  "started_at": "2026-07-17T12:19:22.581420Z",
+  "workflow_url": "https://github.com/moseoh/hello-realworld-bench-ops/actions/runs/29552765831"
+}
