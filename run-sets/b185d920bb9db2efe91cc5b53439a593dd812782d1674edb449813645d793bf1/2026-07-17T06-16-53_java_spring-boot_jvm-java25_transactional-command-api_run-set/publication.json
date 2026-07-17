@@ -1,0 +1,109 @@
+{
+  "cohort_fingerprint": "b185d920bb9db2efe91cc5b53439a593dd812782d1674edb449813645d793bf1",
+  "evidence_family": "service",
+  "files": [
+    {
+      "path": "build.json",
+      "sha256": "a61d1af31088456e4927aaad0fba01a967ccfcdaa204dff76d3fc23dda50d45d",
+      "size_bytes": 343
+    },
+    {
+      "path": "postflight.json",
+      "sha256": "632910b024ef13ac16add622abd93e9269d99cb5dd61ea565ec0a4827c30a89a",
+      "size_bytes": 601
+    },
+    {
+      "path": "preflight.json",
+      "sha256": "a44711d2b2343a87a5b5f2b16021b76eed7b39251cd720e258f7174fa3372439",
+      "size_bytes": 601
+    },
+    {
+      "path": "resolved-manifest.json",
+      "sha256": "e28e9d5e6bfb586275e931ba67e3b6342a682d3dd290d8321fc7c4f01997c816",
+      "size_bytes": 7109
+    },
+    {
+      "path": "run-set.json",
+      "sha256": "4eaf0aa680c740697b372bdccaf40b3590c7fb41a19e169aef90d942afac1e51",
+      "size_bytes": 4713
+    },
+    {
+      "path": "trials/01/artifact-manifest.json",
+      "sha256": "fae60ef3ae459c913ba4f659ca9ea6dab1c3b2f1ecaae4c11f4589d4b47cb398",
+      "size_bytes": 2245
+    },
+    {
+      "path": "trials/01/result.json",
+      "sha256": "faef63571d25ea41b2c3fcce245871dbd456a32385c9c8fe9f58719ac13d6618",
+      "size_bytes": 1964
+    },
+    {
+      "path": "trials/01/time-series.json",
+      "sha256": "fdefcfc800e8f67f35fb5e5cd82ed01682c88e6965a424150e985dfbd6fb33ca",
+      "size_bytes": 37071
+    },
+    {
+      "path": "trials/01/trial.json",
+      "sha256": "ca99a88b61f1b2747f29e86bb7bcb860b2a94342cd01c5432ac6fd50dbd965b8",
+      "size_bytes": 2490
+    },
+    {
+      "path": "trials/02/artifact-manifest.json",
+      "sha256": "f7f3e2f1d0eb67fa206b68b153fb9953aaca9c24fe9087e564943d2439c70867",
+      "size_bytes": 2245
+    },
+    {
+      "path": "trials/02/result.json",
+      "sha256": "4df545dadfd06e457e7d78b11993062dec39d42086c98898bfd2a061ac3f6014",
+      "size_bytes": 1966
+    },
+    {
+      "path": "trials/02/time-series.json",
+      "sha256": "f1053b1c30947ef850a6e3b4f1c503b892dbbac1a804c96b823e34943f57a9de",
+      "size_bytes": 37191
+    },
+    {
+      "path": "trials/02/trial.json",
+      "sha256": "9dd3a8bbdb4c6923f343bb67373794532b5ef64cbfcda1228d4b4ba52c667357",
+      "size_bytes": 2492
+    },
+    {
+      "path": "trials/03/artifact-manifest.json",
+      "sha256": "c5b2a36adedf4dfb19f4135ce372f12625c9abd36b8ff8840ff8ed88d6c0b9f1",
+      "size_bytes": 2245
+    },
+    {
+      "path": "trials/03/result.json",
+      "sha256": "55f6af9cee28c17e75a7c66062abddf3a2210051db517c8b3f5ada13f919fb8c",
+      "size_bytes": 1974
+    },
+    {
+      "path": "trials/03/time-series.json",
+      "sha256": "2196d8a7aa367410600fa8467966db7dcc55078b8868381055651e308241a967",
+      "size_bytes": 37126
+    },
+    {
+      "path": "trials/03/trial.json",
+      "sha256": "59e0059ade75131663d29e4cbaef802065965e9dbbddd301f726cd98f7845d30",
+      "size_bytes": 2500
+    }
+  ],
+  "finished_at": "2026-07-17T06:48:48.095287Z",
+  "image_digest": "sha256:c24f0f2755d19f32611f73e75dbb584ad46c8e471f46db02e896099ad746c1bc",
+  "raw_artifact_sha256": "f784198a85d223311566018643c9b0fb61bb0374c0a659a6ba873b2e84599746",
+  "raw_artifact_url": "https://github.com/moseoh/hello-realworld-bench/releases/download/benchmark-evidence-2026-07-17T06-16-53_java_spring-boot_jvm-java25_transactional-command-api_run-set/raw-evidence.tar.gz",
+  "run_set_id": "2026-07-17T06-16-53_java_spring-boot_jvm-java25_transactional-command-api_run-set",
+  "schema_version": "1.0",
+  "selection": {
+    "build_profile": "local-gradle-docker",
+    "environment_profile": "home-k3s-v1",
+    "implementation": "java/spring-boot",
+    "load_profile": "burst-recovery",
+    "measurement_protocol": "official-service-v1",
+    "scenario": "transactional-command-api",
+    "variant": "jvm-java25"
+  },
+  "source_commit": "4124f93ee48bc2a46bf138f9aea15f7befebe099",
+  "started_at": "2026-07-17T06:16:54.325538Z",
+  "workflow_url": "https://github.com/moseoh/hello-realworld-bench-ops/actions/runs/29552765831"
+}
