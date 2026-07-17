@@ -1,0 +1,46 @@
+{
+  "schema_version": "1.0",
+  "trial_id": "trial-03",
+  "artifacts": [
+    {
+      "path": "boundary-kubelet-stats.json",
+      "size_bytes": 133984,
+      "sha256": "4999fcc36bd2fa5c12e3fb127b4236d5c274af4ab2de30d996bee836ea331dcc"
+    },
+    {
+      "path": "boundary-validity.json",
+      "size_bytes": 1118,
+      "sha256": "6df98d069e6fa70e5b26bf46fa780c5cf80fb35d8ba8f12eb2952d7bc0d9fd6a"
+    },
+    {
+      "path": "metadata.json",
+      "size_bytes": 1146,
+      "sha256": "f8134542117b1ee2276d838865933281a4fc8d4936ed4fc9518d4c61a58aeb47"
+    },
+    {
+      "path": "observer.log",
+      "size_bytes": 39074,
+      "sha256": "6162d50d53570e6261811407c7c29d9b9aeba10a1d094413a304bbc9afe7d07e"
+    },
+    {
+      "path": "result.json",
+      "size_bytes": 2171,
+      "sha256": "79ad2a8facbf2b399d7081239462782bfe122b0effe7ac4aff089522fdaf214a"
+    },
+    {
+      "path": "startup.json",
+      "size_bytes": 564,
+      "sha256": "7ed54b3072de0069d42bf3c43a35a00a92add3e847a0a40ffac8815f1db24801"
+    },
+    {
+      "path": "target-pod.json",
+      "size_bytes": 12595,
+      "sha256": "3bd42815222713c1598c3eaa2832c29b06bbea2ac5f9af00b4f3205fd0617544"
+    },
+    {
+      "path": "target.log",
+      "size_bytes": 780,
+      "sha256": "bfb3a06c71e46102949769d8e10d7c0be001247f345b05e4adf86d145ca14f9b"
+    }
+  ]
+}
