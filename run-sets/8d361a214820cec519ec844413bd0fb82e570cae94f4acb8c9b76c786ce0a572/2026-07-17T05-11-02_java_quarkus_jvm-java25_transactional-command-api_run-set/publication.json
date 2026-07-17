@@ -1,0 +1,109 @@
+{
+  "cohort_fingerprint": "8d361a214820cec519ec844413bd0fb82e570cae94f4acb8c9b76c786ce0a572",
+  "evidence_family": "service",
+  "files": [
+    {
+      "path": "build.json",
+      "sha256": "948d2bb617eca09b032a32709634459eb2c76383a6f6aa94d24ccab19faf226c",
+      "size_bytes": 339
+    },
+    {
+      "path": "postflight.json",
+      "sha256": "00dbb817c9bdc65f61f3f80e00c5727fbe730bb32396c4ab5f93e27ce5c52c46",
+      "size_bytes": 601
+    },
+    {
+      "path": "preflight.json",
+      "sha256": "eecb472afb01af840fec6924d84358797bbf6794d8e415173865323afb686912",
+      "size_bytes": 601
+    },
+    {
+      "path": "resolved-manifest.json",
+      "sha256": "dd1120fc54c8b8063eb2c4b7d35699cb521f8b281abe88c62eb679f45f6f4523",
+      "size_bytes": 6996
+    },
+    {
+      "path": "run-set.json",
+      "sha256": "5fd472e263c6d2c22a81beb0df9ff5a83870d1a417ee308f9d8c8eeee73bef6d",
+      "size_bytes": 4705
+    },
+    {
+      "path": "trials/01/artifact-manifest.json",
+      "sha256": "e2d8601557c7a45500032cc7c64e126462d1f6b069434f541713eb6aade44156",
+      "size_bytes": 2245
+    },
+    {
+      "path": "trials/01/result.json",
+      "sha256": "e9dbdcadf4a492f44073d7985a8cbdb4c36c363f9e2fe0692b1675b5495b39cb",
+      "size_bytes": 1952
+    },
+    {
+      "path": "trials/01/time-series.json",
+      "sha256": "e069fbfc2b14e747734305ac0f8235bc21d5b344bf794dc5a64a527795b3b9f0",
+      "size_bytes": 37173
+    },
+    {
+      "path": "trials/01/trial.json",
+      "sha256": "214b132491555d43c723a8818c3d6c68119c44b5b5888651b375bb8a77659c4b",
+      "size_bytes": 2489
+    },
+    {
+      "path": "trials/02/artifact-manifest.json",
+      "sha256": "6358a030d47b524a1913678b292c644dd46aae0d08ec41b143c7c92b87375c02",
+      "size_bytes": 2245
+    },
+    {
+      "path": "trials/02/result.json",
+      "sha256": "029fceebe6447b408d7659b9e6aa64286296f9d3311e381f26549bb8b5076c26",
+      "size_bytes": 1948
+    },
+    {
+      "path": "trials/02/time-series.json",
+      "sha256": "f68a149790e003cbf468eadf1ab9698332645d17a446f622541ad98ca435f04a",
+      "size_bytes": 37177
+    },
+    {
+      "path": "trials/02/trial.json",
+      "sha256": "11e59c392f6feb9607ad5bb887c0b9a239668b8f6e6a233055cc115bf4ac5c0f",
+      "size_bytes": 2485
+    },
+    {
+      "path": "trials/03/artifact-manifest.json",
+      "sha256": "036bae4516b1396c62fddc597a0aa8ee07eab2691cb1ffd2c8c0e03b436b9ac1",
+      "size_bytes": 2245
+    },
+    {
+      "path": "trials/03/result.json",
+      "sha256": "22ab9a91bbf7ed86a029d010eb85e72779215b2230c0adf46610ae9bef7569df",
+      "size_bytes": 1960
+    },
+    {
+      "path": "trials/03/time-series.json",
+      "sha256": "2cbd9de077dc4db99de35eecee5f58ae77c2b578f23a7245668d9b824c52e2a9",
+      "size_bytes": 37237
+    },
+    {
+      "path": "trials/03/trial.json",
+      "sha256": "c3d01e40153cde37bd949093a00c40d111dd52391b6bc7a34d52a56fc9f7511e",
+      "size_bytes": 2497
+    }
+  ],
+  "finished_at": "2026-07-17T05:42:47.703170Z",
+  "image_digest": "sha256:b65bbeb8881bda3109f1c76f913b869656ebb4b0945cbadefbe017d9c4b64d9c",
+  "raw_artifact_sha256": "4f7192d8753fbd40a40fcae922d40a3a65d76df768d1cdff8673f98f71c101ae",
+  "raw_artifact_url": "https://github.com/moseoh/hello-realworld-bench/releases/download/benchmark-evidence-2026-07-17T05-11-02_java_quarkus_jvm-java25_transactional-command-api_run-set/raw-evidence.tar.gz",
+  "run_set_id": "2026-07-17T05-11-02_java_quarkus_jvm-java25_transactional-command-api_run-set",
+  "schema_version": "1.0",
+  "selection": {
+    "build_profile": "local-gradle-docker",
+    "environment_profile": "home-k3s-v1",
+    "implementation": "java/quarkus",
+    "load_profile": "capacity-ramp",
+    "measurement_protocol": "official-service-v1",
+    "scenario": "transactional-command-api",
+    "variant": "jvm-java25"
+  },
+  "source_commit": "4124f93ee48bc2a46bf138f9aea15f7befebe099",
+  "started_at": "2026-07-17T05:11:03.530024Z",
+  "workflow_url": "https://github.com/moseoh/hello-realworld-bench-ops/actions/runs/29552765831"
+}

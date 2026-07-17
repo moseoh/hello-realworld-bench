@@ -1,0 +1,76 @@
+{
+  "schema_version": "1.0",
+  "trial_id": "trial-01",
+  "artifacts": [
+    {
+      "path": "correctness.json",
+      "size_bytes": 208,
+      "sha256": "51755d8afe8169a470311e738dc47b1ae189f3fc4378809ba8c870c0a71508a2"
+    },
+    {
+      "path": "dependency-pods.json",
+      "size_bytes": 9618,
+      "sha256": "d9b2a20e0b09614c089b83f59e0183d713d15b8af27d1cca0deef4ec8d6fd30d"
+    },
+    {
+      "path": "in-run-validity.json",
+      "size_bytes": 295,
+      "sha256": "88d2cad96f220e14f06bb1a9716f84d06bdccab283082064b105c97cdeb18ec2"
+    },
+    {
+      "path": "k6-summary.json",
+      "size_bytes": 50648,
+      "sha256": "71719dd17f6d3d19863281e15d616b7eaf6f969627708d0374b41230a8948864"
+    },
+    {
+      "path": "k6-warmup-summary.json",
+      "size_bytes": 16975,
+      "sha256": "297a90d5df385365390a49803ac88636aecab0589a9dc311dcc374a005d7dd89"
+    },
+    {
+      "path": "k6-warmup.log",
+      "size_bytes": 27382,
+      "sha256": "7e0da3781ca0d5e05317178df588df21af13952845985605f3ec95034a284402"
+    },
+    {
+      "path": "k6.log",
+      "size_bytes": 97183,
+      "sha256": "c88610a39db93bf9b4ab58716dc4b9c0d6fe60a828db890b0348ac20f49d056c"
+    },
+    {
+      "path": "kubelet-stats.json",
+      "size_bytes": 38762960,
+      "sha256": "7a82d4cd979bc442226f218d0380d3855a5bce38322c9368589d8d7c1027aed9"
+    },
+    {
+      "path": "metadata.json",
+      "size_bytes": 1168,
+      "sha256": "fd73ae6846b90cd12053e2ee0fe5ec908c42f81a6783f48acb7ef6a7462d3cc6"
+    },
+    {
+      "path": "postgres.log",
+      "size_bytes": 3827,
+      "sha256": "00e202fe69464c9e275868126e2a4460a7b2e02d83756d9e6b80b0c3019ff438"
+    },
+    {
+      "path": "result.json",
+      "size_bytes": 1952,
+      "sha256": "e9dbdcadf4a492f44073d7985a8cbdb4c36c363f9e2fe0692b1675b5495b39cb"
+    },
+    {
+      "path": "startup.json",
+      "size_bytes": 101,
+      "sha256": "c5bc10a757cffa232e21ecd043763791d5c86c7023dabbaf6276cb0eaf581767"
+    },
+    {
+      "path": "target-pod.json",
+      "size_bytes": 8124,
+      "sha256": "d330ed58cac0ea174dce3f1a7f7bf62278cfd0e5c6a71143f2ade3140d183bd1"
+    },
+    {
+      "path": "target.log",
+      "size_bytes": 1894,
+      "sha256": "9978d179f537ebc8672105efb906c6550d67e0063727e828f683dc8ec3725d97"
+    }
+  ]
+}
