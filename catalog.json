@@ -1865,6 +1865,26 @@
       },
       "source_commit": "4124f93ee48bc2a46bf138f9aea15f7befebe099",
       "started_at": "2026-07-17T06:49:50.645628Z"
+    },
+    {
+      "cohort_fingerprint": "7163258bde1d2048e7637b642a24f69a60ae7538bbfc21709c814dfc43502db0",
+      "evidence_family": "service",
+      "finished_at": "2026-07-17T07:54:21.429993Z",
+      "image_digest": "sha256:b65bbeb8881bda3109f1c76f913b869656ebb4b0945cbadefbe017d9c4b64d9c",
+      "path": "run-sets/7163258bde1d2048e7637b642a24f69a60ae7538bbfc21709c814dfc43502db0/2026-07-17T07-22-35_java_quarkus_jvm-java25_io-aggregation-api_run-set",
+      "publication_sha256": "d88c9f8dfa7ad8782ccbae4c765381a5da9315d723fe5713cf677b9c4d155272",
+      "run_set_id": "2026-07-17T07-22-35_java_quarkus_jvm-java25_io-aggregation-api_run-set",
+      "selection": {
+        "build_profile": "local-gradle-docker",
+        "environment_profile": "home-k3s-v1",
+        "implementation": "java/quarkus",
+        "load_profile": "steady",
+        "measurement_protocol": "official-service-v1",
+        "scenario": "io-aggregation-api",
+        "variant": "jvm-java25"
+      },
+      "source_commit": "4124f93ee48bc2a46bf138f9aea15f7befebe099",
+      "started_at": "2026-07-17T07:22:36.422394Z"
     }
   ],
   "schema_version": "1.0"
