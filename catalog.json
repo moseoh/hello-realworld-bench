@@ -1965,6 +1965,26 @@
       },
       "source_commit": "4124f93ee48bc2a46bf138f9aea15f7befebe099",
       "started_at": "2026-07-17T09:34:05.556783Z"
+    },
+    {
+      "cohort_fingerprint": "7f4f61dd2c6d5fad5bcee5338fdfe8a3d238086ca82f0085c25ec53d1180bb65",
+      "evidence_family": "service",
+      "finished_at": "2026-07-17T10:38:44.244236Z",
+      "image_digest": "sha256:c24f0f2755d19f32611f73e75dbb584ad46c8e471f46db02e896099ad746c1bc",
+      "path": "run-sets/7f4f61dd2c6d5fad5bcee5338fdfe8a3d238086ca82f0085c25ec53d1180bb65/2026-07-17T10-06-53_java_spring-boot_jvm-java25_io-aggregation-api_run-set",
+      "publication_sha256": "96f6539433b13fba8ef773a39fe2babcfc6389ed6d645b1783e093690e7007b0",
+      "run_set_id": "2026-07-17T10-06-53_java_spring-boot_jvm-java25_io-aggregation-api_run-set",
+      "selection": {
+        "build_profile": "local-gradle-docker",
+        "environment_profile": "home-k3s-v1",
+        "implementation": "java/spring-boot",
+        "load_profile": "burst-recovery",
+        "measurement_protocol": "official-service-v1",
+        "scenario": "io-aggregation-api",
+        "variant": "jvm-java25"
+      },
+      "source_commit": "4124f93ee48bc2a46bf138f9aea15f7befebe099",
+      "started_at": "2026-07-17T10:06:55.481452Z"
     }
   ],
   "schema_version": "1.0"
