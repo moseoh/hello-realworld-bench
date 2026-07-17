@@ -1,0 +1,76 @@
+{
+  "cohort_fingerprint": "5833a27294d9fc4a2ff5160cf641261ca2e9f50fdd2b1321e48ce781d2495290",
+  "evidence_family": "build",
+  "files": [
+    {
+      "path": "build-resolved-manifest.json",
+      "sha256": "beff28eecaa02e6fb36e0046f7ab8ef463a56c72d923d8f0b7104fa3f004f8c7",
+      "size_bytes": 4264
+    },
+    {
+      "path": "build-run-set.json",
+      "sha256": "d9290c88f2e9577b7dbe20edf361fe5e4c902893975612ccc9231dab5d748343",
+      "size_bytes": 3386
+    },
+    {
+      "path": "cache-seed.json",
+      "sha256": "2c12c81a21bb0f9d2c4fb382de5974708d9f3419282afd27ca5fd80b1c663338",
+      "size_bytes": 1280
+    },
+    {
+      "path": "postflight.json",
+      "sha256": "cc523663c529cf98ed3d1ef421c186209b70458e47dce48cf7001e6d8bbddee0",
+      "size_bytes": 573
+    },
+    {
+      "path": "preflight.json",
+      "sha256": "cc523663c529cf98ed3d1ef421c186209b70458e47dce48cf7001e6d8bbddee0",
+      "size_bytes": 573
+    },
+    {
+      "path": "trials/01/artifact-manifest.json",
+      "sha256": "6addae8b88d555d971c35574264449aae577b7a44fbe0cd5803bfe7fcf4fdc3e",
+      "size_bytes": 2798
+    },
+    {
+      "path": "trials/01/build-trial.json",
+      "sha256": "0e823ae9de335855e5b6d359084041cc28dff2f260fdadb727de35aa68cc121f",
+      "size_bytes": 2162
+    },
+    {
+      "path": "trials/02/artifact-manifest.json",
+      "sha256": "de789a60770d4207889756b7d4279c7ccadd6dd8c8aa4817bc929e1e734902d2",
+      "size_bytes": 2798
+    },
+    {
+      "path": "trials/02/build-trial.json",
+      "sha256": "bd5fa4ed81987ca779fd5457dfa5f48ee234482a09be4e53b0b02032f632a81f",
+      "size_bytes": 2161
+    },
+    {
+      "path": "trials/03/artifact-manifest.json",
+      "sha256": "bc4249fcd525de727c34d73b84c02861c6f950e511d80baad3365243225d9d52",
+      "size_bytes": 2798
+    },
+    {
+      "path": "trials/03/build-trial.json",
+      "sha256": "c323be78c11c5ede0e818d5cf5576c4acd6ae2bcae69443f0d2d681021f51179",
+      "size_bytes": 2161
+    }
+  ],
+  "finished_at": "2026-07-17T03:53:24.277703Z",
+  "raw_artifact_sha256": "f1d4077d1400c0704cae79ed78adc087e0b0780a3612d8381f507b3b09b68957",
+  "raw_artifact_url": "https://github.com/moseoh/hello-realworld-bench/releases/download/build-benchmark-evidence-2026-07-17T03-50-27-582557_java_spring-boot_jvm-java25_build/raw-build-evidence.tar.gz",
+  "run_set_id": "2026-07-17T03-50-27-582557_java_spring-boot_jvm-java25_build",
+  "schema_version": "1.0",
+  "selection": {
+    "build_profile": "official-gradle-docker-v1",
+    "environment_profile": "home-build-v1",
+    "implementation": "java/spring-boot",
+    "measurement_protocol": "official-build-v1",
+    "variant": "jvm-java25"
+  },
+  "source_commit": "4124f93ee48bc2a46bf138f9aea15f7befebe099",
+  "started_at": "2026-07-17T03:51:27.643081Z",
+  "workflow_url": "https://github.com/moseoh/hello-realworld-bench-ops/actions/runs/29552765831"
+}

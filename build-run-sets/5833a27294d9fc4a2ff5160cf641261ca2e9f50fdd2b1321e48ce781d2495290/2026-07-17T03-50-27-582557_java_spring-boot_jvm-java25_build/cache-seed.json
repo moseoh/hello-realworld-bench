@@ -1,0 +1,18 @@
+{
+  "gradle_executor_image": "eclipse-temurin:25-jdk@sha256:68868d04fa9cfd5f5c6abec0b5cef86d8de2bf9c62c37c7d3e4f0f80f5cfd7ff",
+  "buildkit_image": "moby/buildkit:buildx-stable-1@sha256:0168606be2315b7c807a03b3d8aa79beefdb31c98740cebdffdfeebf31190c9f",
+  "dependency_seed_sha256": "6f13ffda6756a200ce4a4ce5e04602e2659db3a3fd5fa10fa1f95f13f40b6f41",
+  "buildkit_cache_seed_sha256": "c3a5b1107eed76d35ef37f21d039846011deb7daad1bba250e375c2042437c6c",
+  "buildkit_cache_seed_path": "/home/moseoh/actions-runner/_work/hello-realworld-bench-ops/hello-realworld-bench-ops/source/results/java/spring-boot/jvm-java25/2026-07-17T03-50-27-582557_java_spring-boot_jvm-java25_build-doihw0hv/buildkit-cache-seed",
+  "seed_builder_name": "hrw-build-14ee4f9e0a31281f-seed",
+  "seed_state_volume": "buildx_buildkit_hrw-build-14ee4f9e0a31281f-seed0_state",
+  "buildkit_seed_tree_sha256": "602a0a8c1a9faaa68ced94fa81fbb90b817d8f54fe90d3f5946de6789ffa5ca2",
+  "buildkit_seed_operation": {
+    "name": "buildkit_runtime_base_seed",
+    "path": "operations/01-buildkit_runtime_base_seed.json",
+    "sha256": "256025297c4eb59e4f7a5fbdb103f05290301e482f9c9d22fa0c45c639cb8aa1"
+  },
+  "dependency_seed_mode": "prepared",
+  "workspace_build_outputs_removed": true,
+  "gradle_runtime_state_removed": true
+}

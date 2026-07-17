@@ -1711,6 +1711,23 @@
       },
       "source_commit": "4124f93ee48bc2a46bf138f9aea15f7befebe099",
       "started_at": "2026-07-17T03:45:25.815112Z"
+    },
+    {
+      "cohort_fingerprint": "5833a27294d9fc4a2ff5160cf641261ca2e9f50fdd2b1321e48ce781d2495290",
+      "evidence_family": "build",
+      "finished_at": "2026-07-17T03:53:24.277703Z",
+      "path": "build-run-sets/5833a27294d9fc4a2ff5160cf641261ca2e9f50fdd2b1321e48ce781d2495290/2026-07-17T03-50-27-582557_java_spring-boot_jvm-java25_build",
+      "publication_sha256": "c91ca4353f1ce5c5b0029a641103930d2bef5449c25988fe3141cadee7638dda",
+      "run_set_id": "2026-07-17T03-50-27-582557_java_spring-boot_jvm-java25_build",
+      "selection": {
+        "build_profile": "official-gradle-docker-v1",
+        "environment_profile": "home-build-v1",
+        "implementation": "java/spring-boot",
+        "measurement_protocol": "official-build-v1",
+        "variant": "jvm-java25"
+      },
+      "source_commit": "4124f93ee48bc2a46bf138f9aea15f7befebe099",
+      "started_at": "2026-07-17T03:51:27.643081Z"
     }
   ],
   "schema_version": "1.0"
