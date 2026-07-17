@@ -1,0 +1,121 @@
+{
+  "cohort": {
+    "contracts": {
+      "build_profile": {
+        "contract_version": "1.1",
+        "digest": "f1ac00ac0bfa2af247d951df36f84263f31ee5c7d2aaa4bbaab6f551618758d7",
+        "id": "official-gradle-docker-v1",
+        "kind": "build-profile",
+        "path": "contracts/build-profiles/official-gradle-docker-v1.yaml",
+        "schema_version": "1.0"
+      },
+      "environment_profile": {
+        "contract_version": "1.1",
+        "digest": "f910cfc669f6e469cfff89a35527426fb76c871a629f13c9311f7762b144fee4",
+        "id": "home-build-v1",
+        "kind": "environment-profile",
+        "path": "contracts/environment-profiles/home-build-v1.yaml",
+        "schema_version": "1.0"
+      },
+      "measurement_protocol": {
+        "contract_version": "1.0",
+        "digest": "255b9f5e7adf51efc95d61fabee459752bfc66c9c43dc05961cc6ea560d35c93",
+        "id": "official-build-v1",
+        "kind": "measurement-protocol",
+        "path": "contracts/measurement-protocols/official-build-v1.yaml",
+        "schema_version": "1.0"
+      }
+    },
+    "evidence_family": "build",
+    "fingerprint": "5833a27294d9fc4a2ff5160cf641261ca2e9f50fdd2b1321e48ce781d2495290"
+  },
+  "contracts": {
+    "build_profile": {
+      "contract_version": "1.1",
+      "digest": "f1ac00ac0bfa2af247d951df36f84263f31ee5c7d2aaa4bbaab6f551618758d7",
+      "id": "official-gradle-docker-v1",
+      "kind": "build-profile",
+      "path": "contracts/build-profiles/official-gradle-docker-v1.yaml",
+      "schema_version": "1.0"
+    },
+    "environment_profile": {
+      "contract_version": "1.1",
+      "digest": "f910cfc669f6e469cfff89a35527426fb76c871a629f13c9311f7762b144fee4",
+      "id": "home-build-v1",
+      "kind": "environment-profile",
+      "path": "contracts/environment-profiles/home-build-v1.yaml",
+      "schema_version": "1.0"
+    },
+    "implementation": {
+      "contract_version": "1.1",
+      "digest": "28d77a035839152fcf63eb03309b6ebff2d714c2f4ac8353056c8813e344772e",
+      "id": "java/quarkus",
+      "kind": "implementation",
+      "path": "implementations/java/quarkus/implementation.yaml",
+      "schema_version": "1.0"
+    },
+    "measurement_protocol": {
+      "contract_version": "1.0",
+      "digest": "255b9f5e7adf51efc95d61fabee459752bfc66c9c43dc05961cc6ea560d35c93",
+      "id": "official-build-v1",
+      "kind": "measurement-protocol",
+      "path": "contracts/measurement-protocols/official-build-v1.yaml",
+      "schema_version": "1.0"
+    },
+    "variant": {
+      "contract_version": "1.1",
+      "digest": "848c9be75752ac961ca64160f9ed07642dec813fb06ae9d9c0256d6a47289589",
+      "id": "jvm-java25",
+      "kind": "variant",
+      "path": "implementations/java/quarkus/variants/jvm-java25.yaml",
+      "schema_version": "1.0"
+    }
+  },
+  "execution": {
+    "app_dir": "implementations/java/quarkus",
+    "build": {
+      "application_artifact": {
+        "path": "build/quarkus-app",
+        "type": "directory"
+      },
+      "clean_command": [
+        "./gradlew",
+        "clean",
+        "build",
+        "--offline",
+        "--no-daemon",
+        "--no-build-cache"
+      ],
+      "context": ".",
+      "dockerfile": "Dockerfile",
+      "incremental_command": [
+        "./gradlew",
+        "build",
+        "--offline",
+        "--no-daemon",
+        "--no-build-cache"
+      ],
+      "incremental_input": {
+        "from": "public static final int VALUE = 0;",
+        "path": "src/main/java/org/hellorealworld/benchmark/BuildBenchmarkProbe.java",
+        "to": "public static final int VALUE = 1;"
+      }
+    },
+    "variant_file": "implementations/java/quarkus/variants/jvm-java25.yaml"
+  },
+  "manifest_digest": "badd348b1bd3c4881581eecf32c97724c93ace28e734a789076ed867addab807",
+  "run_id": "2026-07-17T03-54-02-261855_java_quarkus_jvm-java25_build",
+  "schema_version": "1.0",
+  "selection": {
+    "build_profile": "official-gradle-docker-v1",
+    "environment_profile": "home-build-v1",
+    "implementation": "java/quarkus",
+    "measurement_protocol": "official-build-v1",
+    "variant": "jvm-java25"
+  },
+  "source": {
+    "git_commit": "4124f93ee48bc2a46bf138f9aea15f7befebe099",
+    "git_dirty": false,
+    "worktree_digest": "7103d762102e54e56ab4f38f4607880be5d23e08f873fb04ac7f85cd59a72af7"
+  }
+}

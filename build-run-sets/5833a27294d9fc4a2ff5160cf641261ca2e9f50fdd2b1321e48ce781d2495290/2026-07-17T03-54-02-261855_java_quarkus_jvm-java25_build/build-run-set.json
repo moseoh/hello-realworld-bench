@@ -1,0 +1,128 @@
+{
+  "schema_version": "1.0",
+  "run_set_id": "2026-07-17T03-54-02-261855_java_quarkus_jvm-java25_build",
+  "run_id": "2026-07-17T03-54-02-261855_java_quarkus_jvm-java25_build",
+  "manifest_digest": "badd348b1bd3c4881581eecf32c97724c93ace28e734a789076ed867addab807",
+  "cohort_fingerprint": "5833a27294d9fc4a2ff5160cf641261ca2e9f50fdd2b1321e48ce781d2495290",
+  "status": "complete",
+  "expected_trials": 3,
+  "trials": [
+    {
+      "trial_id": "trial-01",
+      "index": 1,
+      "status": "valid",
+      "path": "trials/01/build-trial.json",
+      "sha256": "88b09a374e5b667699efa7393ea5bfd4d5e61abedebd204a477385158ba92074"
+    },
+    {
+      "trial_id": "trial-02",
+      "index": 2,
+      "status": "valid",
+      "path": "trials/02/build-trial.json",
+      "sha256": "bd4186f48071ba752e9cd81fac9235f140ef6b4d2137922bf6d3e94725ff8e6c"
+    },
+    {
+      "trial_id": "trial-03",
+      "index": 3,
+      "status": "valid",
+      "path": "trials/03/build-trial.json",
+      "sha256": "9db39de67cb72d34dddb7579d8a2761bd6778701e855f609d186190ccd966cde"
+    }
+  ],
+  "campaign_evidence": {
+    "preflight": {
+      "path": "preflight.json",
+      "sha256": "cc523663c529cf98ed3d1ef421c186209b70458e47dce48cf7001e6d8bbddee0"
+    },
+    "postflight": {
+      "path": "postflight.json",
+      "sha256": "cc523663c529cf98ed3d1ef421c186209b70458e47dce48cf7001e6d8bbddee0"
+    },
+    "cache_seed": {
+      "path": "cache-seed.json",
+      "sha256": "5e6bbea9239eff2b912dcf956fc9cb32b36198313e428f407a7ad1b2c49388db"
+    }
+  },
+  "summary": {
+    "trial_count": 3,
+    "valid_trial_count": 3,
+    "build_metrics": {
+      "gradle_clean_build_ms": {
+        "min": 36403.776619,
+        "median": 36488.302722,
+        "max": 36533.479426,
+        "trials": [
+          {
+            "trial_id": "trial-01",
+            "value": 36533.479426
+          },
+          {
+            "trial_id": "trial-02",
+            "value": 36403.776619
+          },
+          {
+            "trial_id": "trial-03",
+            "value": 36488.302722
+          }
+        ]
+      },
+      "image_package_ms": {
+        "min": 8244.91185,
+        "median": 8324.068056,
+        "max": 8430.555663,
+        "trials": [
+          {
+            "trial_id": "trial-01",
+            "value": 8244.91185
+          },
+          {
+            "trial_id": "trial-02",
+            "value": 8430.555663
+          },
+          {
+            "trial_id": "trial-03",
+            "value": 8324.068056
+          }
+        ]
+      },
+      "gradle_incremental_rebuild_ms": {
+        "min": 34011.206619,
+        "median": 34177.872668,
+        "max": 34198.93181,
+        "trials": [
+          {
+            "trial_id": "trial-01",
+            "value": 34198.93181
+          },
+          {
+            "trial_id": "trial-02",
+            "value": 34011.206619
+          },
+          {
+            "trial_id": "trial-03",
+            "value": 34177.872668
+          }
+        ]
+      },
+      "image_rebuild_ms": {
+        "min": 2425.081147,
+        "median": 2456.476859,
+        "max": 2475.325943,
+        "trials": [
+          {
+            "trial_id": "trial-01",
+            "value": 2456.476859
+          },
+          {
+            "trial_id": "trial-02",
+            "value": 2425.081147
+          },
+          {
+            "trial_id": "trial-03",
+            "value": 2475.325943
+          }
+        ]
+      }
+    }
+  }
+}
